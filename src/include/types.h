@@ -4,20 +4,17 @@
 typedef unsigned char uchar;
 typedef unsigned int uint;
 typedef unsigned short ushort;
-typedef unsigned long ulong;
+typedef unsigned long int ulong;
 
-typedef unsigned char u8;
-typedef unsigned short u16;
-typedef unsigned long u32;
+typedef signed char schar;
+typedef signed int sint;
+typedef signed short sshort;
+typedef signed long int slong;
 
-typedef char s8;
-typedef short s16;
-typedef long s32;
+typedef enum { false=0, true=1 } bool;
 
-typedef enum {false=0, true=1} bool;
-
-typedef u32 uptr_t;
-typedef u32 size_t;
+typedef ulong uptr_t;
+typedef ulong size_t;
 typedef ulong time_t;
 
 #define NULL ((void*)0)

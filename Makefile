@@ -5,7 +5,7 @@
 
 MAKEFLAGS+=--no-print-directory
 
-BUILDV=0.0.1
+BUILDV=0.0.1a
 
 # Dirs
 BUILD=build
@@ -27,6 +27,10 @@ QEMUFLAGS=-m 2048\
 					-rtc base=utc \
 					-monitor vc \
 					-net nic,model=ne2k_isa -net user
+
+ifeq (debug,true)
+	QEMUFLAGS+=-d int
+endif
 
 .PHONY: all clean run run-ng tools compile install menuconfig
 
@@ -51,9 +55,8 @@ compile:
 
 $(IMAGE): tools compile
 	@mkdir -p $(BIN) $(OBJ)
-	@./$(FSTOOL) format $(BOOT) $(IMAGE) 16384
-	@./$(FSTOOL) add $(IMAGE) $(KERNEL) $(KERNELIMAGE) 7
-	@./$(FSTOOL) add $(IMAGE) boot.cfg boot.cfg 6
+	@dd if=/dev/zero of=$(IMAGE) bs=1M count=2 status=none
+	@./$(FSTOOL) $(BOOT) $(IMAGE) /boot/bitixz:7=$(KERNEL) /boot/boot.cfg:6=boot.cfg
 
 menuconfig:
 	@python menuconfig.py

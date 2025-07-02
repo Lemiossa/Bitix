@@ -14,8 +14,11 @@
 #define MAX_ENTRIES 4
 #define MAX_NAME_LEN 32
 #define MAX_PATH_LEN 64
-#define CFG_SEG 0x2000
+#define CFG_SEG 0x5000
 #define CFG_OFF 0x0000
+#define CFG_BUF_SIZE 512
+
+uchar cfg[CFG_BUF_SIZE];
 
 #define MENU_WIDTH 70
 #define MENU_HEIGHT (15+MAX_ENTRIES+2)
@@ -33,13 +36,17 @@ typedef struct {
 entry_t entries[MAX_ENTRIES];
 int entry_count=0;
 
+/* Default files PATH */
+uchar *filename="/boot/kernel.bin";
+uchar *config_file="/boot/boot.cfg";
+
 /**
 * Parse the loaded boot.cfg file in memory and fill the entries array
 * Supports lines like:
 *   name=path/to/entry
 *   default=entry_name
 */
-void parse_cfg_seg(u16 seg, u16 off)
+void parse_cfg_seg(uchar *buf)
 {
   int i=0,line=0, c;
   int name_len, path_len;
@@ -52,7 +59,7 @@ void parse_cfg_seg(u16 seg, u16 off)
 
     /* Skip empty lines */
     while(1) {
-      c=lread8(seg, off+i);
+      c=buf[i];
       if(c=='\n') { i++; continue; }
       if(c==0) goto end;
       break;
@@ -62,7 +69,7 @@ void parse_cfg_seg(u16 seg, u16 off)
 
     /* Read name until '=' */
     while(1) {
-      c=lread8(seg, off+i++);
+      c=buf[i++];
       if(c==0||c=='\n'||c=='=')break;
       if(name_len<MAX_NAME_LEN-1) temp_name[name_len++]=c;
     }
@@ -70,13 +77,13 @@ void parse_cfg_seg(u16 seg, u16 off)
 
     /* Skip malformed lines */
     if(c!='=') {
-      while(c!=0&&c!='\n')c=lread8(seg, off+i++);
+      while(c!=0&&c!='\n')c=buf[i++];
       continue;
     }
 
     /* Read path */
     while(1) {
-      c=lread8(seg, off+i++);
+      c=buf[i++];
       if(c==0||c=='\n') break;
       if(path_len<MAX_PATH_LEN-1) temp_path[path_len++]=c;
     }
@@ -92,6 +99,15 @@ void parse_cfg_seg(u16 seg, u16 off)
   }
 end:
   entry_count=line;
+}
+
+void copy(u16 seg, u16 off, uchar *dst, int maxlen)
+{
+  int i;
+  for(i=0;i<maxlen;i++) {
+  	dst[i]=lread8(seg, off+i);
+  	if(dst[i]==0) break;
+  }
 }
 
 /**
@@ -165,16 +181,13 @@ int show_menu()
   }
 }
 
-/* Default kernel PATH */
-uchar *filename="kernel.bin";
-
 /**
 * Main bootloader entry point
 */
 void main()
 {
-  u32 read;
-  int i, opt;
+  u16 read;
+  int i, opt=0;
   io_set_video_mode(0x03);
   puts("Booting...\r\n");
 
@@ -183,41 +196,52 @@ void main()
     puts("ERROR: Failed to initialize disk.\r\nHalted.");
     for(;;);
   }
+  puts("Disk initialized\r\n");
 
   /* Mount BFX filesystem */
   if(bfx_mount()) {
     puts("ERROR: Failed to mount FS.\r\nHalted.");
     for(;;);
   }
+  puts("FS mounted\r\n");
 
   /* Load config file */
-  read=bfx_readfile("boot.cfg", CFG_SEG, CFG_OFF);
+  read=bfx_readfile(config_file, CFG_SEG, CFG_OFF);
   if(read<0) {
-    kputsf("Failed to load '%s'\r\nHalted.");
+    kputsf("Failed to load '%s'\r\nHalted.", config_file);
     for(;;);
   }
+  kputsf("Readed: %s\r\n", config_file);
+
+  puts("Parsing config...\r\n");
+
+  /* Copy config to buffer */
+  copy(CFG_SEG, CFG_OFF, cfg, CFG_BUF_SIZE);
 
   /* Parse entries */
-  parse_cfg_seg(CFG_SEG, CFG_OFF);
+  parse_cfg_seg(cfg);
+  puts("Persed!\r\n");
 
   /* Abort if no valid entries */
   if(entry_count==0) {
-    puts("No entries in boot.cfg\r\n");
+    kputsf("No entries in '%s'\r\n", config_file);
     puts("Halted.\r\n");
     for(;;);
   }
 
   /* Show the menu if there is more than one entry */
   if(entry_count>1) {
+  	io_set_video_mode(0x03);
     opt=show_menu();
-
+    io_set_video_mode(0x03);
     if(opt<0) {
       puts("Boot canceled.\r\n");
       for(;;);
     }
-    /* Load selected file */
-    filename=entries[opt].path;
   }
+
+  /* Load file */
+  filename=entries[opt].path;
   kputsf("Loading '%s'...\r\n", filename);
 
   read=bfx_readfile(filename, LSEG, LOFF);
@@ -225,6 +249,9 @@ void main()
     kputsf("Failed to boot '%s'\r\n", filename);
     for(;;);
   }
+
+  /* Enable a20 line */
+  enable_a20();
 
   /* Pass drive via BX and jump to file */
   setdx((u16)drive);

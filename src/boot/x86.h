@@ -40,7 +40,6 @@ void io_set_8x8_font();
 int io_init_disk(uchar drive);
 void reset_disk();
 int io_readblock_chs(uchar head, uchar track, uchar sector, void *buf);
-int io_readblock(u16 block, void *buf);
 
 void setax(u16 val);
 void setbx(u16 val);
@@ -49,5 +48,8 @@ void setdx(u16 val);
 
 uint io_key_pressed();
 uchar io_get_key();
+
+void lgdt(void *gdt);
+void enter_pm(ulong off);
 
 #endif /* X86_H */

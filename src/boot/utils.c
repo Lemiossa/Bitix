@@ -1,4 +1,4 @@
-/*
+/**
 * utils.c
 * Created by Matheus Leme Da Silva
 */
@@ -82,8 +82,6 @@ void kputsf(uchar *format, ...)
         format+=3;
       }
 
-      //format++;
-
       if(*format=='-') {
         width_neg=true;
         width=-width;
@@ -122,6 +120,7 @@ void kputsf(uchar *format, ...)
         val=uval;
       } else if(*format=='x') {
         base=16;
+        val=uval;
       } else if(*format=='b') {
         base=2;
       } else if(*format=='o') {
@@ -172,88 +171,240 @@ int readblock(u16 lba, void *buf)
   return result;
 }
 
+#define BLOCK 512
+#define MAX_NAME 32
+#define MAX_PATH 16
+
+typedef struct {
+  uchar magic[4];
+  u16 total_blocks;
+  u16 inode_start;
+  u16 data_start;
+  u16 inode_count;
+  u16 used_inodes;
+  u16 free_blocks;
+  u16 used_blocks;
+  u16 root_inode;
+  u16 mount_count;
+  u16 last_mount_time;
+  u16 last_write_time;
+  u16 checksum;
+  uchar reserved[BLOCK-28];
+} bfx_super_t;
+
+typedef struct {
+  u8 mode;
+  u16 links;
+  u16 size;
+  u16 start;
+  u16 created;
+  u16 modified;
+  u16 accessed;
+  u16 parent;
+  u8 reserved[15];
+  uchar name[MAX_NAME];
+} bfx_inode_t;
+
+#define BFX_SUPER_SEC 32
+#define TMP_BUF_SIZE 512
+
+#define INPB (uint)(BLOCK/sizeof(bfx_inode_t))
+
+/* Errors */
+#define ERR_IO            -1
+#define ERR_NOTFOUND      -2
+#define ERR_PERMDEN       -3
+#define ERR_TOOLARGE      -4
+#define ERR_NOMEM         -5
+#define ERR_NOTFILE       -6
+#define ERR_INVPATH	      -7
+
 bfx_super_t sb;
 
 uchar tmpbuf[TMP_BUF_SIZE];
+
+void copy_bytes(void *dst, void *src, int n)
+{
+  uchar *d=(uchar*)dst;
+  uchar *s=(uchar*)src;
+  int i;
+  for(i=0;i<n;i++) {
+    d[i]=s[i];
+  }
+}
 
 int bfx_mount()
 {
   int i;
   if(readblock(BFX_SUPER_SEC, tmpbuf))return ERR_IO;
-  for(i=0;i<sizeof(bfx_super_t);i++)*((u8*)&sb+i)=tmpbuf[i];
+  copy_bytes((void*)&sb, tmpbuf, sizeof(bfx_super_t));
+  if(sb.magic[0]!='B'||sb.magic[1]!='F'||sb.magic[2]!='X') {
+    kputsf("mount: magic is invalid\r\n");
+    return ERR_IO;
+  }
   return 0;
 }
-int bfx_readfile(uchar *filename, u16 seg, u16 off)
+
+int read_inode(u16 idx, bfx_inode_t *out)
 {
-  int total_inode_blocks=(sb.inode_count+INPB-1)/INPB;
-  int inode_index=0;
-  bfx_inode_t inode;
-  int found=0;
-  int b, i, j;
-  u16 current_seg, current_off;
-  u16 ram=get_low_memory();
-  u32 ram_bytes, start_addr, file_size;
-  for(b=0;b<total_inode_blocks;b++) {
-    u16 block=sb.inode_start_block+b;
-    if(block>=sb.total_blocks) {
-      kputsf("readfile: Invalid inode block %u (block %u)\r\n", b, block);
-      return ERR_IO;
-    }
-    if(readblock(block, tmpbuf)) {
-      kputsf("readfile: Failed to read inode block %u (sector %u)\r\n", b, block);
-      return ERR_IO;
-    }
-    for(i=0;i<INPB;i++, inode_index++) {
-      u8 *src=tmpbuf+i*sizeof(bfx_inode_t);
-      if(inode_index==sb.root_inode)continue;
-      for(j=0;j<sizeof(bfx_inode_t);j++)*((u8*)&inode+j)=src[j];
-      if(GT(inode.flags)==T_FILE&&(!cmpstr(inode.name, filename))) {
-        found=1;
-        break;
-      }
-    }
-    if(found)break;
+  u16 block, offset;
+  uchar *inode_ptr;
+  int i;
+
+  if(idx==0) return ERR_NOTFOUND;
+
+  block=sb.inode_start+idx/INPB;
+  offset=idx%INPB;
+
+  if(block>=sb.total_blocks) {
+  	kputsf("read_inode: Block is too large\r\n");
+  	return ERR_IO;
   }
-  if(!found) {
-    kputsf("readfile: %s: No such file\r\n", filename);
+  if(readblock(block, tmpbuf)) {
+  	kputsf("read_inode: failed to read block %u\r\n", block);
+  	return ERR_IO;
+  }
+  inode_ptr=tmpbuf+offset*sizeof(bfx_inode_t);
+  copy_bytes(out, inode_ptr, sizeof(bfx_inode_t));
+
+  return 0;
+}
+
+int name_match(bfx_inode_t *inode, uchar *name)
+{
+  int i;
+  for(i=0;i<MAX_NAME;i++) {
+    if(name[i]==0&&inode->name[i]==0)return 1;
+    if(name[i]!=inode->name[i])return 0;
+  }
+  return 0;
+}
+
+int parse_path(uchar *path, uchar components[MAX_PATH][MAX_NAME])
+{
+  int comp_count=0;
+  int pos=0;
+  int cpos=0;
+  if(!path||path[0]!='/') return -1;
+  pos++;
+  while(path[pos]&&comp_count<MAX_PATH) {
+    if(path[pos]=='/') {
+      if(cpos>0) {
+        components[comp_count][cpos]=0;
+        comp_count++;
+        cpos=0;
+      }
+      pos++;
+      continue;
+    }
+    if(cpos<MAX_NAME-1) {
+      components[comp_count][cpos++]=path[pos++];
+    } else {
+      return -1;
+    }
+  }
+  if(cpos>0) {
+    components[comp_count][cpos]=0;
+    comp_count++;
+  }
+  return comp_count;
+}
+
+u16 find_inode_in_dir(u16 dir_idx, uchar *name)
+{
+  bfx_inode_t dir;
+  u16 pos=0;
+  if(read_inode(dir_idx, &dir))return 0;
+  if(!(dir.mode&0x80)) return 0;
+  while(pos<dir.size) {
+    u16 block_idx=dir.start+pos/BLOCK;
+    u16 offset=pos%BLOCK;
+    u16 child_idx=0;
+    bfx_inode_t child;
+    if(block_idx>=sb.total_blocks) return 0;
+    if(readblock(block_idx, tmpbuf)) return 0;
+    child_idx=*((u16*)(tmpbuf+offset));
+    if(child_idx==0)return 0;
+    if(read_inode(child_idx, &child)) return 0;
+    if(name_match(&child, name)) return child_idx;
+    pos+=sizeof(u16);
+  }
+  return 0;
+}
+
+u16 resolve_path(uchar *path)
+{
+  uchar components[MAX_PATH][MAX_NAME];
+  int count=parse_path(path, components);
+  u16 current;
+  int i;
+  if(count<0) return 0;
+  current=sb.root_inode;
+  for(i=0;i<count;i++) {
+    current=find_inode_in_dir(current, components[i]);
+    if(current==0) return 0;
+  }
+  return current;
+}
+
+int bfx_readfile(uchar *path, u16 seg, u16 off)
+{
+  u16 idx;
+  bfx_inode_t file;
+  u16 size;
+  u16 start_block;
+  u16 bytes_left;
+  u16 current_seg, current_off;
+  u16 i;
+  if(path[0]!='/') {
+  	puts("readfile: Invalid path: %s\r\n", path);
+  	return ERR_INVPATH;
+  }
+  idx=resolve_path(path);
+  if(idx==0) {
+    kputsf("readfile: No such file or directory: %s\r\n", path);
     return ERR_NOTFOUND;
   }
-  ram_bytes=((u32)ram)*1024;
-  start_addr=((u32)seg<<4)+off;
-  file_size=((u32)inode.size_blocks)*512;
-  if(start_addr+file_size>=ram_bytes) {
-    kputsf("readfile Not enough memory to load '%s'\r\n", filename);
-    return ERR_NOMEM;
+  if(read_inode(idx, &file)) return ERR_IO;
+  if(file.mode&0x80) {
+    kputsf("readfile: Not a file: %s\r\n", path);
+    return ERR_NOTFILE;
   }
+
+  size=file.size;
+  start_block=file.start;
+  bytes_left=size;
   current_seg=seg;
   current_off=off;
-  for(i=0;i<inode.size_blocks;i++) {
-    u16 block=inode.start+i;
-    if(block>=sb.total_blocks) {
-      kputsf("readfile: Invalid data block %u (sector %u)\r\n", i, block);
+
+  for(i=0;i<(size+BLOCK-1)/BLOCK;i++) {
+    u16 to_copy, j;
+    if(start_block+i>=sb.total_blocks) {
+      kputsf("readfile: Invalid block %u\r\n", start_block+i);
       return ERR_IO;
     }
-    if(readblock(block, tmpbuf)) {
-      kputsf("readfile: Failed to read data block %u (sector %u)\r\n", i, block);
-      return ERR_IO;
+    if(readblock(start_block+i, tmpbuf)) return ERR_IO;
+    to_copy=bytes_left>BLOCK?BLOCK:bytes_left;
+    for(j=0;j<to_copy;j++) {
+      lwrite8(current_seg, current_off+j, tmpbuf[j]);
     }
-    for(j=0;j<512;j++) lwrite8(current_seg, current_off+j, tmpbuf[j]);
-    current_off+=512;
+    current_off+=BLOCK;
     if(current_off>=0x10000) {
       current_seg+=0x1000;
       current_off-=0x10000;
     }
+    bytes_left-=to_copy;
   }
   return 0;
 }
 
 int cmpstr(uchar *s1, uchar *s2)
 {
-    while (*s1 && (*s1 == *s2)) {
-        s1++;
-        s2++;
-    }
-    return *(uchar*)s1 - *(uchar*)s2;
+  while (*s1 && (*s1 == *s2)) {
+    s1++;
+    s2++;
+  }
+  return *(uchar*)s1-*(uchar*)s2;
 }
 
 int lenofstr(uchar *str) {
@@ -376,4 +527,17 @@ void putsxy(int x, int y, const uchar *s, uchar attr)
     putcat(s[i], x + i, y, attr);
     i++;
   }
+}
+
+void wait_input_buffer_empty()
+{
+  while(inb(0x64)&0x02);
+}
+void enable_a20()
+{
+  wait_input_buffer_empty();
+  outb(0x64, 0xd1);
+
+  wait_input_buffer_empty();
+  outb(0x60, 0xdf);
 }

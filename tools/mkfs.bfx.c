@@ -1,353 +1,408 @@
-/*
+/**
 * mkfs.bfx.c
 * Created by Matheus Leme Da Silva
 */
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <stdint.h>
+#include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <time.h>
+#include <math.h>
 
-#define BLOCK                     512
-#define MAX_BLOCK                 0xffff
+#define BLOCK 512
+#define BOOT_BLOCKS 32
+#define SUPERBLOCK_SECTOR BOOT_BLOCKS
+#define MAX_NAME 32
+#define FS_MAGIC "BFX"
 
-typedef uint32_t   u32;
-typedef uint16_t   u16;
-typedef uint8_t    u8;
+typedef unsigned char u8;
+typedef unsigned short u16;
+typedef unsigned long int u32;
+typedef unsigned short date16_t;
+
+date16_t date; /* compacted date */
 
 typedef struct {
   char magic[4];
   u16 total_blocks;
-  u16 inode_start_block;
-  u16 data_start_block;
-  u16 free_blocks;
+  u16 inode_start;
+  u16 data_start;
   u16 inode_count;
+  u16 used_inodes;
+  u16 free_blocks;
+  u16 used_blocks;
   u16 root_inode;
-} __attribute__((packed)) superblock_t;
+  u16 mount_count;
+  u16 last_mount_time;
+  u16 last_write_time;
+  u16 checksum;
+  u8 reserved[BLOCK-28];
+} superblock_t;
 
-typedef struct {                                      /* ---------------------- */
-  u16 flags;                                          /* Flags                  */
-  u16 size_blocks;                                    /* Size in blocks         */
-  u16 start;                                          /* Start block            */
-  u16 created_date;                                   /* Created date           */
-  u16 modified_date;                                  /* Modified date          */
-  u8  reserved[6];                                    /* For complete 32 bytes  */
-  char name[16];                                      /* Filename               */
-} __attribute__((packed)) inode_t;                    /* ---------------------- */
+typedef struct {
+  u8 mode;
+  u16 links;
+  u16 size;
+  u16 start;
+  u16 created;
+  u16 modified;
+  u16 accessed;
+  u16 parent;
+  u8 reserved[15];
+  char name[MAX_NAME];
+} inode_t;
 
-#define INODES_PER_BLOCK  (int)(BLOCK / sizeof(inode_t))
-#define SUPERBLOCK_SIZE sizeof(superblock_t)
-#define TF(t, f)  ((t)|((f)<<3))
-#define GT(tf)    ((tf)&7)
-#define GF(tf)    (((tf)>>3)&7)
+#define INODES_PER_BLOCK (BLOCK/sizeof(inode_t))
 
-/* Types */
-#define T_FREE    0
-#define T_FILE    1
-#define T_DIR     2
-/* Perms */
-#define P_READ    4
-#define P_WRITE   2
-#define P_EXEC    1
+#define MODE_DIR 0x80
+#define MODE_READ 0x04
+#define MODE_WRITE 0x02
+#define MODE_EXEC 0x01
+#define MODE_MASK 0x07
 
-#define BOOT_SECTORS 32
-#define SUPERBLOCK_SECTOR BOOT_SECTORS
+#define IS_DIR(m) ((m)&MODE_DIR)
+#define IS_FILE(m) (!IS_DIR(m))
+#define HAS_READ(m) ((m)&MODE_READ)
+#define HAS_WRITE(m) ((m)&MODE_WRITE)
+#define HAS_EXEC(m) ((m)&MODE_EXEC)
 
-void die(char *s) { printf("%s\n", s); exit(1); }
-unsigned int porcentage(unsigned int percent, unsigned int total) { return (total*percent)/100; }
-
-char *pflags(u16 flags) {
-  static char mode[5];
-  u8 type=GT(flags);
-  u8 perms=GF(flags);
-  mode[0]=(type==T_DIR)?'d':(type==T_FILE?'-':'?');
-  mode[1]=(perms&P_READ)?'r':'-';
-  mode[2]=(perms&P_WRITE)?'w':'-';
-  mode[3]=(perms&P_EXEC)?'x':'-';
-  mode[4]='\0';
-  return mode;
-}
-u16 encode_date(u16 year, u8 month, u8 day)
+/**
+* Read or write a block from/to disk image
+*/
+static void rw_block(int fd, u16 block, void *buf, int write_flag)
 {
-  if(year<1980) year=1980;
-  return ((year-1980)<<9)|(month<<5)|(day&0x1f);
-}
-void decode_date(u16 value, u16 *year, u8 *month, u8 *day)
-{
-  *year=1980+((value>>9)&0x7f);
-  *month=(value>>5)&0x0f;
-  *day=value&0x1f;
-}
-u16 get_current_packed_date()
-{
-  time_t now=time(NULL);
-  struct tm *tm_info=localtime(&now);
-  u16 year=tm_info->tm_year+1900;
-  u8  month=tm_info->tm_mon+1;
-  u8  day=tm_info->tm_mday;
-  return encode_date(year, month, day);
-}
-char *date_to_string(u16 date)
-{
-  static char buffer[11];
-  u16 year;
-  u8 month, day;
-  decode_date(date, &year, &month, &day);
-  snprintf(buffer, sizeof(buffer), "%02u/%02u/%04u", day, month, year);
-  return buffer;
+  lseek(fd, (off_t)block*BLOCK, SEEK_SET);
+  if(write_flag)
+    write(fd, buf, BLOCK);
+  else
+    read(fd, buf, BLOCK);
 }
 
-void usage()
+/**
+* Encode compacted date
+*/
+static date16_t encode_date(int year, int month, int day)
 {
-  printf("BFX: <command> <img> [args]\n");
-  printf("  | format <img> <bootloader> <size in KB>\n");
-  printf("  | list <img>\n");
-  printf("  | add <img> <file> name [rwx]\n");
+  year-=2000;
+  if(year<0)year=0;
+  if(year>127)year=127;
+  if(month<1)month=1;
+  if(month>12)month=12;
+  if(day<1)day=1;
+  if(day>31)day=31;
+
+  return (year<<9)|(month<<5)|day;
 }
 
-int format_fs(char *bootloader, char *image, int kb)
+/**
+* Update the global compacted date
+*/
+void update_date16_now()
 {
-  printf("Formatting %s...\n", image);
-  if(kb*2>MAX_BLOCK) return printf("Max 32MB\n"), 1;
+  time_t t=time(NULL);
+  struct tm *tm=localtime(&t);
+  date=encode_date(tm->tm_year+1900,tm->tm_mon+1,tm->tm_mday);
+}
 
-  int img=open(image, O_CREAT|O_WRONLY|O_TRUNC, 0666);
-  if(img<0) {
-    fprintf(stderr, "Error in load %s.\n", image);
+/**
+* Get total blocks in image file
+*/
+static u16 get_total_blocks(int fd)
+{
+  int size=lseek(fd, 0, SEEK_END);
+  return (u16)(size/BLOCK);
+}
+
+/**
+* write a inode in the image
+*/
+static void write_inode(int fd, superblock_t *sb, u16 idx, inode_t *in)
+{
+  char buf[BLOCK];
+  u16 block=sb->inode_start+idx/INODES_PER_BLOCK;
+  u16 offset=idx%INODES_PER_BLOCK;
+  rw_block(fd, block, buf, 0);
+  ((inode_t*)buf)[offset]=*in;
+  rw_block(fd, block, buf, 1);
+}
+
+
+/**
+* Find inode index by name
+*/
+static u16 find_inode_by_name(int fd, superblock_t *sb, u16 dir_idx, const char *name)
+{
+  char buf[BLOCK];
+  u16 block=sb->inode_start+dir_idx/INODES_PER_BLOCK;
+  u16 off=dir_idx%INODES_PER_BLOCK;
+  rw_block(fd, block, buf, 0);
+  inode_t *dir=&((inode_t*)buf)[off];
+  if(!IS_DIR(dir->mode)) return 0;
+
+  for(u16 pos=0;pos<dir->size;pos+=sizeof(u16)) {
+    u16 block=dir->start+pos/BLOCK;
+    u16 offset=pos%BLOCK;
+    rw_block(fd, block, buf, 0);
+    u16 idx;
+    memcpy(&idx, buf+offset,sizeof(u16));
+    u16 cblk=sb->inode_start+idx/INODES_PER_BLOCK;
+    u16 coff=idx%INODES_PER_BLOCK;
+    rw_block(fd, cblk, buf, 0);
+    inode_t *child=&((inode_t*)buf)[coff];
+    if(strncmp(child->name, name, MAX_NAME)==0) return idx;
+  }
+  return 0;
+}
+
+/**
+* add a dir entry in image
+*/
+static int add_dir_entry(int fd, superblock_t *sb, u16 dir_idx, u16 child_idx)
+{
+  char buf[BLOCK]={0};
+  u16 blk=sb->inode_start+dir_idx/INODES_PER_BLOCK;
+  u16 off=dir_idx%INODES_PER_BLOCK;
+
+  rw_block(fd, blk, buf, 0);
+  inode_t dir;
+  memcpy(&dir, &((inode_t*)buf)[off], sizeof(inode_t));
+
+  u16 pos=dir.size;
+  u16 block=dir.start+pos/BLOCK;
+  u16 offset=pos%BLOCK;
+
+  rw_block(fd, block, buf, 0);
+  memcpy(buf+offset, &child_idx, sizeof(u16));
+  rw_block(fd, block, buf, 1);
+
+  dir.size+=sizeof(u16);
+  dir.modified=date;
+
+  write_inode(fd, sb, dir_idx, &dir);
+  return 0;
+}
+
+/**
+* Create directory in the image
+*/
+static u16 create_dir(
+  int fd,
+  superblock_t *sb,
+  const char *name,
+  u8 perms,
+  u16 parent,
+  int *next_inode,
+  u16 *next_data
+)
+{
+  inode_t dir={
+    .mode=MODE_DIR|(perms&MODE_MASK),
+    .links=1,
+    .size=0,
+    .start=(*next_data)++,
+    .created=date,
+    .modified=date,
+    .accessed=date,
+    .parent=parent,
+  };
+  strncpy(dir.name, name, MAX_NAME-1);
+  dir.name[MAX_NAME-1]=0;
+  u16 idx=(*next_inode)++;
+  write_inode(fd, sb, idx, &dir);
+  sb->used_inodes++;
+  sb->free_blocks--;
+  if(parent!=0&&idx!=parent)
+    add_dir_entry(fd, sb, parent, idx);
+  return idx;
+}
+
+/**
+* Parse the PATH
+*/
+static u16 resolve_path(
+  int fd,
+  superblock_t *sb,
+  const char *path,
+  int create,
+  int *next_inode,
+  u16 *next_data,
+  u8 perms
+)
+{
+  if(!path||!*path||path[0]!='/')
+    return 0;
+  char *copy=strdup(path);
+  char *tok=strtok(copy+1,"/");
+  u16 current=sb->root_inode;
+  while(tok) {
+    u16 next=find_inode_by_name(fd, sb, current, tok);
+    if(next==0) {
+      if(!create) {
+        free(copy);
+        return 0;
+      }
+      next=create_dir(fd, sb, tok, perms, current, next_inode, next_data);
+    }
+    current=next;
+    tok=strtok(NULL, "/");
+  }
+  free(copy);
+  return current;
+}
+
+/**
+* Checksum
+*/
+static u16 checksum_superblock(superblock_t *sb)
+{
+  const u8 *data=(const u8*)sb;
+  u16 sum=0;
+  for(int i=0;i<BLOCK-4;i++)
+    sum^=data[i];
+  return sum;
+}
+
+int main(int argc, char **argv)
+{
+  if(argc<4) {
+    fprintf(stderr, "Usage: %s <boot> <img> path:perms=hostfile ...\n", argv[0]);
     return 1;
   }
-  int boot=open(bootloader, O_RDONLY);
-  if(boot<0) {
-    fprintf(stderr, "Error in load %s.\n", bootloader);
-    return 1;
+
+  const char *boot=argv[1], *img=argv[2];
+  int imgfd=open(img, O_RDWR | O_CREAT, 0664);
+  if(imgfd<0) {
+    perror("open img");
+    exit(1);
+  }
+  int bootfd=open(boot, O_RDONLY);
+  if(bootfd<0) {
+    perror("open boot");
+    exit(1);
   }
 
-  lseek(img, kb*1024-1, SEEK_SET);
-  write(img, "", 1);
-  lseek(img, 0, SEEK_SET);
-
-  char block[BLOCK]={0};
-  int bytes_read;
-  for(int j=0;j<BOOT_SECTORS;j++) {
-    bytes_read=read(boot,block,BLOCK);
-    if(j==0){ block[510]=0x55; block[511]=0xaa; }
-    write(img,block,BLOCK);
-    memset(block, 0, BLOCK);
+  char buf[BLOCK]={0};
+  for(int i=0;i<BOOT_BLOCKS;i++) {
+    read(bootfd, buf, BLOCK);
+    if(i==0)buf[510]=0x55,buf[511]=0xaa;
+    rw_block(imgfd, i, buf, 1);
+    memset(buf, 0,  BLOCK);
   }
-  close(boot);
+  close(bootfd);
 
-  u16 total_blocks=kb*2;
-  u16 inodes_blocks=porcentage(4, total_blocks);
-  if(inodes_blocks<1) inodes_blocks=1;
+  u16 total_blocks=get_total_blocks(imgfd);
+  u16 inode_blocks=(total_blocks*4)/100;
+  u16 inode_count=inode_blocks*INODES_PER_BLOCK;
+  u16 data_start=SUPERBLOCK_SECTOR+1+inode_blocks;
 
-  u16 inode_count=inodes_blocks*INODES_PER_BLOCK;
-  u16 data_start=SUPERBLOCK_SECTOR+1+inodes_blocks;
-  u16 free_blocks=total_blocks-data_start;
-
-  superblock_t superblock={
-    "BFX",
-    total_blocks,
-    SUPERBLOCK_SECTOR+1,
-    data_start,
-    free_blocks,
-    inode_count,
-    0
+  superblock_t sb={
+    .magic=FS_MAGIC,
+    .total_blocks=total_blocks,
+    .inode_start=SUPERBLOCK_SECTOR+1,
+    .data_start=data_start,
+    .inode_count=inode_count,
+    .used_inodes=0,
+    .free_blocks=total_blocks-data_start,
+    .used_blocks=0,
+    .root_inode=1,
+    .mount_count=0,
+    .last_mount_time=0,
+    .last_write_time=date,
+    .reserved={0},
   };
 
-  lseek(img,SUPERBLOCK_SECTOR*BLOCK,SEEK_SET);
-  memset(block, 0, BLOCK);
-  memcpy(block, &superblock, SUPERBLOCK_SIZE);
-  write(img, block, BLOCK);
+  int next_inode=1;
+  u16 next_data=data_start;
+  sb.root_inode=create_dir(imgfd, &sb, "/", 7, 0, &next_inode, &next_data);
 
-  //memset(block, 0, BLOCK);
-  for(int j=0;j<inodes_blocks;j++)write(img, block, BLOCK);
-
-  close(img);
-  printf("data area start block %hu\n", superblock.data_start_block);
-  printf("inode area start block %hu\n", superblock.inode_start_block);
-  return printf("OK: %d blocks, %d inodes, %d bytes read\n",superblock.total_blocks, superblock.inode_count, bytes_read), 0;
-}
-
-int list_fs(char *image)
-{
-  int img=open(image, O_RDONLY);
-  if(img<0)return 1;
-
-  lseek(img, SUPERBLOCK_SECTOR*BLOCK, SEEK_SET);
-  superblock_t superblock;
-  read(img, &superblock, SUPERBLOCK_SIZE);
-
-  /* Validate superblock */
-  if(strcmp(superblock.magic, "BFX")) {
-    printf("Filesystem magic is invalid %s", superblock.magic);
-    close(img);
-    return 1;
-  }
-
-  char bbuf[BLOCK];
-  int files=0;
-
-  printf("\n");
-
-  int total_inode_blocks=(superblock.inode_count+15)/INODES_PER_BLOCK;
-
-  for(int b=0;b<total_inode_blocks;b++) {
-    lseek(img, (superblock.inode_start_block+b)*BLOCK, SEEK_SET);
-    read(img, bbuf, BLOCK);
-
-    inode_t *inodes=(inode_t*)bbuf;
-
-    for(int j=0;j<INODES_PER_BLOCK;j++) {
-      if(GT(inodes[j].flags)==T_FILE)
-      {
-        char *flags=pflags(inodes[j].flags);
-        char *modified_date=date_to_string(inodes[j].modified_date);
-        char *created_date=date_to_string(inodes[j].created_date);
-        u32 size_bytes=inodes[j].size_blocks*BLOCK;
-        printf(
-          " %-4s %-10s %-10s %-15s %5u B -> block %5u\n",
-          flags,
-          modified_date,
-          created_date,
-          inodes[j].name,
-          (u32)size_bytes,
-          (u32)inodes[j].start
-        );
-        files++;
-      }
+  for(int i=3;i<argc;i++) {
+    char *arg=strdup(argv[i]);
+    char *eq=strchr(arg, '=');
+    if(!eq) {
+      free(arg);
+      continue;
     }
-  }
-  printf("\nTotal blocks: %d\nUsed blocks: %d\nFiles: %d\n\n", superblock.total_blocks, superblock.total_blocks-superblock.free_blocks, files);
-  return close(img), 0;
-}
-
-int add_file(char *image, char *src, char *name, int f)
-{
-  int img=open(image, O_RDWR);
-  int s=open(src, O_RDONLY);
-  if(img<0||s<0) return 1;
-
-  lseek(img, SUPERBLOCK_SECTOR*BLOCK, SEEK_SET);
-  superblock_t superblock;
-  read(img, &superblock, SUPERBLOCK_SIZE);
-
-  /* Validate superblock */
-  if(strcmp(superblock.magic, "BFX")) {
-    printf("Filesystem magic is invalid %s", superblock.magic);
-    close(img);
-    return 1;
-  }
-
-  u32 size=lseek(s, 0, SEEK_END);
-  lseek(s, 0, SEEK_SET);
-  u16 need=(size+BLOCK-1)/BLOCK;
-
-  /* Verify if have space in disk  */
-  if(need>superblock.free_blocks) {
-    printf("No space in disk (need %d blocks)\n", need);
-    close(s);
-    close(img);
-    return 1;
-  }
-
-  if(strlen(name)>15) {
-    printf("Filename is too long! (%zu bytes)\n", strlen(name));
-    close(s);
-    close(img);
-    return 1;
-  }
-
-  char bbuf[BLOCK];
-  int fb=-1,fo=-1;
-  int total_inode_blocks=(superblock.inode_count+INODES_PER_BLOCK-1)/INODES_PER_BLOCK;
-
-  for(int b=0;b<total_inode_blocks&&fb<0;b++) {
-    lseek(img, (superblock.inode_start_block+b)*BLOCK, SEEK_SET);
-    read(img, bbuf, BLOCK);
-
-    inode_t *inodes=(inode_t*)bbuf;
-
-    for(int j=0;j<INODES_PER_BLOCK;j++) {
-      if(GT(inodes[j].flags)!=T_FREE&&strncmp(inodes[j].name, name, 16)==0) {
-        printf("File '%s' already exist\n", name);
-        close(s);
-        close(img);
-        return 1;
-      }
-      if(!GT(inodes[j].flags)) {
-        fb=b;
-        fo=j;
-        break;
-      }
+    *eq=0;
+    char *src=eq+1;
+    char *colon=strchr(arg, ':');
+    if(!colon) {
+      free(arg);
+      continue;
     }
-    if(fb>=0)break;
-  }
+    *colon=0;
+    char *path=arg;
+    u8 perms=strtol(colon+1, NULL, 8);
 
-  if(fb<0) {
-    printf("No inodes\n");
-    close(s);
-    close(img);
-    return 1;
-  }
-
-  u16 start=superblock.total_blocks-superblock.free_blocks;
-  u16 current_date=get_current_packed_date();
-
-  inode_t *inodes=(inode_t*)bbuf;
-  inode_t *inode=&inodes[fo];
-
-  inode->flags=TF(T_FILE, f);
-  inode->size_blocks=need;
-  inode->start=start;
-  inode->created_date=current_date;
-  inode->modified_date=current_date;
-  memset(inode->name, 0, sizeof(inode->name));
-  strncpy(inode->name, name, 16);
-  inode->name[15]=0;
-
-  lseek(img, (superblock.inode_start_block+fb)*BLOCK, SEEK_SET);
-  write(img, bbuf, BLOCK);
-
-  char buf[BLOCK];
-  for(int j=0;j<need;j++) {
-    memset(buf, 0, BLOCK);
-    int r=read(s, buf, BLOCK);
-    if(r<0) {
-    	perror("read");
-    	close(s);
-    	close(img);
-    	return 1;
+    const char *slash=strrchr(path, '/');
+    const char *name=slash?slash+1:path;
+    char *parent_path=slash?strndup(path, slash-path):strdup("/");
+    u16 parent_inode=resolve_path(imgfd, &sb, parent_path, 1, &next_inode, &next_data, 6);
+    if(!parent_inode) {
+      fprintf(stderr, "Invalid path: %s\n", path);
+      free(arg);
+      free(parent_path);
+      continue;
     }
-    if(r==0)break;
-    if(r<BLOCK)memset(buf+r, 0, BLOCK-r);
-    if(lseek(img, (start+j)*BLOCK, SEEK_SET)<0) {
-    	perror("lseek");
-    	close(s); close(img);
-    	return 1;
-    } 
-    if(write(img, buf, BLOCK)!=BLOCK) {
-    	perror("write");
-    	close(s); close(img);
-    	return 1;
+    int sfd=open(src, O_RDONLY);
+    if(sfd<0) {
+      perror("src");
+      free(arg);
+      free(parent_path);
+      continue;
     }
-  }
-  fsync(img);
-	
-  superblock.free_blocks-=need;
-  lseek(img, SUPERBLOCK_SECTOR*BLOCK, SEEK_SET);
-  write(img, &superblock, SUPERBLOCK_SIZE);
-  close(s);
-  close(img);
-  return printf("Added file: %s (%d blocks)\n", name, need), 0;
-}
+    int ffsize=lseek(sfd, 0, SEEK_END);
+    if(ffsize>65536){
+      fprintf(stderr, "File '%s' is too large\n", src);
+      continue;
+    }
+    u16 fsize=ffsize;
+    lseek(sfd, 0, SEEK_SET);
+    u16 blocks_needed=(fsize+BLOCK-1)/BLOCK;
+    if(blocks_needed>sb.free_blocks) {
+      fprintf(stderr, "Not enough space for %s\n", src);
+      close(sfd);
+      free(arg);
+      free(parent_path);
+      continue;
+    }
+    u16 start=next_data;
+    for(u16 j=0;j<blocks_needed;j++) {
+      memset(buf, 0, BLOCK);
+      read(sfd, buf, BLOCK);
+      rw_block(imgfd, start+j, buf, 1);
+    }
+    close(sfd);
 
-int main(int c, char **v)
-{
-  if(c<3) return usage(), 1;
-  if(!strcmp(v[1], "format")&&c==5)   return format_fs(v[2], v[3], atoi(v[4]));
-  if(!strcmp(v[1], "list")&&c==3)     return list_fs(v[2]);
-  if(!strcmp(v[1], "add")&&c>=4)      return add_file(v[2], v[3], c>=5?v[4]:v[3], c>=6?atoi(v[5]):7);
-  return usage(), 1;
+    inode_t file={
+      .mode=0x00|(perms&MODE_MASK),
+      .links=1,
+      .size=fsize,
+      .start=start,
+      .created=date,
+      .modified=date,
+      .accessed=date,
+      .parent=parent_inode,
+    };
+    strncpy(file.name, name, MAX_NAME-1);
+    file.name[MAX_NAME-1]=0;
+
+    u16 idx=next_inode++;
+    write_inode(imgfd, &sb, idx, &file);
+    add_dir_entry(imgfd, &sb, parent_inode, idx);
+    next_data+=blocks_needed;
+    sb.free_blocks-=blocks_needed;
+    sb.used_blocks+=blocks_needed;
+    sb.used_inodes++;
+
+    free(arg);
+    free(parent_path);
+  }
+  sb.checksum=checksum_superblock(&sb);
+  rw_block(imgfd, SUPERBLOCK_SECTOR, &sb, 1);
+  close(imgfd);
+  printf("done. %u MiB\n", total_blocks*BLOCK/1024/1024);
+  return 0;
 }

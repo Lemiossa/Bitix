@@ -4,15 +4,15 @@
 typedef unsigned char uchar;
 typedef unsigned int uint;
 typedef unsigned short ushort;
-typedef unsigned long ulong;
+typedef unsigned long int ulong;
 
 typedef unsigned char u8;
 typedef unsigned short u16;
 typedef unsigned long u32;
 
-typedef char s8;
-typedef short s16;
-typedef long s32;
+typedef signed char s8;
+typedef signed short s16;
+typedef signed long int s32;
 
 typedef char bool;
 

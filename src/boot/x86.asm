@@ -69,14 +69,14 @@ _ljump:
   mov bp, sp
   mov ax, [bp+4] ; segment
   mov dx, [bp+6] ; offset
-  mov [farptr], dx
-  mov [farptr+2], ax
-  jmp far [farptr]
+  mov [.farptr], dx
+  mov [.farptr+2], ax
+  jmp far [.farptr]
 	mov ax, 1 ; if error
   pop bp
 ret
 section .bss
-farptr: resw 0
+.farptr: resw 2
 section .text
 
 ; void lcall(u16 seg, u16 off)
@@ -86,13 +86,13 @@ _lcall:
   mov bp, sp
   mov ax, [bp+4] ; segment
   mov dx, [bp+6] ; offset
-  mov [farptr], dx
-  mov [farptr+2], ax
-  call far [farptr]
+  mov [.farptr], dx
+  mov [.farptr+2], ax
+  call far [.farptr]
   pop bp
 ret
 section .bss
-farptr: resw 0
+.farptr: resw 2
 section .text
 
 ; void hlt();
@@ -267,7 +267,7 @@ ret
 		pop bp
 ret
 
-; int io_readblock_chs(uchar head, uchar track, uchar sector, void *buf);
+; int io_readblock_chs(u16 head, u16 track, u16 sector, void *buf);
 global _io_readblock_chs
 _io_readblock_chs:
 	push bp
@@ -356,7 +356,7 @@ _setdx:
 	pop bp
 ret
 
-; void get_low_memory(void);
+; u16 get_low_memory(void);
 global _get_low_memory
 _get_low_memory:
 	push bp
@@ -367,4 +367,35 @@ _get_low_memory:
 	mov ax, 512
 	.done:
 		pop bp
+ret
+
+
+; void lgdt(void *gdt);
+global _lgdt
+_lgdt:
+	push bp
+	mov bp, sp
+	mov ax, [bp+4]
+	mov [.ptr], ax
+	mov [.ptr+2], ds
+	lgdt [.ptr]
+	pop bp
+ret
+section .bss
+.ptr: resw 2
+section .text
+
+; void enter_pm();
+global _enter_pm
+_enter_pm:
+	cli
+	mov eax, cr0
+	or al, 1
+	mov cr0, eax
+	jmp  dword 0x08:.pmode
+.pmode:
+	mov ax, 0x10
+	mov ds, ax
+	mov es, ax
+	mov ss, ax
 ret

@@ -33,6 +33,8 @@ endif
 SOURCES=\
 				x86/entry.asm \
 				x86/runtime.asm \
+				x86/x86.asm \
+				utils.c \
 				kernel.c
 OBJECTS=$(patsubst %.asm,$(OBJD)/%.o,$(patsubst %.c, $(OBJD)/%.o, $(SOURCES)))
 KERNEL?=kernel.bin
