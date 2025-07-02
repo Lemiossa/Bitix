@@ -1,5 +1,9 @@
 # Bitix
 
+BitixOS is a 16-bit operating system written in C and assembly
+
+# About
+
 Hi, how are you? I hope so.
 My name is Matheus Leme, and... if you're here... Congratulations, you've just found the project of an unemployed teenager.
 
@@ -10,12 +14,14 @@ My goal is to make an OS that can run simple games... and maybe even a 3D game f
 You can see that in the first commit I already have a bootloader with basic multiboot, it's not the best, but I tried to make something functional.
 Well... that's it, below I'll leave the dependencies to compile the project to run on virtual and real machines.
 
-dependencies
+# dependencies
 - dev86
 - make
 - gcc
 - coreutils(It usually comes already installed except in ultra compact distros like tiny core or alpine)
 - qemu(i386)
+
+# Compiling, running or installing
 
 Compile using:
 ```bash
