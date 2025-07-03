@@ -2,10 +2,8 @@
 # Makefile
 # Created by Matheus Leme Da Silva
 #
-
 MAKEFLAGS+=--no-print-directory
-
-BUILDV=0.0.1a
+BUILDV=0.0.2
 
 # Dirs
 BUILD=build

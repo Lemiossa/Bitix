@@ -18,13 +18,12 @@ void putcat(uchar c, uint x, uint y, uchar attr);
 void puts(uchar *s);
 void kputsf(uchar *format, ...);
 
-int readblock(u32 lba, void *buf);
+int readblock(u16 lba, void *buf);
 
 int cmpstr(uchar *s1, uchar *s2);
 int lenofstr(uchar *str);
 
 int bfx_mount();
-void bfx_list();
 
 uint getkey();
 

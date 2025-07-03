@@ -1,1 +1,17 @@
-
+Core : section
+{
+  TEXT_MODE : choice
+  {
+    name = "Text Mode"
+    cmd = "-DTEXT_MODE="
+    default = "80x25"
+    options = "80x25=1,80x50=2"
+  }
+  PIT : choice
+  {
+    name = "PIT Frequency"
+    cmd = "-DPIT="
+    default = "100hz"
+    options = "100hz=100,1000hz=1000"
+  }
+}

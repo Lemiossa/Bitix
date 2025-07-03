@@ -5,15 +5,13 @@
 bits 16
 extern _kmain
 
-KSEG equ 0x0800
-
 global _drive
 _drive db 0
 
 global _start
 _start:
 	cli
-	mov ax, KSEG
+	mov ax, 0x0800
 	mov ds, ax
 	mov es, ax
 	mov ss, ax
@@ -21,7 +19,7 @@ _start:
 	sti
 
 	; Save the drive
-	mov [_drive], dl
+	mov [_drive], bl
 
 	; Enter in text mode
 	mov ax, 0x0003
@@ -34,8 +32,6 @@ _start:
 hang:
 	hlt
 	jmp hang
-
-
 
 section .bss
 align 8

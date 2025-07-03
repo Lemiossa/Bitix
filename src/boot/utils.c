@@ -541,3 +541,17 @@ void enable_a20()
   wait_input_buffer_empty();
   outb(0x60, 0xdf);
 }
+
+void enable_cursor(u8 start, u8 end)
+{
+  outb(0x3d4, 0x0a);
+  outb(0x3d5, (inb(0x3d5)&0xc0)|start);
+  outb(0x3d4, 0x0b);
+  outb(0x3d5, (inb(0x3d5)&0xe0)|end);
+}
+
+void disable_cursor()
+{
+  outb(0x3d4, 0x0a);
+  outb(0x3d5, 0x20);
+}

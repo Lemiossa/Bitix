@@ -4,139 +4,23 @@
 ;
 bits 16
 
-; void putc(uchar c);
-extern _current_attr
-extern _screen_width, _screen_height
-extern _video_mode
-global _putc
-_putc:
-	push bp
-	mov bp, sp
-	push ax
-	push bx
-	push cx
-	push dx
-	push si
+%macro OUTB 2
+out %1, %2
+%endmacro
 
-	mov al, [_video_mode]
-	cmp al, 1
-	jne .done
+%macro INB 2
+in %1, %2
+%endmacro
 
-	mov ah, 0x03
-	mov bh, 0x00
-	int 0x10
-
-	mov si, dx
-
-	mov al, [bp+4] ; c
-
-	; Special chars
-	cmp al, 0x08
-	je .backspace
-	cmp al, 0x0a
-	je .newline
-	cmp al, 0x0d
-	je .carriage
-
-	; print char
-	mov ah, 0x09
-	mov bh, 0x00
-	mov bl, [_current_attr]
-	mov cx, 1
-	int 0x10
-
-	; Advance the cursor
-	mov dx, si
-	inc dl
-	mov al, [_screen_width]
-	dec al
-	cmp dl, al
-	jbe .set_cursor
-	mov dl, 0
-	inc dh
-
-	; _putc.checkscroll - check the scroll and scroll
-	.checkscroll:
-		mov al, [_screen_height]
-		dec al
-		cmp dh, al
-		jb .set_cursor
-
-		mov ax, 0x0601
-		mov bh, [_current_attr]
-		mov cx, 0x0000
-		mov dl, [_screen_width]
-		dec dl
-		mov dh, [_screen_height]
-		dec dh
-		int 0x10
-
-		mov dh, [_screen_height]
-		dec ah
-		mov dl, 0
-
-	; _putc.set_cursor - update cursor position
-	.set_cursor:
-		mov ah, 0x02
-		mov bh, 0x00
-		int 0x10
-		jmp .done
-
-	; _putc.backspace - execute \b
-	.backspace:
-		mov dx, si
-		cmp dl, 0
-		jne .bs_no_line_wrap
-		cmp dh, 0
-		je .done
-		dec dh
-		mov al, [_screen_width]
-		dec al
-		mov dl, al
-		jmp .bs_draw
-		.bs_no_line_wrap: dec dl
-		.bs_draw:
-			mov ah, 0x02
-			mov bh, 0x00
-			int 0x10
-
-			mov ah, 0x09
-			mov al, ' '
-			mov bl, [_current_attr]
-			mov cx, 1
-			int 0x10
-
-			mov ah, 0x02
-			mov bh, 0x00
-			int 0x10
-			jmp .done
-
-	; _putc.newline - move cursor to new line
-	.newline:
-		mov dx, si
-		inc dh
-		mov dl, 0
-		mov al, [_screen_height]
-		dec al
-		cmp dh, al
-		jae .checkscroll
-		jmp .set_cursor
-
-	; _putc.carriage - move cursor to start of line
-	.carriage:
-		mov dx, si
-		mov dl, 0
-		jmp .set_cursor
-
-	; _putc.done - end of function
-	.done:
-		pop si
-		pop dx
-		pop cx
-		pop bx
-		pop ax
-		pop bp
-ret
+%macro PIC_SEND_EOI 0
+mov al, 0x20
+out 0x20, al
+%endmacro
+%macro PIC_SEND_EOI_MOUSE 0
+mov al, 0x20
+out 0xa0, al
+out 0x20, al
+%endmacro
 
 ; void outportb(ushort port, uchar value);
 global _outportb
@@ -194,9 +78,9 @@ _setvect:
 	pop bp
 ret
 
-; void updateregs(regs16_t *in);
-global _updateregs
-_updateregs:
+; void setregs(regs16_t *in);
+global _setregs
+_setregs:
 	push bp
 	mov bp, sp
 
@@ -237,4 +121,214 @@ _getregs:
 	mov [di+10], di
 	pop di
 	pop bp
+ret
+
+; void lwrite(ushort seg, ushort off, uchar val);
+global _lwrite
+_lwrite:
+	push bp
+	mov bp, sp
+	push es
+	mov ax, [bp+4] ; seg
+	mov es, ax
+	mov di, [bp+6] ; off
+	mov al, [bp+8] ; val
+	mov [es:di], al
+	pop es
+	pop bp
+ret
+
+; uchar lread(ushort seg, ushort off);
+global _lread
+_lread:
+	push bp
+	mov bp, sp
+	push es
+	mov ax, [bp+4]
+	mov es, ax
+	mov di, [bp+6]
+	mov al, [es:di]
+	xor ah, ah
+	pop es
+	pop bp
+ret
+
+
+; void init_pit(uint freq);
+global _init_pit
+_init_pit:
+	push bp
+	mov bp, sp
+	push ax
+	push bx
+	push dx
+	push cx
+
+	push es
+	xor ax, ax
+	mov es, ax
+	mov word[es:0x20*4], irq0_handler
+	mov word[es:0x20*4+2], 0x0800
+	pop es
+
+	mov ax, word[bp+4] ; freq
+	cmp ax, 0
+	je .end
+
+	mov dx, 0x18
+	mov ax, 0x34
+	div word[bp+4]
+	mov bx, ax
+
+	mov al, 0x36
+	out 0x43, al
+	mov al, bl
+	out 0x40, al
+	mov al, bh
+	out 0x40, al
+
+	.end:
+		pop cx
+		pop dx
+		pop bx
+		pop ax
+		pop bp
+ret
+
+global _ticks
+_ticks dd 0
+
+global irq0_handler
+irq0_handler:
+	pusha
+
+	inc dword[_ticks]
+
+	PIC_SEND_EOI
+	popa
+iret
+
+; void init_mouse();
+global _init_mouse
+_init_mouse:
+	push es
+	mov ax, 0
+	mov es, ax
+	mov word[es:0x2c*4], irq12_handler
+	mov word[es:0x2c*4+2], 0x0800
+	pop es
+
+	; Unlock masks
+	;irq2
+	in al, 0x21
+	and al, 11111011b
+	out 0x21, al
+	;irq12
+	in al, 0xa1
+	and al, 11101111b
+	out 0xa1, al
+ret
+
+global irq12_handler
+irq12_handler:
+	pusha
+
+	in al, 0x60
+
+    mov ah, 0x0E
+    mov bx, 0x0007
+    int 0x10
+
+	PIC_SEND_EOI_MOUSE
+	popa
+iret
+
+global _disk
+_disk:
+	.drive db 0x80
+	.spt db 63
+	.heads db 16
+	.label times 4 db 0
+
+; int io_init_disk(uchar drive);
+global _io_init_disk
+_io_init_disk:
+	push bp
+	mov bp, sp
+
+	mov ax, [bp+4]
+	mov [_disk.drive], ax
+
+	mov ah, 0x08
+	mov dl, [bp+4] ; drive
+	int 0x13
+	jc .fail
+
+	test cl, cl
+	jz .fail
+
+	inc dh
+	mov [_disk.heads], dh
+
+	and cl, 0x3f
+	mov [_disk.spt], cl
+
+	xor ax, ax
+	pop bp
+ret
+	.fail:
+		mov ax, 1
+		pop bp
+ret
+
+; int io_readblock_chs(u16 head, u16 track, u16 sector, void *buf);
+global _io_readblock_chs
+_io_readblock_chs:
+	push bp
+	mov bp, sp
+	push bx
+	push cx
+	push dx
+	push si
+
+	mov ah, 0x02 ; read sectors func
+	mov al, 1 ; read 1 sector
+	mov ch, [bp+6] ; track
+	mov cl, [bp+8] ; sector
+	mov dh, [bp+4] ; head
+	mov dl, [_disk.drive] ; drive num
+
+	; buffer
+	mov si, [bp+10] ; buffer
+	mov bx, ds
+	mov es, bx
+	mov bx, si
+
+	stc
+	int 0x13
+	jc .fail
+	.success:
+		xor ax, ax
+		jmp .done
+	.fail:
+		mov ax, 1
+	.done:
+		pop si
+		pop dx
+		pop cx
+		pop bx
+		pop bp
+ret
+
+; void reset_disk();
+global _reset_disk
+_reset_disk:
+	push ax
+	push dx
+	mov ah, 0x00
+	mov dl, [_disk.drive]
+	stc
+	int 0x13
+	pop dx
+	pop ax
 ret

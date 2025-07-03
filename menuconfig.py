@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 import os
 import re
+from dataclasses import dataclass, field
 from dialog import Dialog
+from typing import Optional
 
 CONFIG_FILE = ".config"
 DEF_FILE = ".def.configs"
@@ -10,277 +12,274 @@ FLAGS_FILE = ".config.flags"
 d = Dialog(dialog="dialog")
 d.set_background_title("Bitix Kernel Configuration")
 
-# Custom exception for parsing errors
 class ParseError(Exception):
     pass
 
-def read_file_strip_comments(filepath):
-    """Read file lines stripping comments and empty lines."""
-    with open(filepath, "r") as f:
-        lines = f.readlines()
-    processed = []
-    for line in lines:
-        # Remove inline comments starting with #
-        line = re.sub(r"#.*$", "", line).strip()
-        if line:
-            processed.append(line)
-    return processed
+@dataclass
+class Option:
+    key: str
+    opt_type: str
+    desc: str
+    cmd: str
+    default: str
+    options: list[str] = field(default_factory=list)       # List of option names (e.g. "80x25")
+    values: dict[str, str] = field(default_factory=dict)   # Map from option name to value (e.g. {"80x25": "1"})
 
-def parse_definitions(filepath):
-    """
-    Parse .def.configs file with C-like syntax:
-    
-    section_name : section {
-        OPTION : bool|int|choice {
-            name = "Description"
-            cmd = "-O"
-            default = y|n|number|string
-            options = "opt1,opt2,opt3"  # only for choice
-        }
-    }
-    
-    Returns:
-        sections: list of section names
-        options_by_section: dict section -> list of keys
-        option_details: dict key -> dict with keys: type, desc, cmd, default, options
-    """
-    lines = read_file_strip_comments(filepath)
-    sections = []
-    options_by_section = {}
-    option_details = {}
+# Lexer tokens
+TOKEN_REGEX = [
+    ("SECTION",    r"(\w+)\s*:\s*section"),
+    ("OPTION",     r"(\w+)\s*:\s*(bool|int|choice)"),
+    ("LBRACE",     r"\{"),
+    ("RBRACE",     r"\}"),
+    ("KEYVAL_STR", r'(\w+)\s*=\s*"([^"]*)"'),
+    ("KEYVAL",     r"(\w+)\s*=\s*([^\"\s][^\n]*)"),  # value without quotes
+    ("COMMENT",    r"#.*"),
+    ("NEWLINE",    r"\n"),
+    ("WHITESPACE", r"[ \t]+"),
+]
 
-    i = 0
-    n = len(lines)
+class Lexer:
+    def __init__(self, text):
+        self.text = text
+        self.tokens = []
+        self.pos = 0
+        self.line = 1
 
-    def expect(expected, context):
-        nonlocal i, lines
-        if i >= n or lines[i] != expected:
-            raise ParseError(f"Expected '{expected}' in {context} at line {i+1}")
-        i += 1
-
-    def parse_block(context):
-        nonlocal i, lines
-        if i >= n or lines[i] != "{":
-            raise ParseError(f"Expected '{{' to open block in {context} at line {i+1}")
-        i += 1
-
-    def parse_until_closing_brace(context):
-        nonlocal i, lines
-        block_lines = []
-        depth = 1
-        while i < n and depth > 0:
-            line = lines[i]
-            if line == "{":
-                depth += 1
-            elif line == "}":
-                depth -= 1
-                if depth == 0:
-                    i += 1
+    def tokenize(self):
+        while self.pos < len(self.text):
+            matched = False
+            for name, pattern in TOKEN_REGEX:
+                regex = re.compile(pattern)
+                m = regex.match(self.text, self.pos)
+                if m:
+                    matched = True
+                    if name == "COMMENT":
+                        pass
+                    elif name == "WHITESPACE" or name == "NEWLINE":
+                        if name == "NEWLINE":
+                            self.line += 1
+                    else:
+                        if name == "OPTION":
+                            self.tokens.append((name, (m.group(1), m.group(2)), self.line))
+                        elif name == "SECTION":
+                            self.tokens.append((name, m.group(1), self.line))
+                        elif name in ("KEYVAL_STR", "KEYVAL"):
+                            self.tokens.append((name, (m.group(1), m.group(2)), self.line))
+                        else:
+                            self.tokens.append((name, None, self.line))
+                    self.pos = m.end()
                     break
-            block_lines.append(line)
-            i += 1
-        if depth != 0:
-            raise ParseError(f"Missing closing '}}' in {context}")
-        return block_lines[:-1] if block_lines and block_lines[-1] == "}" else block_lines
+            if not matched:
+                raise ParseError(f"Unexpected token at line {self.line} near: {self.text[self.pos:self.pos+20]!r}")
+        self.tokens.append(("EOF", None, self.line))
 
-    while i < n:
-        # Parse section header:
-        # Format: section_name : section {
-        m = re.match(r"^(\w+)\s*:\s*section\s*$", lines[i])
-        if m:
-            section = m.group(1)
-            i += 1
-            parse_block(f"section {section}")
-            sections.append(section)
-            options_by_section[section] = []
+class Parser:
+    def __init__(self, tokens):
+        self.tokens = tokens
+        self.pos = 0
 
-            # Now parse options inside section block
-            while i < n and lines[i] != "}":
-                # Parse option header: OPTION_NAME : bool|int|choice
-                m2 = re.match(r"^(\w+)\s*:\s*(bool|int|choice)\s*$", lines[i])
-                if not m2:
-                    raise ParseError(f"Expected option declaration inside section '{section}', got '{lines[i]}' at line {i+1}")
-                key, opt_type = m2.group(1), m2.group(2)
-                i += 1
+    def peek(self):
+        return self.tokens[self.pos]
 
-                parse_block(f"option {key}")
+    def advance(self):
+        self.pos += 1
 
-                # Parse option details inside option block
+    def expect(self, expected_type, expected_val=None):
+        tok_type, tok_val, line = self.peek()
+        if tok_type != expected_type or (expected_val is not None and tok_val != expected_val):
+            raise ParseError(f"Expected {expected_type} {expected_val if expected_val else ''} at line {line} but got {tok_type} {tok_val}")
+        self.advance()
+        return tok_val
+
+    def parse(self):
+        sections = []
+        options_by_section = {}
+        option_details = {}
+
+        while True:
+            tok_type, tok_val, line = self.peek()
+            if tok_type == "EOF":
+                break
+
+            if tok_type != "SECTION":
+                raise ParseError(f"Expected section declaration at line {line}, got {tok_type}")
+
+            section_name = tok_val
+            self.advance()
+            self.expect("LBRACE")
+
+            sections.append(section_name)
+            options_by_section[section_name] = []
+
+            # parse options inside section
+            while True:
+                tok_type2, tok_val2, line2 = self.peek()
+                if tok_type2 == "RBRACE":
+                    self.advance()
+                    break
+
+                if tok_type2 != "OPTION":
+                    raise ParseError(f"Expected option declaration inside section {section_name} at line {line2}")
+
+                option_key, option_type = tok_val2
+                self.advance()
+                self.expect("LBRACE")
+
                 desc = ""
                 cmd = ""
                 default = ""
                 options = []
+                values = {}
 
-                while i < n and lines[i] != "}":
-                    line = lines[i]
+                # parse option parameters
+                while True:
+                    tok_type3, tok_val3, line3 = self.peek()
+                    if tok_type3 == "RBRACE":
+                        self.advance()
+                        break
+                    if tok_type3 not in ("KEYVAL_STR", "KEYVAL"):
+                        raise ParseError(f"Expected key=value inside option {option_key} at line {line3}, got {tok_type3}")
 
-                    # Parse key = "value" or key = value
-                    m3 = re.match(r'^(\w+)\s*=\s*"(.*)"$', line)
-                    if not m3:
-                        m3 = re.match(r'^(\w+)\s*=\s*(.*)$', line)
-                    if not m3:
-                        raise ParseError(f"Invalid option param line '{line}' in option '{key}' at line {i+1}")
+                    key, val = tok_val3
+                    self.advance()
 
-                    param_key, param_val = m3.group(1), m3.group(2).strip()
-
-                    if param_key == "name":
-                        desc = param_val
-                    elif param_key == "cmd":
-                        cmd = param_val
-                    elif param_key == "default":
-                        default = param_val
-                    elif param_key == "options":
-                        options = [opt.strip() for opt in param_val.split(",")]
+                    if key == "name":
+                        desc = val
+                    elif key == "cmd":
+                        cmd = val
+                    elif key == "default":
+                        default = val
+                    elif key == "options":
+                        # Split by comma, strip spaces
+                        # Also parse option values if given (e.g. "80x25=1, 80x50=2")
+                        opts = [o.strip() for o in val.split(",")]
+                        for opt in opts:
+                            if "=" in opt:
+                                k, v = opt.split("=", 1)
+                                k = k.strip()
+                                v = v.strip()
+                                options.append(k)
+                                values[k] = v
+                            else:
+                                options.append(opt)
+                        # If choice but no explicit values, values dict empty, fallback on option names as values later
                     else:
-                        raise ParseError(f"Unknown parameter '{param_key}' in option '{key}' at line {i+1}")
-                    i += 1
+                        raise ParseError(f"Unknown parameter '{key}' in option '{option_key}' at line {line3}")
 
-                expect("}", f"option {key}")
+                options_by_section[section_name].append(option_key)
+                option_details[option_key] = Option(option_key, option_type, desc, cmd, default, options, values)
 
-                options_by_section[section].append(key)
-                option_details[key] = {
-                    "type": opt_type,
-                    "desc": desc,
-                    "cmd": cmd,
-                    "default": default,
-                    "options": options
-                }
+        return sections, options_by_section, option_details
 
-            expect("}", f"section {section}")
-
-        else:
-            raise ParseError(f"Expected section declaration at line {i+1}, got '{lines[i]}'")
-
-    return sections, options_by_section, option_details
+def read_file_strip_comments(filepath):
+    with open(filepath, "r") as f:
+        text = f.read()
+    # Remove # comments to make lexer easier but keep newlines for line counting
+    text = re.sub(r"#.*", "", text)
+    return text
 
 def load_config(option_details):
-    """
-    Load config from CONFIG_FILE or defaults.
-
-    Returns a dict: CONFIG_KEY -> value (y/n/number/string)
-    """
     config = {}
-
-    # Initialize with defaults
-    for key, detail in option_details.items():
+    for key, opt in option_details.items():
         var = f"CONFIG_{key}"
-        if detail["default"]:
-            config[var] = detail["default"]
-        else:
-            config[var] = "n" if detail["type"] == "bool" else ""
-
-    # Override with values from CONFIG_FILE if exists
+        config[var] = opt.default if opt.default else ("n" if opt.opt_type == "bool" else "")
     if os.path.exists(CONFIG_FILE):
         with open(CONFIG_FILE, "r") as f:
             for line in f:
                 line = line.strip()
                 if line.startswith("CONFIG_") and "=" in line:
                     k, v = line.split("=", 1)
-                    k = k.strip()
-                    v = v.strip().split()[0]  # remove comments
-                    config[k] = v
-
+                    config[k.strip()] = v.strip().split()[0]
     return config
 
-def edit_section(section, opts, details, config):
-    """
-    Use dialog to edit options in a section.
+def edit_section(section, keys, details, config):
+    while True:
+        menu_items = []
 
-    For bool: checklist
-    For int: inputbox with validation
-    For choice: menu selection
-    """
-    # First, edit bool options via checklist (can batch)
-    checklist = []
-    int_opts = []
-    choice_opts = []
-
-    for key in opts:
-        var = f"CONFIG_{key}"
-        val = config.get(var, None)
-        detail = details[key]
-
-        if detail["type"] == "bool":
-            checklist.append((key, detail["desc"], "on" if val == "y" else "off"))
-        elif detail["type"] == "int":
-            int_opts.append(key)
-        elif detail["type"] == "choice":
-            choice_opts.append(key)
-
-    # Bool options checklist
-    if checklist:
-        code, selected = d.checklist(f"{section} - Boolean Options", choices=checklist, width=70, height=20)
-        if code != d.OK:
-            return
-        for key in opts:
+        for key in keys:
+            opt = details[key]
             var = f"CONFIG_{key}"
-            detail = details[key]
-            if detail["type"] == "bool":
-                config[var] = "y" if key in selected else "n"
+            val = config.get(var, opt.default)
+            if opt.opt_type == "bool":
+                state = "[*]" if val == "y" else "[ ]"
+                menu_items.append((key, f"{state} {opt.desc}"))
+            else:
+                display_val = val
+                # For choice, if val is a mapped value, show name instead of value
+                if opt.opt_type == "choice" and opt.values:
+                    # Try find key by value
+                    inv_map = {v:k for k,v in opt.values.items()}
+                    display_val = inv_map.get(val, val)
+                menu_items.append((key, f"{opt.desc} (current: {display_val})"))
 
-    # Int options inputbox (one by one)
-    for key in int_opts:
-        var = f"CONFIG_{key}"
-        detail = details[key]
-        current = config.get(var, detail["default"])
-        while True:
-            code, value = d.inputbox(f"Enter integer for {key} ({detail['desc']}):", init=str(current))
-            if code != d.OK:
-                break
-            if value.isdigit():
-                config[var] = value
-                break
-            d.msgbox("Please enter a valid integer.")
+        menu_items.append(("BACK", "Return to main menu"))
 
-    # Choice options menu
-    for key in choice_opts:
-        var = f"CONFIG_{key}"
-        detail = details[key]
-        current = config.get(var, detail["default"])
-        choices = [(opt, "") for opt in detail["options"]]
-        try:
-            default_index = detail["options"].index(current) if current in detail["options"] else None
-        except Exception:
-            default_index = None
+        code, choice = d.menu(f"{section} - Options", choices=menu_items, width=70, height=20)
+        if code != d.OK or choice == "BACK":
+            break
 
-        code, choice = d.menu(f"Select value for {key} ({detail['desc']}):", choices=choices, 
-                              default_item=current if current else None)
-        if code == d.OK:
-            config[var] = choice
+        opt = details[choice]
+        var = f"CONFIG_{choice}"
+
+        if opt.opt_type == "bool":
+            config[var] = "n" if config.get(var, "n") == "y" else "y"
+        elif opt.opt_type == "int":
+            while True:
+                code, value = d.inputbox(f"Enter integer for {choice} ({opt.desc}):", init=config.get(var, opt.default))
+                if code != d.OK:
+                    break
+                if value.isdigit():
+                    config[var] = value
+                    break
+                d.msgbox("Please enter a valid integer.")
+        elif opt.opt_type == "choice":
+            # Present options with their mapped values
+            chs = []
+            for opt_name in opt.options:
+                val = opt.values.get(opt_name, opt_name)  # fallback val = name if no mapping
+                label = f"{opt_name} ({val})" if opt.values else opt_name
+                chs.append((opt_name, label))
+            # Default: find option name from current value
+            current_val = config.get(var, opt.default)
+            if opt.values:
+                inv_map = {v:k for k,v in opt.values.items()}
+                default_item = inv_map.get(current_val, opt.default)
+            else:
+                default_item = current_val
+
+            code, val = d.menu(f"Select value for {choice} ({opt.desc}):", choices=chs, default_item=default_item)
+            if code == d.OK:
+                # Save mapped value if exists
+                config[var] = opt.values.get(val, val)
 
 def save_config(sections, options_by_section, option_details, config):
-    """
-    Save .config and .config.flags files.
-    """
     with open(CONFIG_FILE, "w") as f, open(FLAGS_FILE, "w") as ff:
         f.write("# Generated by Python menuconfig\n")
         f.write(f"# Source: {DEF_FILE}\n\n")
         cflags, asflags = [], []
 
-        for section in sections:
-            f.write(f"# Section: {section}\n")
-            for key in options_by_section[section]:
+        for sec in sections:
+            f.write(f"# Section: {sec}\n")
+            for key in options_by_section[sec]:
                 var = f"CONFIG_{key}"
-                val = config.get(var, None)
-                desc = option_details[key]["desc"]
-                cmd = option_details[key]["cmd"]
-
+                val = config.get(var, "")
+                opt = option_details[key]
                 if val == "y":
-                    f.write(f"{var}=y  # {desc}\n")
-                    if cmd:
-                        cflags.append(cmd)
-                        asflags.append(cmd)
+                    f.write(f"{var}=y  # {opt.desc}\n")
+                    if opt.cmd:
+                        cflags.append(opt.cmd)
+                        asflags.append(opt.cmd)
                 elif val and val != "n":
-                    f.write(f"{var}={val}  # {desc}\n")
-                    if cmd:
-                        cflags.append(f"{cmd}{val}")
-                        asflags.append(f"{cmd}{val}")
+                    f.write(f"{var}={val}  # {opt.desc}\n")
+                    if opt.cmd:
+                        cflags.append(f"{opt.cmd}{val}")
+                        asflags.append(f"{opt.cmd}{val}")
                 else:
-                    f.write(f"# {var} is not set  # {desc}\n")
+                    f.write(f"# {var} is not set  # {opt.desc}\n")
             f.write("\n")
 
-        ff.write(f"CFLAGS +={''.join(f' {flag}' for flag in cflags)}\n")
-        ff.write(f"ASFLAGS +={''.join(f' {flag}' for flag in asflags)}\n")
+        ff.write(f"CFLAGS +={''.join(f' {f}' for f in cflags)}\n")
+        ff.write(f"ASFLAGS +={''.join(f' {f}' for f in asflags)}\n")
 
 def main():
     if not os.path.exists(DEF_FILE):
@@ -288,7 +287,11 @@ def main():
         return
 
     try:
-        sections, options_by_section, option_details = parse_definitions(DEF_FILE)
+        text = read_file_strip_comments(DEF_FILE)
+        lexer = Lexer(text)
+        lexer.tokenize()
+        parser = Parser(lexer.tokens)
+        sections, options_by_section, option_details = parser.parse()
     except ParseError as e:
         d.msgbox(f"Parse error in {DEF_FILE}:\n{e}")
         return
@@ -296,10 +299,7 @@ def main():
     config = load_config(option_details)
 
     while True:
-        menu_items = [(sec, f"Edit {sec}") for sec in sections]
-        menu_items.append(("Save_and_Exit", "Save and exit"))
-        menu_items.append(("Exit", "Exit without saving"))
-
+        menu_items = [(sec, f"Edit {sec}") for sec in sections] + [("Save_and_Exit", "Save and exit"), ("Exit", "Exit without saving")]
         code, choice = d.menu("Main Menu", choices=menu_items, width=60, height=20)
         if code != d.OK or choice == "Exit":
             break

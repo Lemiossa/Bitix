@@ -25,6 +25,8 @@ uchar cfg[CFG_BUF_SIZE];
 #define MENU_X 5
 #define MENU_Y 2
 
+#define MAGIC 0xBEEFBEEF
+
 #define BOX_ATTR 0x07
 #define SELECT_ATTR 0x70
 
@@ -188,6 +190,7 @@ void main()
 {
   u16 read;
   int i, opt=0;
+  uchar *magic=MAGIC;
   io_set_video_mode(0x03);
   puts("Booting...\r\n");
 
@@ -232,7 +235,9 @@ void main()
   /* Show the menu if there is more than one entry */
   if(entry_count>1) {
   	io_set_video_mode(0x03);
+    disable_cursor();
     opt=show_menu();
+    enable_cursor();
     io_set_video_mode(0x03);
     if(opt<0) {
       puts("Boot canceled.\r\n");
@@ -254,6 +259,6 @@ void main()
   enable_a20();
 
   /* Pass drive via BX and jump to file */
-  setdx((u16)drive);
+  setbx((u16)drive);
   ljump(LSEG, LOFF);
 }
