@@ -7,7 +7,7 @@
 #include "utils.h"
 
 /* Segment and offset where the file will be loaded */
-#define LSEG 0x0800
+#define LSEG 0x1000
 #define LOFF 0x0000
 
 /* Configuration for boot menu */

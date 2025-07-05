@@ -3,7 +3,7 @@
 # Created by Matheus Leme Da Silva
 #
 MAKEFLAGS+=--no-print-directory
-BUILDV=0.0.2
+BUILDV=0.0.3
 
 # Dirs
 BUILD=build
@@ -54,7 +54,11 @@ compile:
 $(IMAGE): tools compile
 	@mkdir -p $(BIN) $(OBJ)
 	@dd if=/dev/zero of=$(IMAGE) bs=1M count=2 status=none
-	@./$(FSTOOL) $(BOOT) $(IMAGE) /boot/bitixz:7=$(KERNEL) /boot/boot.cfg:6=boot.cfg
+	@./$(FSTOOL) $(BOOT) $(IMAGE) \
+		/boot/bitixz:7=$(KERNEL) \
+		/boot/boot.cfg:6=boot.cfg \
+		/bin/shell:5=build/programs/shell.bin
+
 
 menuconfig:
 	@python menuconfig.py

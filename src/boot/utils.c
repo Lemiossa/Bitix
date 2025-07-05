@@ -172,7 +172,7 @@ int readblock(u16 lba, void *buf)
 }
 
 #define BLOCK 512
-#define MAX_NAME 32
+#define MAX_NAME 22
 #define MAX_PATH 16
 
 typedef struct {
@@ -183,25 +183,16 @@ typedef struct {
   u16 inode_count;
   u16 used_inodes;
   u16 free_blocks;
-  u16 used_blocks;
   u16 root_inode;
-  u16 mount_count;
-  u16 last_mount_time;
-  u16 last_write_time;
-  u16 checksum;
-  uchar reserved[BLOCK-28];
+  uchar reserved[BLOCK-(4+2*7)];
 } bfx_super_t;
 
 typedef struct {
   u8 mode;
-  u16 links;
   u16 size;
   u16 start;
   u16 created;
-  u16 modified;
-  u16 accessed;
   u16 parent;
-  u8 reserved[15];
   uchar name[MAX_NAME];
 } bfx_inode_t;
 

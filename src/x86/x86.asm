@@ -123,9 +123,9 @@ _getregs:
 	pop bp
 ret
 
-; void lwrite(ushort seg, ushort off, uchar val);
-global _lwrite
-_lwrite:
+; void lwriteb(ushort seg, ushort off, uchar val);
+global _lwriteb
+_lwriteb:
 	push bp
 	mov bp, sp
 	push es
@@ -138,9 +138,24 @@ _lwrite:
 	pop bp
 ret
 
-; uchar lread(ushort seg, ushort off);
-global _lread
-_lread:
+; void lwritew(ushort seg, ushort off, ushort val);
+global _lwritew
+_lwritew:
+	push bp
+	mov bp, sp
+	push es
+	mov ax, [bp+4] ; seg
+	mov es, ax
+	mov di, [bp+6] ; off
+	mov ax, [bp+8] ; val
+	mov [es:di], ax
+	pop es
+	pop bp
+ret
+
+; uchar lreadb(ushort seg, ushort off);
+global _lreadb
+_lreadb:
 	push bp
 	mov bp, sp
 	push es
@@ -153,10 +168,23 @@ _lread:
 	pop bp
 ret
 
+; ushort lreadw(ushort seg, ushort off);
+global _lreadw
+_lreadw:
+	push bp
+	mov bp, sp
+	push es
+	mov ax, [bp+4]
+	mov es, ax
+	mov di, [bp+6]
+	mov ax, [es:di]
+	pop es
+	pop bp
+ret
 
-; void init_pit(uint freq);
-global _init_pit
-_init_pit:
+; void io_init_pit(uint divisor);
+global _io_init_pit
+_io_init_pit:
 	push bp
 	mov bp, sp
 	push ax
@@ -168,16 +196,12 @@ _init_pit:
 	xor ax, ax
 	mov es, ax
 	mov word[es:0x20*4], irq0_handler
-	mov word[es:0x20*4+2], 0x0800
+	mov word[es:0x20*4+2], 0x1000
 	pop es
 
-	mov ax, word[bp+4] ; freq
+	mov ax, [bp+4] ; freq
 	cmp ax, 0
 	je .end
-
-	mov dx, 0x18
-	mov ax, 0x34
-	div word[bp+4]
 	mov bx, ax
 
 	mov al, 0x36
@@ -201,9 +225,7 @@ _ticks dd 0
 global irq0_handler
 irq0_handler:
 	pusha
-
 	inc dword[_ticks]
-
 	PIC_SEND_EOI
 	popa
 iret
@@ -215,7 +237,7 @@ _init_mouse:
 	mov ax, 0
 	mov es, ax
 	mov word[es:0x2c*4], irq12_handler
-	mov word[es:0x2c*4+2], 0x0800
+	mov word[es:0x2c*4+2], 0x1000
 	pop es
 
 	; Unlock masks
@@ -332,3 +354,105 @@ _reset_disk:
 	pop dx
 	pop ax
 ret
+
+PROGSEG equ 0x3000
+; void lcall();
+global _lcall
+_lcall:
+	push bp
+	mov bp, sp
+
+	push ax
+	push bx
+	push cx
+	push dx
+	push si
+	push di
+
+	mov ax, PROGSEG
+
+	call PROGSEG:0x0000
+
+	pop di
+	pop si
+	pop dx
+	pop cx
+	pop bx
+	pop ax
+
+	pop bp
+ret
+
+; sys_isr
+global _sys_isr
+extern _syscall
+_sys_isr:
+	push ax
+	push bx
+	push cx
+	push dx
+	push si
+	push di
+	push bp
+	push es
+	push ds
+
+	mov [.ax], ax
+	mov [.bx], bx
+	mov [.cx], cx
+	mov [.dx], dx
+
+	mov ax, 0x0800
+	mov ds, ax
+	mov es, ax
+
+	cmp ah, 1
+	je .putc
+
+.putc:
+	extern _putc
+	push word[bx]
+	call _putc
+	add sp, 2
+	jmp .done
+
+.done:
+	pop ds
+	pop es
+	pop bp
+	pop di
+	pop si
+	pop dx
+	pop cx
+	pop bx
+	pop ax
+iret
+.ax dw 0
+.bx dw 0
+.cx dw 0
+.dx dw 0
+
+; int io_key_pressed(void);
+global _io_key_pressed
+_io_key_pressed:
+	in al, 0x64
+	test al, 1
+	jz .no_key
+	mov ax, 1
+ret
+	.no_key:
+		xor ax, ax
+ret
+
+; uchar io_get_key(void);
+global _io_get_key
+_io_get_key:
+	.wait_key:
+		in al, 0x64
+		test al, 1
+		jz .wait_key
+
+		in al, 0x60
+		mov ah, 0
+ret
+

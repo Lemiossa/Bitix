@@ -32,8 +32,11 @@ extern ulong ticks;
 void outportb(ushort port, uchar value);
 uchar inportb(ushort port);
 
-void lwrite(ushort seg, ushort off, uchar val);
-uchar lread(ushort seg, ushort off);
+void lwriteb(ushort seg, ushort off, uchar val);
+uchar lreadb(ushort seg, ushort off);
+void lwritew(ushort seg, ushort off, ushort val);
+ushort lreadw(ushort seg, ushort off);
+void lcall(ushort seg, ushort off);
 
 void setregs(regs16_t *in);
 void getregs(regs16_t *out);
@@ -42,6 +45,11 @@ int io_init_disk(uchar drive);
 void reset_disk();
 int io_readblock_chs(uchar head, uchar track, uchar sector, void *buf);
 
-void init_pit(uint freq);
+void io_init_pit(uint freq);
+
+int io_key_pressed(void);
+uchar io_get_key(void);
+
+void sys_isr();
 
 #endif /* X86_H */

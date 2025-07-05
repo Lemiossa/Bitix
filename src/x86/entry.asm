@@ -11,7 +11,7 @@ _drive db 0
 global _start
 _start:
 	cli
-	mov ax, 0x0800
+	mov ax, 0x1000
 	mov ds, ax
 	mov es, ax
 	mov ss, ax
@@ -36,5 +36,5 @@ hang:
 section .bss
 align 8
 	stack:
-		resb (1024*4)
+		resb (1024*8)
 	KSTK:

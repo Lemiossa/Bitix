@@ -15,12 +15,11 @@
 #define BLOCK 512
 #define BOOT_BLOCKS 32
 #define SUPERBLOCK_SECTOR BOOT_BLOCKS
-#define MAX_NAME 32
+#define MAX_NAME 22
 #define FS_MAGIC "BFX"
 
 typedef unsigned char u8;
 typedef unsigned short u16;
-typedef unsigned long int u32;
 typedef unsigned short date16_t;
 
 date16_t date; /* compacted date */
@@ -33,25 +32,16 @@ typedef struct {
   u16 inode_count;
   u16 used_inodes;
   u16 free_blocks;
-  u16 used_blocks;
   u16 root_inode;
-  u16 mount_count;
-  u16 last_mount_time;
-  u16 last_write_time;
-  u16 checksum;
-  u8 reserved[BLOCK-28];
+  u8 reserved[BLOCK-(4+2*7)];
 } superblock_t;
 
 typedef struct {
   u8 mode;
-  u16 links;
   u16 size;
   u16 start;
   u16 created;
-  u16 modified;
-  u16 accessed;
   u16 parent;
-  u8 reserved[15];
   char name[MAX_NAME];
 } inode_t;
 
@@ -70,15 +60,21 @@ typedef struct {
 #define HAS_EXEC(m) ((m)&MODE_EXEC)
 
 /**
-* Read or write a block from/to disk image
+* Read a block from/to disk image
 */
-static void rw_block(int fd, u16 block, void *buf, int write_flag)
+static void rblock(int fd, u16 block, void *buf)
 {
   lseek(fd, (off_t)block*BLOCK, SEEK_SET);
-  if(write_flag)
-    write(fd, buf, BLOCK);
-  else
-    read(fd, buf, BLOCK);
+  read(fd, buf, BLOCK);
+}
+
+/**
+* Write a block from/to disk image
+*/
+static void wblock(int fd, u16 block, void *buf)
+{
+  lseek(fd, (off_t)block*BLOCK, SEEK_SET);
+  write(fd, buf, BLOCK);
 }
 
 /**
@@ -124,9 +120,9 @@ static void write_inode(int fd, superblock_t *sb, u16 idx, inode_t *in)
   char buf[BLOCK];
   u16 block=sb->inode_start+idx/INODES_PER_BLOCK;
   u16 offset=idx%INODES_PER_BLOCK;
-  rw_block(fd, block, buf, 0);
+  rblock(fd, block, buf);
   ((inode_t*)buf)[offset]=*in;
-  rw_block(fd, block, buf, 1);
+  wblock(fd, block, buf);
 }
 
 
@@ -138,19 +134,19 @@ static u16 find_inode_by_name(int fd, superblock_t *sb, u16 dir_idx, const char 
   char buf[BLOCK];
   u16 block=sb->inode_start+dir_idx/INODES_PER_BLOCK;
   u16 off=dir_idx%INODES_PER_BLOCK;
-  rw_block(fd, block, buf, 0);
+  rblock(fd, block, buf);
   inode_t *dir=&((inode_t*)buf)[off];
   if(!IS_DIR(dir->mode)) return 0;
 
   for(u16 pos=0;pos<dir->size;pos+=sizeof(u16)) {
     u16 block=dir->start+pos/BLOCK;
     u16 offset=pos%BLOCK;
-    rw_block(fd, block, buf, 0);
+    rblock(fd, block, buf);
     u16 idx;
     memcpy(&idx, buf+offset,sizeof(u16));
     u16 cblk=sb->inode_start+idx/INODES_PER_BLOCK;
     u16 coff=idx%INODES_PER_BLOCK;
-    rw_block(fd, cblk, buf, 0);
+    rblock(fd, cblk, buf);
     inode_t *child=&((inode_t*)buf)[coff];
     if(strncmp(child->name, name, MAX_NAME)==0) return idx;
   }
@@ -166,7 +162,7 @@ static int add_dir_entry(int fd, superblock_t *sb, u16 dir_idx, u16 child_idx)
   u16 blk=sb->inode_start+dir_idx/INODES_PER_BLOCK;
   u16 off=dir_idx%INODES_PER_BLOCK;
 
-  rw_block(fd, blk, buf, 0);
+  rblock(fd, blk, buf);
   inode_t dir;
   memcpy(&dir, &((inode_t*)buf)[off], sizeof(inode_t));
 
@@ -174,12 +170,11 @@ static int add_dir_entry(int fd, superblock_t *sb, u16 dir_idx, u16 child_idx)
   u16 block=dir.start+pos/BLOCK;
   u16 offset=pos%BLOCK;
 
-  rw_block(fd, block, buf, 0);
+  rblock(fd, block, buf);
   memcpy(buf+offset, &child_idx, sizeof(u16));
-  rw_block(fd, block, buf, 1);
+  wblock(fd, block, buf);
 
   dir.size+=sizeof(u16);
-  dir.modified=date;
 
   write_inode(fd, sb, dir_idx, &dir);
   return 0;
@@ -200,12 +195,9 @@ static u16 create_dir(
 {
   inode_t dir={
     .mode=MODE_DIR|(perms&MODE_MASK),
-    .links=1,
     .size=0,
     .start=(*next_data)++,
     .created=date,
-    .modified=date,
-    .accessed=date,
     .parent=parent,
   };
   strncpy(dir.name, name, MAX_NAME-1);
@@ -253,18 +245,6 @@ static u16 resolve_path(
   return current;
 }
 
-/**
-* Checksum
-*/
-static u16 checksum_superblock(superblock_t *sb)
-{
-  const u8 *data=(const u8*)sb;
-  u16 sum=0;
-  for(int i=0;i<BLOCK-4;i++)
-    sum^=data[i];
-  return sum;
-}
-
 int main(int argc, char **argv)
 {
   if(argc<4) {
@@ -288,7 +268,7 @@ int main(int argc, char **argv)
   for(int i=0;i<BOOT_BLOCKS;i++) {
     read(bootfd, buf, BLOCK);
     if(i==0)buf[510]=0x55,buf[511]=0xaa;
-    rw_block(imgfd, i, buf, 1);
+    wblock(imgfd, i, buf);
     memset(buf, 0,  BLOCK);
   }
   close(bootfd);
@@ -306,11 +286,7 @@ int main(int argc, char **argv)
     .inode_count=inode_count,
     .used_inodes=0,
     .free_blocks=total_blocks-data_start,
-    .used_blocks=0,
     .root_inode=1,
-    .mount_count=0,
-    .last_mount_time=0,
-    .last_write_time=date,
     .reserved={0},
   };
 
@@ -372,18 +348,15 @@ int main(int argc, char **argv)
     for(u16 j=0;j<blocks_needed;j++) {
       memset(buf, 0, BLOCK);
       read(sfd, buf, BLOCK);
-      rw_block(imgfd, start+j, buf, 1);
+      wblock(imgfd, start+j, buf);
     }
     close(sfd);
 
     inode_t file={
       .mode=0x00|(perms&MODE_MASK),
-      .links=1,
       .size=fsize,
       .start=start,
       .created=date,
-      .modified=date,
-      .accessed=date,
       .parent=parent_inode,
     };
     strncpy(file.name, name, MAX_NAME-1);
@@ -394,15 +367,22 @@ int main(int argc, char **argv)
     add_dir_entry(imgfd, &sb, parent_inode, idx);
     next_data+=blocks_needed;
     sb.free_blocks-=blocks_needed;
-    sb.used_blocks+=blocks_needed;
     sb.used_inodes++;
 
+    printf("Added %s\n", path);
     free(arg);
     free(parent_path);
   }
-  sb.checksum=checksum_superblock(&sb);
-  rw_block(imgfd, SUPERBLOCK_SECTOR, &sb, 1);
+  wblock(imgfd, SUPERBLOCK_SECTOR, &sb);
   close(imgfd);
-  printf("done. %u MiB\n", total_blocks*BLOCK/1024/1024);
+  printf("done. %hu inodes, ", inode_count);
+  int total_bytes=total_blocks*BLOCK;
+  if(total_bytes>=1024*1024) {
+  	printf("%u MiB\n", total_bytes/1024/1024);
+  } else if(total_bytes>=1024) {
+  	printf("%u KiB\n", total_bytes/1024);
+  } else {
+  	printf("%u B\n", total_bytes);
+  }
   return 0;
 }

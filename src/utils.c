@@ -14,6 +14,15 @@ static uchar params[8];
 static int param_count=0;
 static int cur_param=0;
 
+uchar current_attr=0x07;
+uint screen_width=80;
+uint screen_height=25;
+uchar video_mode=1;
+
+int shift_pressed=0;
+int caps_lock=0;
+int ctrl_pressed=0;
+
 /**
 * Change the chacters attributes
 */
@@ -33,16 +42,16 @@ void scroll()
       uchar ch, attr;
       from=(y*screen_width+x)*2;
       to=((y-1)*screen_width+x)*2;
-      ch=lread(0xb800, from);
-      attr=lread(0xb800, from+1);
-      lwrite(0xb800, to, ch);
-      lwrite(0xb800, to+1, attr);
+      ch=lreadb(0xb800, from);
+      attr=lreadb(0xb800, from+1);
+      lwriteb(0xb800, to, ch);
+      lwriteb(0xb800, to+1, attr);
     }
   }
   for(x=0;x<screen_width;x++) {
     ushort off=((screen_height-1)*screen_width+x)*2;
-    lwrite(0xb800, off, ' ');
-    lwrite(0xb800, off+1, current_attr);
+    lwriteb(0xb800, off, ' ');
+    lwriteb(0xb800, off+1, current_attr);
   }
   if(cursor_y>0)
     cursor_y--;
@@ -54,8 +63,6 @@ void scroll()
 static void io_putc(uchar c)
 {
   ushort pos, offset;
-  if(video_mode!=1)
-    return;
   if(c=='\n') {
     cursor_x=0;
     cursor_y++;
@@ -73,14 +80,14 @@ static void io_putc(uchar c)
     }
     pos=cursor_y*screen_width+cursor_x;
     offset=pos*2;
-    lwrite(0xb800, offset, ' ');
-    lwrite(0xb800, offset+1, current_attr);
+    lwriteb(0xb800, offset, ' ');
+    lwriteb(0xb800, offset+1, current_attr);
   } else if(c=='\t') {
     do {
       pos=cursor_y*screen_width+cursor_x;
       offset=pos*2;
-      lwrite(0xb800, offset, ' ');
-      lwrite(0xb800, offset+1, current_attr);
+      lwriteb(0xb800, offset, ' ');
+      lwriteb(0xb800, offset+1, current_attr);
       cursor_x++;
       if(cursor_x>=screen_width) {
         cursor_x=0;
@@ -92,8 +99,8 @@ static void io_putc(uchar c)
   } else {
     pos=cursor_y*screen_width+cursor_x;
     offset=pos*2;
-    lwrite(0xb800, offset, c);
-    lwrite(0xb800, offset+1, current_attr);
+    lwriteb(0xb800, offset, c);
+    lwriteb(0xb800, offset+1, current_attr);
     cursor_x++;
     if(cursor_x>=screen_width) {
       cursor_x=0;
@@ -186,54 +193,14 @@ void clear_screen(uchar attr)
   for(y=0;y<screen_height;y++) {
     for(x=0;x<screen_width;x++) {
       offset=(y*screen_width+x)*2;
-      lwrite(0xb800, offset, ' ');
-      lwrite(0xb800, offset+1, attr);
+      lwriteb(0xb800, offset, ' ');
+      lwriteb(0xb800, offset+1, attr);
     }
   }
   cursor_x=0;
   cursor_y=0;
   current_attr=attr;
   setcursor(cursor_x, cursor_y);
-}
-
-/**
-* Enable VGA blink
-*/
-void vga_enable_blink()
-{
-  uchar val;
-
-  outportb(0x3c4, 0x01);
-  val=inportb(0x3c5);
-  val&=~0x20; /* Clear bit 5 */
-  outportb(0x3c5, val);
-
-  inportb(0x3da);
-  outportb(0x3c0, 0x10);
-  val=inportb(0x3c1);
-  inportb(0x3da);
-  outportb(0x3c0, 0x10);
-  outportb(0x3c0, val|0x08);
-}
-
-/**
-* Disable VGA blink
-*/
-void vga_disable_blink()
-{
-  uchar val;
-
-  outportb(0x3c4, 0x01);
-  val=inportb(0x3c5);
-  val|=0x20; /* Set bit 5 */
-  outportb(0x3c5, val);
-
-  inportb(0x3da);
-  outportb(0x3c0, 0x10);
-  val=inportb(0x3c1);
-  inportb(0x3da);
-  outportb(0x3c0, 0x10);
-  outportb(0x3c0, val&~0x08);
 }
 
 /**
@@ -381,11 +348,12 @@ void kputsf(uchar *format, ...)
 */
 uint streq(uchar *a, uchar *b)
 {
-  while(*a&&(*a==*b)) {
-    a++;
-    b++;
+  while(*a&&*b){
+  	if(*a!=*b) return 0;
+  	a++;
+  	b++;
   }
-  return (*a==*b);
+  return *a==*b;
 }
 
 /**
@@ -408,7 +376,7 @@ uint strneq(uchar *a, uchar *b, uint n)
 uint strlen(uchar *s)
 {
   int size=0;
-  while(*s)size++;
+  while(*s++)size++;
   return size;
 }
 
@@ -462,42 +430,6 @@ void int86(uchar intnum, regs16_t *in, regs16_t *out)
 }
 
 /**
-* Set VGA VIDEO/TEXT mode
-*/
-void io_set_video_mode(uchar mode)
-{
-  regs16_t r;
-  r.h.ah=0x00;
-  r.h.al=mode;
-  int86(0x10, &r, &r);
-}
-
-/**
-* Set 80x50 TEXT mode
-*/
-void set80x50mode()
-{
-	regs16_t r;
-
-	/* Set 80x25 mode */
-	io_set_video_mode(0x03);
-
-	/* Set 8x8 font */
-	r.h.ah=0x11;
-	r.h.al=0x12;
-	r.h.bl=0x00;
-	int86(0x10, &r, &r);
-
-	/* Update BDA */
-	lwrite(0x40, 0x84, 50);
-	lwrite(0x40, 0x4a, 49);
-
-	/* Update global VARs */
-	screen_width=80;
-	screen_height=50;
-}
-
-/**
 * Put pixel in graphic mode
 */
 void putpixel(ushort x, ushort y, uchar color)
@@ -505,24 +437,9 @@ void putpixel(ushort x, ushort y, uchar color)
   /* video_mode=2 - 320x200x256 VGA mode */
   if(video_mode==2) {
   	ushort offset=y*screen_width+x;
-  	lwrite(0xa000, offset, color);
+  	lwriteb(0xa000, offset, color);
   } else if(video_mode==1) puts("ERROR: Attempted to draw a pixel in an incompatible mode\n");
   return;
-}
-
-/**
-* Remap PIC
-*/
-void pic_remap()
-{
-  outportb(0x20, 0x11);
-  outportb(0xa0, 0x11);
-  outportb(0x21, 0x20);
-  outportb(0xa1, 0x28);
-  outportb(0x21, 0x04);
-  outportb(0xa1, 0x02);
-  outportb(0x21, 0x01);
-  outportb(0xa1, 0x01);
 }
 
 /**
@@ -600,48 +517,8 @@ void hexdump(void *data, uint size)
   }
 }
 
-/**
-* Initialize disk
-*/
-void init_disk(uchar drive)
-{
-  io_init_disk(drive);
-  switch(drive) {
-    case 0x00: {
-      disk.label[0]='f';
-      disk.label[1]='d';
-      disk.label[2]='0';
-      disk.label[3]=0;
-    } break;
-    case 0x01: {
-      disk.label[0]='f';
-      disk.label[1]='d';
-      disk.label[2]='1';
-      disk.label[3]=0;
-    } break;
-    case 0x80: {
-      disk.label[0]='h';
-      disk.label[1]='d';
-      disk.label[2]='0';
-      disk.label[3]=0;
-    } break;
-    case 0x81: {
-      disk.label[0]='h';
-      disk.label[1]='d';
-      disk.label[2]='1';
-      disk.label[3]=0;
-    } break;
-    default: {
-      disk.label[0]='u';
-      disk.label[1]='n';
-      disk.label[2]='k';
-      disk.label[3]=0;
-    } break;
-  }
-}
-
 #define BLOCK 512
-#define MAX_NAME 32
+#define MAX_NAME 22
 #define MAX_PATH 16
 
 typedef struct {
@@ -652,25 +529,16 @@ typedef struct {
   ushort inode_count;
   ushort used_inodes;
   ushort free_blocks;
-  ushort used_blocks;
   ushort root_inode;
-  ushort mount_count;
-  ushort last_mount_time;
-  ushort last_write_time;
-  ushort checksum;
-  uchar reserved[BLOCK-28];
+  uchar reserved[BLOCK-(4+2*7)];
 } bfx_super_t;
 
 typedef struct {
   uchar mode;
-  ushort links;
   ushort size;
   ushort start;
   ushort created;
-  ushort modified;
-  ushort accessed;
   ushort parent;
-  uchar reserved[15];
   uchar name[MAX_NAME];
 } bfx_inode_t;
 
@@ -879,7 +747,7 @@ int bfx_readfile(uchar *path, ushort seg, ushort off)
     if(readblock(start_block+i, tmpbuf)) return ERR_IO;
     to_copy=bytes_left>BLOCK?BLOCK:bytes_left;
     for(j=0;j<to_copy;j++) {
-      lwrite(current_seg, current_off+j, tmpbuf[j]);
+      lwriteb(current_seg, current_off+j, tmpbuf[j]);
     }
     current_off+=BLOCK;
     if(current_off>=0x10000) {
@@ -889,4 +757,192 @@ int bfx_readfile(uchar *path, ushort seg, ushort off)
     bytes_left-=to_copy;
   }
   return 0;
+}
+
+/**
+* Find char in string
+*/
+char *strchr(uchar *s, int c)
+{
+  while(*s) {
+    if(*s==(uchar)c)
+      return (uchar*)s;
+    s++;
+  }
+  return NULL;
+}
+
+/**
+* Find string in string
+*/
+char *strstr(uchar *haystack, uchar *needle)
+{
+  if(!*needle) return (uchar*)haystack;
+
+  while(*haystack) {
+    uchar *h=haystack;
+    uchar *n=needle;
+
+    while(*h&&*n&&*h==*n)  {
+      h++;
+      n++;
+    }
+
+    if(!*n) return (uchar*)haystack;
+    haystack++;
+  }
+}
+
+/**
+* Copy long memory
+*/
+void lmemcpy(void *buf, ushort seg, ushort off, uint size)
+{
+  int i;
+  uchar *out=(uchar*)buf;
+  for(i=0;i<size;i++) {
+    out[i]=lreadb(seg, off+i);
+  }
+}
+
+/**
+* Exec file
+*/
+#ifndef PROG
+#define USERSEG 0x3000
+#else
+#define USERSEG 0x5000
+#endif
+#define USEROFF 0x0000
+int exec(uchar *path)
+{
+  int result;
+  result=bfx_readfile(path, USERSEG, USEROFF);
+  if(result<0) {
+    kputsf("exec: Error in execute '%s'\n", path);
+    return result;
+  }
+  lcall();
+}
+
+#define CTRL_CHAR(c) ((c)&0x1f)
+
+uint getkey()
+{
+  uchar code=io_get_key();
+
+  if(code&0x80) {
+    uchar released=code&0x7f;
+    if(released==0x2a||released==0x36) shift_pressed=0;
+    if(released==0x1d) ctrl_pressed=0;
+    return 0;
+  }
+
+  if(code==0x2a||code==0x36) {
+    shift_pressed=1;
+    return 0;
+  }
+
+  if(code==0x3a) {
+    caps_lock^=1;
+    return 0;
+  }
+
+  if(code==0x1d) {
+    ctrl_pressed=1;
+    return 0;
+  }
+
+  switch(code) {
+    case 0x01: return KEY_ESC;
+    case 0x02: return shift_pressed?'!':'1';
+    case 0x03: return shift_pressed?'@':'2';
+    case 0x04: return shift_pressed?'#':'3';
+    case 0x05: return shift_pressed?'$':'4';
+    case 0x06: return shift_pressed?'%':'5';
+    case 0x07: return shift_pressed?'^':'6';
+    case 0x08: return shift_pressed?'&':'7';
+    case 0x09: return shift_pressed?'*':'8';
+    case 0x0a: return shift_pressed?'(':'9';
+    case 0x0b: return shift_pressed?')':'0';
+    case 0x0c: return shift_pressed?'_':'-';
+    case 0x0d: return shift_pressed?'+':'=';
+
+    case 0x1a: return shift_pressed?'{':'[';
+    case 0x1b: return shift_pressed?'}':']';
+    case 0x2b: return shift_pressed?'\\':'|';
+    case 0x27: return shift_pressed?':':';';
+    case 0x28: return shift_pressed?'"':'\'';
+    case 0x29: return shift_pressed?'~':'`';
+    case 0x33: return shift_pressed?'<':',';
+    case 0x34: return shift_pressed?'>':'.';
+    case 0x35: return shift_pressed?'?':'/';
+
+    case 0x10: return ctrl_pressed?CTRL_CHAR('Q'):(shift_pressed^caps_lock)?'Q':'q';
+    case 0x11: return ctrl_pressed?CTRL_CHAR('W'):(shift_pressed^caps_lock)?'W':'w';
+    case 0x12: return ctrl_pressed?CTRL_CHAR('E'):(shift_pressed^caps_lock)?'E':'e';
+    case 0x13: return ctrl_pressed?CTRL_CHAR('R'):(shift_pressed^caps_lock)?'R':'r';
+    case 0x14: return ctrl_pressed?CTRL_CHAR('T'):(shift_pressed^caps_lock)?'T':'t';
+    case 0x15: return ctrl_pressed?CTRL_CHAR('Y'):(shift_pressed^caps_lock)?'Y':'y';
+    case 0x16: return ctrl_pressed?CTRL_CHAR('U'):(shift_pressed^caps_lock)?'U':'u';
+    case 0x17: return ctrl_pressed?CTRL_CHAR('I'):(shift_pressed^caps_lock)?'I':'i';
+    case 0x18: return ctrl_pressed?CTRL_CHAR('O'):(shift_pressed^caps_lock)?'O':'o';
+    case 0x19: return ctrl_pressed?CTRL_CHAR('P'):(shift_pressed^caps_lock)?'P':'p';
+    case 0x1e: return ctrl_pressed?CTRL_CHAR('A'):(shift_pressed^caps_lock)?'A':'a';
+    case 0x1f: return ctrl_pressed?CTRL_CHAR('S'):(shift_pressed^caps_lock)?'S':'s';
+    case 0x20: return ctrl_pressed?CTRL_CHAR('D'):(shift_pressed^caps_lock)?'D':'d';
+    case 0x21: return ctrl_pressed?CTRL_CHAR('F'):(shift_pressed^caps_lock)?'F':'f';
+    case 0x22: return ctrl_pressed?CTRL_CHAR('G'):(shift_pressed^caps_lock)?'G':'g';
+    case 0x23: return ctrl_pressed?CTRL_CHAR('H'):(shift_pressed^caps_lock)?'H':'h';
+    case 0x24: return ctrl_pressed?CTRL_CHAR('J'):(shift_pressed^caps_lock)?'J':'j';
+    case 0x25: return ctrl_pressed?CTRL_CHAR('K'):(shift_pressed^caps_lock)?'K':'k';
+    case 0x26: return ctrl_pressed?CTRL_CHAR('L'):(shift_pressed^caps_lock)?'L':'l';
+    case 0x2c: return ctrl_pressed?CTRL_CHAR('Z'):(shift_pressed^caps_lock)?'Z':'z';
+    case 0x2d: return ctrl_pressed?CTRL_CHAR('X'):(shift_pressed^caps_lock)?'X':'x';
+    case 0x2e: return ctrl_pressed?CTRL_CHAR('C'):(shift_pressed^caps_lock)?'C':'c';
+    case 0x2f: return ctrl_pressed?CTRL_CHAR('V'):(shift_pressed^caps_lock)?'V':'v';
+    case 0x30: return ctrl_pressed?CTRL_CHAR('B'):(shift_pressed^caps_lock)?'B':'b';
+    case 0x31: return ctrl_pressed?CTRL_CHAR('N'):(shift_pressed^caps_lock)?'N':'n';
+    case 0x32: return ctrl_pressed?CTRL_CHAR('M'):(shift_pressed^caps_lock)?'M':'m';
+
+    case 0x48: return KEY_UP;
+    case 0x50: return KEY_DOWN;
+    case 0x4b: return KEY_LEFT;
+    case 0x4d: return KEY_RIGHT;
+
+    case 0x39: return ' ';
+    case 0x1c: return '\r';
+    case 0x0e: return '\b';
+    case 0x0f: return '\t';
+
+    default:   return 0;
+  }
+}
+
+#define MAX_LINE 256
+
+int readline(uchar *buffer, int max_len)
+{
+  int pos=0;
+  while(1) {
+  	uint key=getkey();
+  	if(key==0) continue;
+  	if(key=='\r') {
+      putc('\n');
+      buffer[pos]=0;
+      return pos;
+  	} else if(key=='\b') {
+      if(pos>0) {
+        pos--;
+        putc('\b');
+        putc(' ');
+        putc('\b');
+      }
+    } else {
+      if(pos<max_len-1) {
+        buffer[pos++]=(uchar)key;
+        putc((uchar)key);
+      }
+    }
+  }
 }
