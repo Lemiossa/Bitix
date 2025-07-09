@@ -1,0 +1,10 @@
+BasedOnStyle: GNU
+IndentWidth: 2
+UseTab: Always
+TabWidth: 2
+BreakBeforeBraces: Linux
+AllowShortIfStatementsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: None
+AllowShortLoopsOnASingleLine: false
+ColumnLimit: 120
+SortIncludes: false

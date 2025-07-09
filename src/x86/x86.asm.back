@@ -1,0 +1,45 @@
+PROGSEG equ KSEG+0x1000
+; void lcall();
+global _lcall
+_lcall:
+	pusha
+	push es
+	push ds
+
+	mov ax, PROGSEG
+	mov ds, ax
+	mov es, ax
+	
+	call PROGSEG:0x0200
+	
+	pop ds
+	pop es
+	popa
+ret
+
+; sys_isr
+global _sys_isr
+extern _syscall
+_sys_isr:
+	pusha
+	push es
+	push ds
+
+	push ax
+	mov ax, KSEG
+	mov ds, ax
+	mov es, ax
+	pop ax
+
+	push dx
+	push cx
+	push bx
+	push ax
+	call _syscall
+	add sp, 8
+
+.done:
+	pop ds
+	pop es
+	popa
+iret
