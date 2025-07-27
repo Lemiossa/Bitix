@@ -7,6 +7,7 @@ Well... I decided to try. At first, I made a ton of crappy attempts — but each
 
 ## Dependencies
 
+To build and run Bitix, you'll need:
 - gcc - to compile the bootloader and kernel
 - nasm - to compile low-level parts of the bootloader and kernel
 - qemu - to run
@@ -14,12 +15,15 @@ Well... I decided to try. At first, I made a ton of crappy attempts — but each
 
 ## Minimum requirements to run on a real machine
 
-- 80386+ CPU - Protected mode support
-- 8MiB of RAM - at the moment, this is quite excessive, but I intend to make the OS quite complete, so I recommend this.
+- 80386+ CPU (Protected Mode support required)
+- 8MiB of RAM 
+
+Right now, that’s more than enough — but I'm planning to make Bitix more feature-complete over time, so better to have some headroom
 
 ## Bugs
 
-Well... I haven't found any bugs so far.
+Honestly?
+None found so far... But if you find any, feel free to open an issue or ping me.
 
 ## How to compile
 
