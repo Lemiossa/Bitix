@@ -1,6 +1,7 @@
 # Bitix
 
-Bitix is an x86 operating system made for study.
+Bitix é um simples sistema operacional feito pra estudo.
+Não crie muita expectativa.
 
-# License
+## License
 [MIT](LICENSE)
