@@ -2,7 +2,7 @@
  * Vga.c                            *
  * Criado por Matheus Leme Da Silva *
  ***********************************/
-#include "Types.h"
+#include <stdint.h>
 #include "Io.h"
 #include "Vga.h"
 
@@ -60,11 +60,11 @@ void vga_scroll(void)
 }
 
 /* Limpa a tela no modo de texto VGA */
-void vga_clear(void)
+void vga_clear(uint8_t attributes)
 {
 	for (uint16_t y = 0; y < VGA_HEIGHT; y++) {
 		for (uint16_t x = 0; x < VGA_WIDTH; x++) {
-			vga_put_char(x, y, ' ', 0x07);
+			vga_put_char(x, y, ' ', attributes);
 		}
 	}
 }

@@ -4,7 +4,7 @@
  ***********************************/
 #ifndef IO_H
 #define IO_H
-#include "Types.h"
+#include <stdint.h>
 
 /* Envia um byte para uma porta IO */
 inline void outb(uint16_t port, uint8_t val)

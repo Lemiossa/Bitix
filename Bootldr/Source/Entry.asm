@@ -30,6 +30,7 @@ _start:
 	CLI
 	HLT
 
+;; Cria uma entrada da GDT
 %macro gdt_entry 4 ;; 1 = base, 2 = limite, 3 = access, 4 = flags
 	DW (%2 & 0xFFFF) ;; Parte baixa do limite
 	DW (%1 & 0xFFFF) ;; Parte baixa da base
@@ -50,6 +51,144 @@ gdtr:
 	DW gdtend - gdt - 1
 	DD gdt
 
+;; Volta para o modo real
+%macro real_mode 0
+	JMP WORD 0x18:%%entry16
+%%entry16:
+	BITS 16
+	MOV AX, 0x20
+	MOV DS, AX
+	MOV ES, AX
+	MOV FS, AX
+	MOV GS, AX
+	MOV SS, AX
+
+	MOV EAX, CR0
+	AND EAX, ~1 ;; Desabilitar o bit PE
+	MOV CR0, EAX
+
+	JMP WORD 0x00:%%realmode
+%%realmode:
+	XOR AX, AX
+	MOV DS, AX
+	MOV ES, AX
+	MOV FS, AX
+	MOV GS, AX
+	MOV SS, AX
+%endmacro
+
+;; Volta pro modo protegido
+%macro protected_mode 0
+	MOV EAX, CR0
+	OR EAX, 1
+	MOV CR0, EAX
+
+	JMP DWORD 0x08:%%protectedmode
+%%protectedmode:
+	BITS 32
+	MOV AX, 0x10
+	MOV DS, AX
+	MOV ES, AX
+	MOV FS, AX
+	MOV GS, AX
+	MOV SS, AX
+%endmacro
+
+struc Regs
+	.eax RESD 1
+	.ebx RESD 1
+	.ecx RESD 1
+	.edx RESD 1
+	.ebp RESD 1
+	.esi RESD 1
+	.edi RESD 1
+	.ds RESW 1
+	.es RESW 1
+endstruc
+
+real_mode_stack:
+	TIMES Regs_size DB 0
+real_mode_stack_top:
+
+;; Usa uma interrupção no modo de 16 bits(modo real)
+;; typedef struct Regs { uint32_t eax, ebx, ecx, edx, ebp, esi, edi; uint16_t ds, es; } __attribute__((packed)) Regs;
+;; void int16(uint8_t intnum, Regs *r);
+GLOBAL int16
+int16:
+	BITS 32
+	MOV AL, [ESP+4]
+	MOV [.int+1], AL
+
+	MOV ESI, [ESP+8]
+	MOV [.struct], ESI
+
+	PUSH DS
+	PUSH ES
+	PUSHAD
+	PUSHFD
+	MOV [.esp], ESP
+
+	MOV ESP, real_mode_stack_top
+	PUSH DWORD [ESI+Regs.eax]
+	PUSH DWORD [ESI+Regs.ebx]
+	PUSH DWORD [ESI+Regs.ecx]
+	PUSH DWORD [ESI+Regs.edx]
+	PUSH DWORD [ESI+Regs.ebp]
+	PUSH DWORD [ESI+Regs.esi]
+	PUSH DWORD [ESI+Regs.edi]
+	PUSH WORD  [ESI+Regs.ds]
+	PUSH WORD  [ESI+Regs.es]
+
+	real_mode
+
+	MOV SP, real_mode_stack
+
+	POP ES
+	POP DS
+	POP EDI
+	POP ESI
+	POP EBP
+	POP EDX
+	POP ECX
+	POP EBX
+	POP EAX
+.int:
+	INT 0x00
+	PUSH ES
+	PUSH DS
+	PUSH EDI
+	PUSH ESI
+	PUSH EBP
+	PUSH EDX
+	PUSH ECX
+	PUSH EBX
+	PUSH EAX
+
+	PUSH EAX
+	protected_mode
+	POP EAX
+
+	MOV ESI, [.struct]
+
+	POP DWORD [ESI+Regs.eax]
+	POP DWORD [ESI+Regs.ebx]
+	POP DWORD [ESI+Regs.ecx]
+	POP DWORD [ESI+Regs.edx]
+	POP DWORD [ESI+Regs.ebp]
+	POP DWORD [ESI+Regs.esi]
+	POP DWORD [ESI+Regs.edi]
+	POP WORD  [ESI+Regs.ds]
+	POP WORD  [ESI+Regs.es]
+
+	MOV ESP, [.esp]
+	POPFD
+	POPAD
+	POP ES
+	POP DS
+	RET
+.esp: DD 0
+.struct: DD 0
+
 SECTION .text
 BITS 32
 EXTERN main
@@ -68,3 +207,4 @@ _start32:
 
 	CLI
 	HLT
+
