@@ -53,9 +53,9 @@ void vga_scroll(void)
 	}
 
 	for (int x = 0; x < VGA_WIDTH; x++) {
-		uint16_t cell = vga_get_char(x, VGA_HEIGHT);
+		uint16_t cell = vga_get_char(x, VGA_HEIGHT-1);
 		uint8_t attributes = (cell >> 8) & 0xFF;
-		vga_put_char(x, VGA_HEIGHT, ' ', attributes);
+		vga_put_char(x, VGA_HEIGHT-1, ' ', attributes);
 	}
 }
 
