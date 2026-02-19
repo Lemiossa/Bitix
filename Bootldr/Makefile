@@ -32,6 +32,7 @@ TARGET ?= $(BINDIR)/Bootldr.bin
 
 SOURCE := \
 		  Entry.asm \
+		  Vga.c \
 		  Main.c
 SOURCE := $(addprefix $(SOURCEDIR)/,$(SOURCE))
 
