@@ -1,5 +1,5 @@
 /************************************
- * Vga.h                            *
+ * vga.h                            *
  * Criado por Matheus Leme Da Silva *
  ***********************************/
 #ifndef VGA_H

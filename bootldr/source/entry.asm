@@ -104,6 +104,7 @@ struc Regs
 	.edi RESD 1
 	.ds RESW 1
 	.es RESW 1
+	.flags RESW 1
 endstruc
 
 real_mode_stack:
@@ -111,7 +112,7 @@ real_mode_stack:
 real_mode_stack_top:
 
 ;; Usa uma interrupção no modo de 16 bits(modo real)
-;; typedef struct Regs { uint32_t eax, ebx, ecx, edx, ebp, esi, edi; uint16_t ds, es; } __attribute__((packed)) Regs;
+;; typedef struct Regs { uint32_t eax, ebx, ecx, edx, ebp, esi, edi; uint16_t ds, es, flags; } __attribute__((packed)) Regs;
 ;; void int16(uint8_t intnum, Regs *r);
 GLOBAL int16
 int16:
@@ -138,11 +139,13 @@ int16:
 	PUSH DWORD [ESI+Regs.edi]
 	PUSH WORD  [ESI+Regs.ds]
 	PUSH WORD  [ESI+Regs.es]
+	PUSH WORD  [ESI+Regs.flags]
 
 	real_mode
 
 	MOV SP, real_mode_stack
 
+	POP AX
 	POP ES
 	POP DS
 	POP EDI
@@ -154,6 +157,7 @@ int16:
 	POP EAX
 .int:
 	INT 0x00
+	PUSHF
 	PUSH ES
 	PUSH DS
 	PUSH EDI
@@ -179,6 +183,7 @@ int16:
 	POP DWORD [ESI+Regs.edi]
 	POP WORD  [ESI+Regs.ds]
 	POP WORD  [ESI+Regs.es]
+	POP WORD  [ESI+Regs.flags]
 
 	MOV ESP, [.esp]
 	POPFD
@@ -205,6 +210,6 @@ _start32:
 
 	CALL main
 
-	CLI
-	HLT
+hang:
+	JMP hang
 

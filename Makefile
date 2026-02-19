@@ -11,13 +11,13 @@ ifneq ($(ARCH),x86)
 	$(error Unsuported arch: $(ARCH))
 endif
 
-BUILDDIR := $(CURDIR)/Build
-BINDIR := $(BUILDDIR)/Bin
-OBJDIR := $(BUILDDIR)/Obj
-DEPDIR := $(BUILDDIR)/Dep
+BUILDDIR := $(CURDIR)/build
+BINDIR := $(BUILDDIR)/bin
+OBJDIR := $(BUILDDIR)/obj
+DEPDIR := $(BUILDDIR)/dep
 
-CC := clang
-LD := ld.lld
+CC := gcc
+LD := ld
 
 export BUILDDIR
 export BINDIR
@@ -26,7 +26,7 @@ export DEPDIR
 export CC
 export LD
 
-BOOTLOADER := $(BINDIR)/Bootldr.bin
+BOOTLOADER := $(BINDIR)/bootldr.bin
 
 ifeq ($(ARCH),x86)
 	QEMU := qemu-system-i386
@@ -42,7 +42,7 @@ all: $(IMAGE)
 
 .PHONY: clean
 clean:
-	$(MAKE) -C Bootldr TARGET=$(BOOTLOADER) clean
+	$(MAKE) -C bootldr TARGET=$(BOOTLOADER) clean
 	rm -f $(IMAGE)
 
 .PHONY: qemu
@@ -51,7 +51,7 @@ qemu: $(IMAGE)
 
 .PHONY: bootloader
 bootloader:
-	$(MAKE) -C Bootldr TARGET=$(BOOTLOADER)
+	$(MAKE) -C bootldr TARGET=$(BOOTLOADER)
 
 $(IMAGE): bootloader
 	dd if=/dev/zero of=$@ bs=1440K count=1

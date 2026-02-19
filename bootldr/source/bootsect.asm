@@ -1,5 +1,5 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Bootsect.asm                     ;;
+;; bootsect.asm                     ;;
 ;; Criado por Matheus Leme Da Silva ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 BITS 16
