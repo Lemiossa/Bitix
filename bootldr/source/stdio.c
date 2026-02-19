@@ -4,6 +4,7 @@
  ***********************************/
 #include <stdint.h>
 #include <stdarg.h>
+#include "stdio.h"
 #include "util.h"
 #include "vga.h"
 
@@ -31,6 +32,8 @@ void putc(char c)
 
 	if (cursor_y >= VGA_HEIGHT) {
 		vga_scroll();
+		cursor_x = 0;
+		cursor_y = VGA_HEIGHT-1;
 	}
 
 	vga_set_cursor(cursor_x, cursor_y);
@@ -84,6 +87,9 @@ int vsprintf(char *out, const char *fmt, va_list args)
 					size = 1;
 					fmt++;
 				}
+			} else if (*fmt == 'l') {
+				size = 4;
+				fmt++;
 			}
 
 			if (*fmt == 'd') {
@@ -113,9 +119,22 @@ int vsprintf(char *out, const char *fmt, va_list args)
 					buf_len = 6;
 				}
 
+				char *start = s;
+
+				while (*s) {
+					buf_len++;
+					s++;
+				}
+				s = start;
+
+				if (!neg_pad) {
+					int i = 0;
+					for (i = 0; i < pad - buf_len; i++)
+						*out++ = ' ';
+				}
+
 				while (*s) {
 					*out++ = *s++;
-					buf_len++;
 				}
 
 				if (neg_pad) {
@@ -133,9 +152,9 @@ int vsprintf(char *out, const char *fmt, va_list args)
 				int32_t val = va_arg(args, int32_t);
 
 				if (size == 1)
-					val = (int8_t)val;
+					val = (int8_t)val & 0xFF;
 				else if (size == 2)
-					val = (int16_t)val;
+					val = (int16_t)val & 0xFFFF;
 
 				if (val < 0) {
 					val = -val;
@@ -148,9 +167,9 @@ int vsprintf(char *out, const char *fmt, va_list args)
 				uint32_t val = va_arg(args, uint32_t);
 
 				if (size == 1)
-					val = (uint8_t)val;
+					val = (uint8_t)val & 0xFF;
 				else if (size == 2)
-					val = (uint16_t)val;
+					val = (uint16_t)val & 0xFFFF;
 
 				num = val;
 			}
@@ -180,7 +199,7 @@ int vsprintf(char *out, const char *fmt, va_list args)
 				int i = 0;
 				char c = zero_pad?'0':' ';
 				for (i = 0; i < pad - buf_len; i++) {
-					*out = c;
+					*out++ = c;
 				}
 			}
 

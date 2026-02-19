@@ -14,6 +14,8 @@ _start:
 	MOV SS, AX
 	MOV SP, 0x7C00
 
+	MOV [boot_drive], DL
+
 	;; Ativar linha A20
 	IN AL, 0x92
 	OR AL, 2
@@ -29,6 +31,9 @@ _start:
 
 	CLI
 	HLT
+
+GLOBAL boot_drive
+boot_drive: DB 0
 
 ;; Cria uma entrada da GDT
 %macro gdt_entry 4 ;; 1 = base, 2 = limite, 3 = access, 4 = flags
@@ -102,9 +107,9 @@ struc Regs
 	.ebp RESD 1
 	.esi RESD 1
 	.edi RESD 1
-	.ds RESW 1
-	.es RESW 1
-	.flags RESW 1
+	.ds RESD 1
+	.es RESD 1
+	.eflags RESD 1
 endstruc
 
 real_mode_stack:
@@ -125,6 +130,8 @@ int16:
 
 	PUSH DS
 	PUSH ES
+	PUSH FS
+	PUSH GS
 	PUSHAD
 	PUSHFD
 	MOV [.esp], ESP
@@ -137,36 +144,38 @@ int16:
 	PUSH DWORD [ESI+Regs.ebp]
 	PUSH DWORD [ESI+Regs.esi]
 	PUSH DWORD [ESI+Regs.edi]
-	PUSH WORD  [ESI+Regs.ds]
-	PUSH WORD  [ESI+Regs.es]
-	PUSH WORD  [ESI+Regs.flags]
+	PUSH DWORD [ESI+Regs.ds]
+	PUSH DWORD [ESI+Regs.es]
+	PUSH DWORD [ESI+Regs.eflags]
 
 	real_mode
 
 	MOV SP, real_mode_stack
 
-	POP AX
-	POP ES
-	POP DS
-	POP EDI
-	POP ESI
-	POP EBP
-	POP EDX
-	POP ECX
-	POP EBX
-	POP EAX
+	POP DWORD EAX
+	POP DWORD EAX
+	MOV ES, AX
+	POP DWORD EAX
+	MOV DS, AX
+	POP DWORD EDI
+	POP DWORD ESI
+	POP DWORD EBP
+	POP DWORD EDX
+	POP DWORD ECX
+	POP DWORD EBX
+	POP DWORD EAX
 .int:
 	INT 0x00
-	PUSHF
-	PUSH ES
-	PUSH DS
-	PUSH EDI
-	PUSH ESI
-	PUSH EBP
-	PUSH EDX
-	PUSH ECX
-	PUSH EBX
-	PUSH EAX
+	PUSHFD
+	PUSH DWORD ES
+	PUSH DWORD DS
+	PUSH DWORD EDI
+	PUSH DWORD ESI
+	PUSH DWORD EBP
+	PUSH DWORD EDX
+	PUSH DWORD ECX
+	PUSH DWORD EBX
+	PUSH DWORD EAX
 
 	PUSH EAX
 	protected_mode
@@ -181,13 +190,15 @@ int16:
 	POP DWORD [ESI+Regs.ebp]
 	POP DWORD [ESI+Regs.esi]
 	POP DWORD [ESI+Regs.edi]
-	POP WORD  [ESI+Regs.ds]
-	POP WORD  [ESI+Regs.es]
-	POP WORD  [ESI+Regs.flags]
+	POP DWORD [ESI+Regs.ds]
+	POP DWORD [ESI+Regs.es]
+	POP DWORD [ESI+Regs.eflags]
 
 	MOV ESP, [.esp]
 	POPFD
 	POPAD
+	POP GS
+	POP FS
 	POP ES
 	POP DS
 	RET

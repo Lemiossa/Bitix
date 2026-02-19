@@ -4,57 +4,11 @@
  ***********************************/
 #include <stdint.h>
 #include <stdarg.h>
+#include <stddef.h>
+#include "real_mode.h"
 #include "stdio.h"
 #include "util.h"
 #include "vga.h"
-
-#define MK_SEG(ptr) ((uint16_t)((uint32_t)(ptr) >> 4))
-#define MK_OFF(ptr) ((uint16_t)((uint32_t)(ptr) & 0x0F))
-
-typedef union Regs {
-	struct {
-		uint8_t al, ah, __al, __ah;
-		uint8_t bl, bh, __bl, __bh;
-		uint8_t cl, ch, __cl, __ch;
-		uint8_t dl, dh, __dl, __dh;
-	} b;
-
-	struct {
-		uint16_t ax, __ax;
-		uint16_t bx, __bx;
-		uint16_t cx, __cx;
-		uint16_t dx, __dx;
-		uint16_t bp, __bp;
-		uint16_t si, __si;
-		uint16_t di, __di;
-		uint16_t ds;
-		uint16_t es;
-		uint16_t flags;
-	} w;
-
-	struct {
-		uint32_t eax;
-		uint32_t ebx;
-		uint32_t ecx;
-		uint32_t edx;
-		uint32_t ebp;
-		uint32_t esi;
-		uint32_t edi;
-	} d;
-} Regs;
-
-#define FLAG_CF (1 << 0)
-#define FLAG_PF (1 << 2)
-#define FLAG_AF (1 << 4)
-#define FLAG_ZF (1 << 6)
-#define FLAG_SF (1 << 7)
-#define FLAG_TF (1 << 8)
-#define FLAG_IF (1 << 9)
-#define FLAG_DF (1 << 10)
-#define FLAG_OF (1 << 11)
-#define FLAG_NT (1 << 14)
-
-void int16(uint8_t intnum, Regs *r);
 
 typedef struct E820Entry {
 	uint64_t base;
@@ -64,7 +18,7 @@ typedef struct E820Entry {
 } __attribute__((packed)) E820Entry;
 
 /* Pega a tabela E820 */
-/* Retorna o número de entradas, -1 se erro*/
+/* Retorna o número de entradas, 1 se erro */
 int E820_get_table(E820Entry *out, int max)
 {
 	int count = 0;
@@ -74,24 +28,111 @@ int E820_get_table(E820Entry *out, int max)
 		r.d.eax = 0xE820;
 		r.d.ecx = sizeof(E820Entry);
 		r.d.edx = 0x534D4150;
-		r.w.es = MK_SEG(&entry);
+		r.d.es = MK_SEG(&entry);
 		r.w.di = MK_OFF(&entry);
 
 		int16(0x15, &r);
 
-		if (r.d.eax != 0x534D4150 || r.w.flags & FLAG_CF)
-			return -1;
+		if (r.d.eax != 0x534D4150 || r.d.eflags & FLAG_CF)
+			return 1;
+
 		out[count++] = entry;
 	} while (r.d.ebx != 0 && count < max);
 
 	return count;
 }
 
+#define SECTOR_SIZE 512
+
+/* Pega parâmetros de um disco usando o BIOS */
+/* Retorna um número diferente de zero se houver erro */
+int disk_get_parameters(uint8_t drive, uint16_t *cyl, uint8_t *hds, uint8_t *spt)
+{
+	Regs r = {0};
+	r.b.ah = 0x08;
+	r.b.dl = drive;
+	int16(0x13, &r);
+
+	if (r.d.eflags & FLAG_CF)
+		return 1;
+
+	if (cyl)
+		*cyl = r.b.ch | (((r.b.cl & 0xC0) >> 6) << 8);
+
+	if (hds)
+		*hds = r.b.dh + 1;
+
+	if (spt)
+		*spt = r.b.cl & 0x3F;
+
+	return 0;
+}
+
+extern uint8_t boot_drive;
+
+/* Le n setores de um disco usando o BIOS */
+/* Retorna um número diferente de zero se houver erro */
+/* ATENÇÃO: N não pode ser mais de 59. dest deve ser abaixo de 1MiB */
+int disk_read(uint8_t drive, void *dest, uint32_t lba, uint8_t n)
+{
+	if (!dest || n == 0 || n > 59)
+		return 1;
+
+	uint16_t cyl;
+	uint8_t hds, spt;
+
+	if (disk_get_parameters(drive, &cyl, &hds, &spt) != 0)
+		return 1;
+
+	if (lba > (cyl * hds * spt))
+		return 1;
+
+	/* Calculo lba -> chs */
+	/* https://wiki.osdev.org/Disk_access_using_the_BIOS_(INT_13h) */
+	uint32_t tmp = lba / spt;
+	uint16_t cylinder = tmp / hds;
+	uint8_t head = tmp % hds;
+	uint8_t sector = (lba % spt) + 1;
+
+	printf("LBA: %u, CHS: %hu,%hhu,%hhu\r\n", lba, cylinder, head, sector);
+
+	Regs r = {0};
+	r.b.ah = 0x02;
+	r.b.al = n;
+	r.b.ch = cylinder & 0xFF;
+	r.b.cl = sector | ((cylinder >> 2) & 0xC0);
+	r.b.dh = head;
+	r.d.es = MK_SEG(dest);
+	r.w.bx = MK_OFF(dest);
+	r.b.dl = drive;
+	int16(0x13, &r);
+
+	if (r.d.eflags & FLAG_CF)
+		return 1;
+
+	return 0;
+}
+
+/* Func principal do bootloader */
 int main(void)
 {
 	vga_clear(0x07);
 	printf("Ola mundo!\r\n");
 
+	uint8_t buf[SECTOR_SIZE];
+	if (disk_read(boot_drive, buf, 0, 1) != 0) {
+		printf("Falha ao ler setor 0 do disco!\r\n");
+		goto halt;
+	} else {
+		for (int i = 0; i < SECTOR_SIZE; i++) {
+			printf("%02X ", buf[i]);
+			if ((i + 1) % 24 == 0)
+				printf("\r\n");
+		}
+		printf("\r\n");
+	}
+
+halt:
 	printf("Sistema travado. Por favor, reinicie.\r\n");
 	while (1);
 }
