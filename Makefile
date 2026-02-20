@@ -15,6 +15,7 @@ BUILDDIR := $(CURDIR)/build
 BINDIR := $(BUILDDIR)/bin
 OBJDIR := $(BUILDDIR)/obj
 DEPDIR := $(BUILDDIR)/dep
+ROOTDIR := $(BUILDDIR)/rootdir
 
 CC := gcc
 LD := ld
@@ -53,11 +54,15 @@ qemu: $(IMAGE)
 bootloader:
 	$(MAKE) -C bootldr TARGET=$(BOOTLOADER)
 
-$(IMAGE): bootloader
+$(ROOTDIR):
+	mkdir -p $@
+	printf "Hello World\r\n" > $@/text.txt
+
+$(IMAGE): bootloader $(ROOTDIR)
 	dd if=/dev/zero of=$@ bs=1440K count=1
 	mkfs.fat -F 12 -R 64 -n "BITIX" $@
 	dd if=$(BOOTLOADER) of=$@ bs=1 count=3 conv=notrunc
 	dd if=$(BOOTLOADER) of=$@ bs=1 skip=62 seek=62 count=448 conv=notrunc
 	dd if=$(BOOTLOADER) of=$@ bs=1 skip=512 seek=512 conv=notrunc
-
+	mcopy -i $@ $(ROOTDIR)/* ::/ -s
 

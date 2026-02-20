@@ -29,9 +29,6 @@ _start:
 
 	JMP 0x08:_start32
 
-	CLI
-	HLT
-
 GLOBAL boot_drive
 boot_drive: DB 0
 
@@ -113,7 +110,7 @@ struc Regs
 endstruc
 
 real_mode_stack:
-	TIMES Regs_size DB 0
+	TIMES 512 DB 0
 real_mode_stack_top:
 
 ;; Usa uma interrupção no modo de 16 bits(modo real)
@@ -150,7 +147,7 @@ int16:
 
 	real_mode
 
-	MOV SP, real_mode_stack
+	;;MOV SP, real_mode_stack
 
 	POP DWORD EAX
 	POP DWORD EAX
@@ -167,8 +164,10 @@ int16:
 .int:
 	INT 0x00
 	PUSHFD
-	PUSH DWORD ES
-	PUSH DWORD DS
+	PUSH WORD 0
+	PUSH WORD ES
+	PUSH WORD 0
+	PUSH WORD DS
 	PUSH DWORD EDI
 	PUSH DWORD ESI
 	PUSH DWORD EBP

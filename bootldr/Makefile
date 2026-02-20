@@ -21,18 +21,20 @@ NASMFLAGS := -f elf32
 CC ?= gcc
 LD ?= ld
 
-CFLAGS := -m32 -std=c99 -Wall -Wextra -O0 -g \
+CFLAGS := -m32 -std=c99 -Wall -Wextra -O0 \
 		  -fno-PIC -fno-pie -fno-stack-protector -march=i686 \
 		  -fno-stack-check -ffreestanding -fno-lto -fno-builtin \
 		  -ffunction-sections -fdata-sections -mno-mmx -mno-sse \
 		  -mno-sse2 -fno-common
-LDFLAGS := -m elf_i386 -nostdlib -static --gc-sections -z max-page-size=0x1000 -T $(LINKER_FILE)
+LDFLAGS := -m elf_i386 -nostdlib -static --gc-sections -T $(LINKER_FILE)
 
 TARGET ?= $(BINDIR)/bootldr.bin
 
 SOURCE := \
 		  entry.asm \
 		  vga.c \
+		  fat.c \
+		  e820.c \
 		  disk.c \
 		  util.c \
 		  stdio.c \
