@@ -177,9 +177,7 @@ int16:
 	PUSH DWORD EBX
 	PUSH DWORD EAX
 
-	PUSH EAX
 	protected_mode
-	POP EAX
 
 	MOV ESI, [.struct]
 

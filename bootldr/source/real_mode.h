@@ -6,8 +6,8 @@
 #define REAL_MODE_H
 #include <stdint.h>
 
-#define MK_SEG(ptr) ((uint16_t)((uint32_t)(ptr) >> 4))
-#define MK_OFF(ptr) ((uint16_t)((uint32_t)(ptr) & 0x0F))
+#define MK_SEG(ptr) (((uint32_t)(ptr) >> 4) & 0xFFFF)
+#define MK_OFF(ptr) ((uint32_t)(ptr) & 0x0F)
 
 typedef union Regs {
 	struct {

@@ -5,8 +5,10 @@
 #include <stdint.h>
 #include <stdarg.h>
 #include <stddef.h>
+#include "string.h"
 #include "real_mode.h"
 #include "stdio.h"
+#include "disk.h"
 #include "util.h"
 #include "vga.h"
 
@@ -42,75 +44,169 @@ int E820_get_table(E820Entry *out, int max)
 	return count;
 }
 
-#define SECTOR_SIZE 512
+typedef struct {
+	uint8_t jmp[3];
+	uint8_t oem_name[8];
+	uint16_t bytes_per_sector;
+	uint8_t sectors_per_cluster;
+	uint16_t reserved_sectors;
+	uint8_t num_fats;
+	uint16_t root_dir_entries;
+	uint16_t total_sectors16;
+	uint8_t media_descriptor;
+	uint16_t sectors_per_fat;
+	uint16_t sectors_per_track;
+	uint16_t num_heads;
+	uint32_t hidden_sectors;
+	uint32_t total_sectors32;
+} __attribute__((packed)) fat_bpb_t;
 
-/* Pega parâmetros de um disco usando o BIOS */
-/* Retorna um número diferente de zero se houver erro */
-int disk_get_parameters(uint8_t drive, uint16_t *cyl, uint8_t *hds, uint8_t *spt)
+typedef struct {
+	uint16_t hour:5;
+	uint16_t minutes:6;
+	uint16_t seconds:5; /* Multiplicar por 2 */
+} __attribute__((packed)) fat_time_t;
+
+typedef struct {
+	uint16_t year:7;
+	uint16_t month:4;
+	uint16_t day:5;
+} __attribute__((packed)) fat_date_t;
+
+typedef struct {
+	uint8_t name[11];
+	uint8_t attr;
+	uint16_t res;
+	fat_time_t ctime;
+	fat_date_t cdate;
+	fat_date_t adate;
+	uint16_t cluster_high;
+	fat_time_t mtime;
+	fat_date_t mdate;
+	uint16_t cluster_low;
+	uint32_t file_size; /* Em bytes */
+} __attribute__((packed)) fat_entry_t;
+
+#define FAT_ATTR_RDOLY 0x01
+#define FAT_ATTR_HIDDN 0x02
+#define FAT_ATTR_SYSTM 0x04
+#define FAT_ATTR_VOLID 0x08
+#define FAT_ATTR_DIR   0x10
+#define FAT_ATTR_ARCHV 0x20
+
+uint32_t total_sectors = 0;
+uint32_t root_dir_sectors = 0;
+uint32_t data_sectors = 0;
+
+uint32_t root_lba = 0;
+uint32_t data_lba = 0;
+uint32_t fat_lba = 0;
+
+uint32_t total_clusters = 0;
+uint8_t fat_type = 0;
+uint8_t current_drive = 0;
+fat_bpb_t bpb;
+
+/* "Inicializa o sistema" FAT */
+/* Na real só faz os calculos das globais em um disco específico num setor específico */
+/* Retorna um número diferente de 0 se houver erro */
+/* Por enquanto, suporta FAT12 e FAT16 */
+int fat_init(uint8_t drive, uint32_t lba)
 {
-	Regs r = {0};
-	r.b.ah = 0x08;
-	r.b.dl = drive;
-	int16(0x13, &r);
-
-	if (r.d.eflags & FLAG_CF)
+	uint8_t buf[SECTOR_SIZE];
+	if (disk_read_sector(drive, buf, lba) != 0)
 		return 1;
 
-	if (cyl)
-		*cyl = r.b.ch | (((r.b.cl & 0xC0) >> 6) << 8);
+	memcpy(&bpb ,buf, sizeof(fat_bpb_t));
 
-	if (hds)
-		*hds = r.b.dh + 1;
+	if (bpb.sectors_per_fat == 0)  /* Possivelmente FAT32 ou só erro
+									   Atualmente, sem suporte a FAT32 */
+		return 1;
 
-	if (spt)
-		*spt = r.b.cl & 0x3F;
+	if (bpb.bytes_per_sector != SECTOR_SIZE) /* Raro, porém é bom verificar,
+												 não vou dar suporte a setores com tamanho diferente de 512 bytes */
+		return 1;
+
+	total_sectors = bpb.total_sectors16 == 0 ? bpb.total_sectors32 : bpb.total_sectors16;
+	root_dir_sectors = ((bpb.root_dir_entries * 32) + (SECTOR_SIZE - 1)) / SECTOR_SIZE;
+	data_lba = lba + (bpb.reserved_sectors + (bpb.num_fats * bpb.sectors_per_fat) + root_dir_sectors);
+	fat_lba = lba + bpb.reserved_sectors;
+	data_sectors = total_sectors - (bpb.reserved_sectors + (bpb.num_fats * bpb.sectors_per_fat) + root_dir_sectors);
+	total_clusters = data_sectors / bpb.sectors_per_cluster;
+	current_drive = drive;
+	root_lba = data_lba - root_dir_sectors;
+
+	if (total_clusters < 4085) {
+		fat_type = 12;
+	} else {
+		fat_type = 16;
+	}
 
 	return 0;
 }
 
-extern uint8_t boot_drive;
-
-/* Le n setores de um disco usando o BIOS */
-/* Retorna um número diferente de zero se houver erro */
-/* ATENÇÃO: N não pode ser mais de 59. dest deve ser abaixo de 1MiB */
-int disk_read(uint8_t drive, void *dest, uint32_t lba, uint8_t n)
+/* Lê um cluster */
+/* ATENÇÃO: Você DEVE chamar fat_init() antes disso */
+uint16_t fat_read_cluster(uint16_t cluster)
 {
-	if (!dest || n == 0 || n > 59)
-		return 1;
+	uint8_t buf[SECTOR_SIZE * 2];
+	uint32_t offset = 0;
 
-	uint16_t cyl;
-	uint8_t hds, spt;
+	if (fat_type == 12)
+		offset = cluster + (cluster / 2);
+	else if (fat_type == 16)
+		offset = cluster * 2;
 
-	if (disk_get_parameters(drive, &cyl, &hds, &spt) != 0)
-		return 1;
+	uint32_t sector = fat_lba + (offset / SECTOR_SIZE);
+	uint32_t entry_offset = offset % SECTOR_SIZE;
 
-	if (lba > (cyl * hds * spt))
-		return 1;
+	disk_read_sector(current_drive, buf, sector);
+	disk_read_sector(current_drive, &buf[SECTOR_SIZE], sector+1);
 
-	/* Calculo lba -> chs */
-	/* https://wiki.osdev.org/Disk_access_using_the_BIOS_(INT_13h) */
-	uint32_t tmp = lba / spt;
-	uint16_t cylinder = tmp / hds;
-	uint8_t head = tmp % hds;
-	uint8_t sector = (lba % spt) + 1;
+	uint16_t val = 0;
+	if (fat_type == 12) {
+		uint16_t entry_val = *(uint16_t*)&buf[entry_offset];
+		if (cluster & 1)
+			val = entry_val >> 4;
+		else
+			val = entry_val & 0x0FFF;
+		val &= 0x0FFF;
+	} else if (fat_type == 16) {
+		uint16_t entry_val = *(uint16_t*)&buf[entry_offset];
+		val = entry_val;
+		val &= 0xFFFF;
+	}
 
-	printf("LBA: %u, CHS: %hu,%hhu,%hhu\r\n", lba, cylinder, head, sector);
+	return val;
+}
 
-	Regs r = {0};
-	r.b.ah = 0x02;
-	r.b.al = n;
-	r.b.ch = cylinder & 0xFF;
-	r.b.cl = sector | ((cylinder >> 2) & 0xC0);
-	r.b.dh = head;
-	r.d.es = MK_SEG(dest);
-	r.w.bx = MK_OFF(dest);
-	r.b.dl = drive;
-	int16(0x13, &r);
+/* lista o diretorio raiz do sistema FAT */
+/* ATENÇÃO: Você DEVE chamar fat_init() antes disso */
+void fat_list_root(void)
+{
+	uint8_t buf[SECTOR_SIZE];
+	for (uint32_t i = 0; i < root_dir_sectors; i++) {
+		uint32_t lba = i + root_lba;
+		if (disk_read_sector(current_drive, buf, lba) != 0)
+			return;
 
-	if (r.d.eflags & FLAG_CF)
-		return 1;
+		for (int j = 0; j < 16; j++) {
+			fat_entry_t *entry = (fat_entry_t *)&buf[j*32];
+			if (entry->name[0] == 0x00)
+				goto end;
 
-	return 0;
+			if (entry->name[0] == 0xE5)
+				continue;
+
+			for (int x = 0; x < 11; x++) {
+				putc(entry->name[x]);
+			}
+
+			printf("\r\n");
+		}
+	}
+end:
+	printf("<end>\r\n");
 }
 
 /* Func principal do bootloader */
@@ -119,18 +215,12 @@ int main(void)
 	vga_clear(0x07);
 	printf("Ola mundo!\r\n");
 
-	uint8_t buf[SECTOR_SIZE];
-	if (disk_read(boot_drive, buf, 0, 1) != 0) {
-		printf("Falha ao ler setor 0 do disco!\r\n");
+	if (fat_init(boot_drive, 0) != 0) { /* FLOPPY */
+		printf("Falha ao inicializar sistema FAT\r\n");
 		goto halt;
-	} else {
-		for (int i = 0; i < SECTOR_SIZE; i++) {
-			printf("%02X ", buf[i]);
-			if ((i + 1) % 24 == 0)
-				printf("\r\n");
-		}
-		printf("\r\n");
 	}
+
+	fat_list_root();
 
 halt:
 	printf("Sistema travado. Por favor, reinicie.\r\n");

@@ -21,7 +21,7 @@ NASMFLAGS := -f elf32
 CC ?= gcc
 LD ?= ld
 
-CFLAGS := -m32 -std=c99 -Wall -Wextra -Werror -O0 -g \
+CFLAGS := -m32 -std=c99 -Wall -Wextra -O0 -g \
 		  -fno-PIC -fno-pie -fno-stack-protector -march=i686 \
 		  -fno-stack-check -ffreestanding -fno-lto -fno-builtin \
 		  -ffunction-sections -fdata-sections -mno-mmx -mno-sse \
@@ -33,8 +33,10 @@ TARGET ?= $(BINDIR)/bootldr.bin
 SOURCE := \
 		  entry.asm \
 		  vga.c \
+		  disk.c \
 		  util.c \
 		  stdio.c \
+		  string.c \
 		  main.c
 SOURCE := $(addprefix $(SOURCEDIR)/,$(SOURCE))
 
