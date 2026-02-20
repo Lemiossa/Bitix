@@ -17,9 +17,8 @@ _start:
 	MOV [boot_drive], DL
 
 	;; Ativar linha A20
-	IN AL, 0x92
-	OR AL, 2
-	OUT 0x92, AL
+	MOV AX, 0x2401
+	INT 0x15
 
 	LGDT [gdtr]
 
@@ -74,8 +73,6 @@ gdtr:
 	XOR AX, AX
 	MOV DS, AX
 	MOV ES, AX
-	MOV FS, AX
-	MOV GS, AX
 	MOV SS, AX
 %endmacro
 

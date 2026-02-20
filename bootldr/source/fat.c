@@ -2,6 +2,7 @@
  * fat.c                            *
  * Criado por Matheus Leme Da Silva *
  ***********************************/
+#include <stddef.h>
 #include <stdint.h>
 #include "string.h"
 #include "stdio.h"
@@ -9,21 +10,21 @@
 #include "disk.h"
 #include "fat.h"
 
-uint32_t total_sectors = 0;
-uint32_t root_dir_sectors = 0;
-uint32_t data_sectors = 0;
+static uint32_t total_sectors = 0;
+static uint32_t root_dir_sectors = 0;
+static uint32_t data_sectors = 0;
 
-uint32_t root_lba = 0;
-uint32_t data_lba = 0;
-uint32_t fat_lba = 0;
+static uint32_t root_lba = 0;
+static uint32_t data_lba = 0;
+static uint32_t fat_lba = 0;
 
-uint32_t total_clusters = 0;
-uint8_t fat_type = 0;
-uint8_t current_drive = 0;
-fat_bpb_t bpb;
+static uint32_t total_clusters = 0;
+static uint8_t fat_type = 0;
+static uint8_t current_disk = 0;
+static fat_bpb_t bpb;
 
 /* Converte nome em formato fat para filename */
-static void fat_name_to_filename(char *fatname, char *out)
+void fat_name_to_filename(char *fatname, char *out)
 {
 	for (int i = 0; i < 8; i++) {
 		char c = fatname[i];
@@ -47,7 +48,7 @@ static void fat_name_to_filename(char *fatname, char *out)
 }
 
 /* Converte um nome comum de arquivo em nome fat */
-static void fat_filename_to_fatname(char *filename, char *out)
+void fat_filename_to_fatname(char *filename, char *out)
 {
 	for (int i = 0; i < 11; i++)
 		out[i] = ' ';
@@ -70,6 +71,7 @@ static void fat_filename_to_fatname(char *filename, char *out)
 
 		out[i + 8] = c;
 	}
+	out[12] = 0;
 }
 
 /* Retorna 1 se o cluster é o fim */
@@ -83,14 +85,14 @@ static int fat_is_eof(uint16_t cluster)
 }
 
 /* Converte um cluster em LBA */
-/* ATENÇÃO: Você DEVE chamar fat_init() antes disso */
+/* ATENÇÃO: Você DEVE chamar fat_configure() antes disso */
 static uint16_t fat_cluster_to_lba(uint16_t cluster)
 {
-	return ((cluster - 2) * bpb.sectors_per_cluster) + fat_lba;
+	return ((cluster - 2) * bpb.sectors_per_cluster) + data_lba;
 }
 
 /* Lê um cluster */
-/* ATENÇÃO: Você DEVE chamar fat_init() antes disso */
+/* ATENÇÃO: Você DEVE chamar fat_configure() antes disso */
 static uint16_t fat_read_cluster(uint16_t cluster)
 {
 	uint8_t buf[SECTOR_SIZE * 2];
@@ -104,8 +106,8 @@ static uint16_t fat_read_cluster(uint16_t cluster)
 	uint32_t sector = fat_lba + (offset / SECTOR_SIZE);
 	uint32_t entry_offset = offset % SECTOR_SIZE;
 
-	disk_read_sector(current_drive, buf, sector);
-	disk_read_sector(current_drive, &buf[SECTOR_SIZE], sector+1);
+	disk_read_sector(current_disk, buf, sector);
+	disk_read_sector(current_disk, &buf[SECTOR_SIZE], sector+1);
 
 	uint16_t val = 0;
 	if (fat_type == 12) {
@@ -128,10 +130,10 @@ static uint16_t fat_read_cluster(uint16_t cluster)
 /* Na real só faz os calculos das globais em um disco específico num setor específico */
 /* Retorna um número diferente de 0 se houver erro */
 /* Por enquanto, suporta FAT12 e FAT16 */
-int fat_init(uint8_t drive, uint32_t lba)
+int fat_configure(int disk, uint32_t lba)
 {
 	uint8_t buf[SECTOR_SIZE];
-	if (disk_read_sector(drive, buf, lba) != 0)
+	if (disk_read_sector(disk, buf, lba) != 0)
 		return 1;
 
 	memcpy(&bpb ,buf, sizeof(fat_bpb_t));
@@ -150,7 +152,7 @@ int fat_init(uint8_t drive, uint32_t lba)
 	fat_lba = lba + bpb.reserved_sectors;
 	data_sectors = total_sectors - (bpb.reserved_sectors + (bpb.num_fats * bpb.sectors_per_fat) + root_dir_sectors);
 	total_clusters = data_sectors / bpb.sectors_per_cluster;
-	current_drive = drive;
+	current_disk = disk;
 	root_lba = data_lba - root_dir_sectors;
 
 	if (total_clusters < 4085) {
@@ -164,7 +166,8 @@ int fat_init(uint8_t drive, uint32_t lba)
 
 /* Lê um diretorio em FAT */
 /* Retorna um número diferente de 0 se houver erro */
-/* ATENÇÃO: Você DEVE chamar fat_init() antes disso */
+/* Se o fat for 12 ou 16 e o clsuter for zero, lê no root dir */
+/* ATENÇÃO: Você DEVE chamar fat_configure() antes disso */
 int fat_read_dir(uint16_t cluster, uint32_t index, fat_entry_t *out)
 {
 	uint16_t current_cluster = cluster;
@@ -183,7 +186,7 @@ int fat_read_dir(uint16_t cluster, uint32_t index, fat_entry_t *out)
 			else
 				lba += fat_cluster_to_lba(current_cluster);
 
-			if (disk_read_sector(current_drive, buf, lba) != 0)
+			if (disk_read_sector(current_disk, buf, lba) != 0)
 				return 1;
 
 			fat_entry_t *entries = (fat_entry_t *)buf;
@@ -212,6 +215,53 @@ int fat_read_dir(uint16_t cluster, uint32_t index, fat_entry_t *out)
 	return 1;
 }
 
+/* Lê N bytes de um arquivo a partir de sua entrada FAT em um offset específico */
+/* Retorna o número de bytes lidos */
+/* ATENÇÃO: Você DEVE chamar fat_configure() antes disso */
+size_t fat_read(void *dest, fat_entry_t *entry, size_t offset, size_t n)
+{
+	if (!dest || !entry || n == 0 || offset > entry->file_size) {
+		return 0;
+	}
+
+	if (offset - n > entry->file_size - offset)
+		n = entry->file_size - offset;
+
+	size_t total = 0;
+	size_t current_offset = 0;
+	size_t remaining = n;
+	uint16_t current_cluster = entry->cluster_low; /* Para FAT32, usar cluster_high tambem e uint32_t*/
+	uint8_t *d = (uint8_t *)dest;
+
+	while (!fat_is_eof(current_cluster)) {
+		uint8_t buf[SECTOR_SIZE];
+		uint32_t lba = fat_cluster_to_lba(current_cluster);
+
+		for (size_t i = 0; i < bpb.sectors_per_cluster; i++) {
+			if (disk_read_sector(current_disk, buf, lba+i) != 0)
+				return 0;
+
+			for (size_t j = 0; j < SECTOR_SIZE; j++) {
+				if (remaining == 0)
+					goto end;
+
+				if (current_offset < offset) {
+					current_offset++;
+					continue;
+				}
+
+				*d++ = buf[j];
+
+				total++;
+				current_offset++;
+				remaining--;
+			}
+		}
+	}
+end:
+	return total;
+}
+
 /* Lista a root dir */
 void fat_list_root(void)
 {
@@ -230,4 +280,6 @@ void fat_list_root(void)
 		printf("%s %ub \r\n", filename, entry.file_size);
 	}
 }
+
+
 

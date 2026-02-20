@@ -3,6 +3,7 @@
  * Criado por Matheus Leme Da Silva *
  ***********************************/
 #include <stdint.h>
+#include "stdio.h"
 #include "real_mode.h"
 #include "e820.h"
 
@@ -24,6 +25,9 @@ int E820_get_table(E820Entry *out, int max)
 
 		if (r.d.eax != 0x534D4150 || r.d.eflags & FLAG_CF)
 			return 1;
+
+		printf("E820_table[%d]: %08X-%08X:%d\r\n",
+				count, (uint32_t)entry.base, (uint32_t)entry.length, entry.type);
 
 		out[count++] = entry;
 	} while (r.d.ebx != 0 && count < max);

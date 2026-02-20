@@ -8,7 +8,7 @@ ARCH := x86
 IMAGE := Bitix.img
 
 ifneq ($(ARCH),x86)
-	$(error Unsuported arch: $(ARCH))
+	$(error Arquitetura não suportada: $(ARCH))
 endif
 
 BUILDDIR := $(CURDIR)/build
@@ -26,8 +26,10 @@ export OBJDIR
 export DEPDIR
 export CC
 export LD
+export ARCH
 
 BOOTLOADER := $(BINDIR)/bootldr.bin
+KERNEL := $(BINDIR)/kernel.bin
 
 ifeq ($(ARCH),x86)
 	QEMU := qemu-system-i386
@@ -37,13 +39,13 @@ ifeq ($(ARCH),x86)
 				 -serial stdio -vga std
 endif
 
-
 .PHONY: all
 all: $(IMAGE)
 
 .PHONY: clean
 clean:
 	$(MAKE) -C bootldr TARGET=$(BOOTLOADER) clean
+	$(MAKE) -C kernel TARGET=$(KERNEL) clean
 	rm -f $(IMAGE)
 
 .PHONY: qemu
@@ -54,11 +56,15 @@ qemu: $(IMAGE)
 bootloader:
 	$(MAKE) -C bootldr TARGET=$(BOOTLOADER)
 
-$(ROOTDIR):
-	mkdir -p $@
-	printf "Hello World\r\n" > $@/text.txt
+.PHONY: kernel
+kernel:
+	$(MAKE) -C kernel TARGET=$(KERNEL)
 
-$(IMAGE): bootloader $(ROOTDIR)
+$(ROOTDIR): $(KERNEL)
+	mkdir -p $@ $@/system $@/system/boot
+	cp $(KERNEL) $@/system/boot/kernel.sys
+
+$(IMAGE): bootloader kernel $(ROOTDIR)
 	dd if=/dev/zero of=$@ bs=1440K count=1
 	mkfs.fat -F 12 -R 64 -n "BITIX" $@
 	dd if=$(BOOTLOADER) of=$@ bs=1 count=3 conv=notrunc

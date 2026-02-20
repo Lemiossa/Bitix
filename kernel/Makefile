@@ -8,38 +8,36 @@ BUILDDIR ?= $(CURDIR)/build
 BINDIR ?= $(BUILDDIR)/bin
 OBJDIR ?= $(BUILDDIR)/obj
 DEPDIR ?= $(BUILDDIR)/dep
+ARCH ?= x86
 
-BINDIR := $(addsuffix /boot,$(BINDIR))
-OBJDIR := $(addsuffix /boot,$(OBJDIR))
-DEPDIR := $(addsuffix /boot,$(DEPDIR))
+BINDIR := $(addsuffix /kernel,$(BINDIR))
+OBJDIR := $(addsuffix /kernel,$(OBJDIR))
+DEPDIR := $(addsuffix /kernel,$(DEPDIR))
 
-LINKER_FILE := $(SOURCEDIR)/linker.ld
+LINKER_FILE := $(SOURCEDIR)/arch/$(ARCH)/linker.ld
 
 NASM := nasm
-NASMFLAGS := -f elf32
-
 CC ?= gcc
 LD ?= ld
 
-CFLAGS := -m32 -std=c99 -Wall -Wextra -Os \
-		  -fno-PIC -fno-pie -fno-stack-protector -march=i686 \
+ifeq ($(ARCH),x86)
+	NASMFLAGS := -f elf32
+	CFLAGS := -m32 -march=i686
+else
+	$(error Arquitetura não suportada: $(ARCH))
+endif
+
+CFLAGS += -std=c99 -Wall -Wextra -O0 \
+		  -fno-PIC -fno-pie -fno-stack-protector \
 		  -fno-stack-check -ffreestanding -fno-lto -fno-builtin \
 		  -ffunction-sections -fdata-sections -mno-mmx -mno-sse \
 		  -mno-sse2 -fno-common
 LDFLAGS := -m elf_i386 -nostdlib -static --gc-sections -T $(LINKER_FILE)
 
-TARGET ?= $(BINDIR)/bootldr.bin
+TARGET ?= $(BINDIR)/kernel.bin
 
 SOURCE := \
-		  entry.asm \
-		  vga.c \
-		  fat.c \
-		  e820.c \
-		  disk.c \
-		  util.c \
-		  file.c \
-		  stdio.c \
-		  string.c \
+		  arch/$(ARCH)/entry.asm \
 		  main.c
 SOURCE := $(addprefix $(SOURCEDIR)/,$(SOURCE))
 
@@ -54,30 +52,22 @@ OBJ := $(OBJASM) $(OBJC)
 DEPC := $(patsubst $(SOURCEDIR)/%.c,$(DEPDIR)/c/%.d,$(SOURCEC))
 DEPASM := $(patsubst $(SOURCEDIR)/%.asm,$(DEPDIR)/asm/%.d,$(SOURCEASM))
 
-DEP := $(DEPASM) $(DEPC) $(DEPDIR)/asm/bootsect.d
+DEP := $(DEPASM) $(DEPC)
 
 .PHONY: all
 all: $(TARGET)
 
 .PHONY: clean
 clean:
-	rm -f $(BINDIR)/bootsect.bin $(TARGET) $(DEP) $(OBJ)
+	rm -f $(TARGET) $(DEP) $(OBJ)
 
-$(TARGET): $(BINDIR)/bootsect.bin $(BINDIR)/loader.bin
-	mkdir -p $(dir $@)
-	cat $^ > $@
-
-$(BINDIR)/bootsect.bin: $(SOURCEDIR)/bootsect.asm
-	mkdir -p $(dir $@) $(dir $(DEPDIR)/asm/bootsect.d)
-	$(NASM) -f bin $< -o $@ -MD -MP -MF $(DEPDIR)/asm/bootsect.d
-
-$(BINDIR)/loader.elf: $(OBJ)
-	mkdir -p $(dir $@)
-	$(LD) $(LDFLAGS) -o $@ $^
-
-$(BINDIR)/loader.bin: $(BINDIR)/loader.elf
+$(TARGET): $(BINDIR)/kernel.elf
 	mkdir -p $(dir $@)
 	objcopy -O binary $< $@
+
+$(BINDIR)/kernel.elf: $(OBJ)
+	mkdir -p $(dir $@)
+	$(LD) $(LDFLAGS) -o $@ $^
 
 $(OBJDIR)/c/%.o: $(SOURCEDIR)/%.c
 	mkdir -p $(dir $@) $(dir $(DEPDIR)/c/$*.d)

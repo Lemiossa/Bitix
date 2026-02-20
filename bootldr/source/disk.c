@@ -8,64 +8,78 @@
 #include "disk.h"
 #include "real_mode.h"
 
+typedef struct disk {
+	uint16_t cylinders;
+	uint8_t heads, sectors;
+	uint8_t drive;
+	char letter;
+} disk_t;
+
+/*
+ * 0x00 - 0x02: FDs
+ * 0x80 - 0x8F: HDs
+ */
+disk_t disks[MAX_DISKS];
+int boot_disk = 0; /* Index do disco de boot */
+
 /* Pega parâmetros de um disco usando o BIOS */
 /* Retorna um número diferente de zero se houver erro */
-uint8_t disk_get_parameters(uint8_t drive, uint16_t *cyl, uint8_t *hds, uint8_t *spt)
+/* ATENÇÃO: Você precisa chamar disk_dettect() primeiro! */
+uint8_t disk_get_parameters(int disk, uint16_t *cylinders, uint8_t *heads, uint8_t *sectors)
 {
-	Regs r = {0};
-	r.b.ah = 0x08;
-	r.b.dl = drive;
-	int16(0x13, &r);
-
-	if (r.d.eflags & FLAG_CF)
+	if (disk > MAX_DISKS)
 		return 1;
 
-	if (cyl)
-		*cyl = r.b.ch | (((r.b.cl & 0xC0) >> 6) << 8);
+	if (cylinders)
+		*cylinders = disks[disk].cylinders;
 
-	if (hds)
-		*hds = r.b.dh + 1;
+	if (heads)
+		*heads = disks[disk].heads;
 
-	if (spt)
-		*spt = r.b.cl & 0x3F;
+	if (sectors)
+		*sectors = disks[disk].sectors;
 
-	return r.b.ah;
+	return 0;
 }
 
 /* Reseta um disco usando o BIOS */
 /* Retorna um número diferente de zero se houver erro */
-uint8_t disk_reset(uint8_t drive)
+uint8_t disk_reset(int disk)
 {
+	if (disk > MAX_DISKS)
+		return 1;
 	Regs r = {0};
 	r.b.ah = 0x00;
-	r.b.dl = drive;
+	r.b.dl = disks[disk].drive;
 	int16(0x13, &r);
 	return r.b.ah;
 }
 
 /* Le 1 setor de um disco usando o BIOS */
 /* Retorna um número diferente de zero se houver erro */
-/* ATENÇÃO: dest deve ser abaixo de 1MiB */
-uint8_t disk_read_sector(uint8_t drive, void *dest, uint32_t lba)
+uint8_t disk_read_sector(int disk, void *dest, uint32_t lba)
 {
-	if (!dest)
+	if (!dest || disk > MAX_DISKS)
 		return 1;
 
-	uint16_t cyl;
-	uint8_t hds, spt;
+	uint16_t cylinders = disks[disk].cylinders;
+	uint8_t heads = disks[disk].heads;
+	uint8_t sectors = disks[disk].sectors;
+	uint8_t drive = disks[disk].drive;
 
-	if (disk_get_parameters(drive, &cyl, &hds, &spt) != 0)
-		return 1;
-
-	if (lba > (cyl * hds * spt))
+	if (lba > (cylinders * heads * sectors))
 		return 1;
 
 	/* Calculo lba -> chs */
 	/* https://wiki.osdev.org/Disk_access_using_the_BIOS_(INT_13h) */
-	uint32_t tmp = lba / spt;
-	uint16_t cylinder = tmp / hds;
-	uint8_t head = tmp % hds;
-	uint8_t sector = (lba % spt) + 1;
+	uint32_t tmp = lba / sectors;
+	uint16_t cylinder = tmp / heads;
+	uint8_t head = tmp % heads;
+	uint8_t sector = (lba % sectors) + 1;
+
+	uint8_t buf[SECTOR_SIZE] = {0};
+
+	printf("Lendo %lu\r\n", lba);
 
 	uint8_t ret = 0;
 	for (int i = 0; i < 3; i++) {
@@ -74,14 +88,16 @@ uint8_t disk_read_sector(uint8_t drive, void *dest, uint32_t lba)
 		r.b.ch = cylinder & 0xFF;
 		r.b.cl = sector | ((cylinder >> 2) & 0xC0);
 		r.b.dh = head;
-		r.d.es = MK_SEG(dest);
-		r.w.bx = MK_OFF(dest);
+		r.d.es = MK_SEG(buf);
+		r.w.bx = MK_OFF(buf);
 		r.b.dl = drive;
 		int16(0x13, &r);
 		ret = r.b.ah;
 
-		if (ret == 0)
+		if (ret == 0) {
+			memcpy(dest, buf, SECTOR_SIZE);
 			break;
+		}
 
 		if (disk_reset(drive) != 0)
 			return 1;
@@ -91,3 +107,96 @@ uint8_t disk_read_sector(uint8_t drive, void *dest, uint32_t lba)
 	return ret;
 }
 
+/* Procura um disco de acordo com a letra */
+/* Retorna -1 se houver erro */
+int disk_find_letter(char letter)
+{
+	for (int i = 0; i < MAX_DISKS; i++) {
+		if (disks[i].letter == letter)
+			return i;
+	}
+
+	return -1;
+}
+
+/* Procura um disco de acordo com o drive */
+/* Retorna -1 se houver erro */
+int disk_find_drive(uint8_t drive)
+{
+	for (int i = 0; i < MAX_DISKS; i++) {
+		if (disks[i].drive == drive)
+			return i;
+	}
+
+	return -1;
+}
+
+/* Retorna a letra de um disco */
+/* Retorna 0 se não existir */
+char disk_get_letter(int disk)
+{
+	if (disk > MAX_DISKS)
+		return 0;
+	return disks[disk].letter;
+}
+
+/* Detecta todos os discos e atribui letra a eles */
+void disk_dettect(void)
+{
+	int idx = 0;
+
+	for (int i = 0x00; i < 0x02 && idx < MAX_DISKS; i++) { /* FDs */
+		Regs r = {0};
+		r.b.ah = 0x08;
+		r.b.dl = i;
+		int16(0x13, &r);
+
+		if (r.d.eflags & FLAG_CF) {
+			disks[idx].letter = 0;
+			continue;
+		}
+
+		char letter = idx + 'A';
+
+		disks[idx].cylinders = (r.b.ch | (((r.b.cl & 0xC0) >> 6) << 8)) + 1;
+		disks[idx].heads = r.b.dh + 1;
+		disks[idx].sectors = r.b.cl & 0x3F;
+		disks[idx].drive = i;
+		disks[idx].letter = letter;
+		idx++;
+	}
+
+	for (int i = 0x80; i < (0x80 + (MAX_DISKS - 2)) && idx < MAX_DISKS; i++) { /* HDs */
+		Regs r = {0};
+		r.b.ah = 0x08;
+		r.b.dl = i;
+		int16(0x13, &r);
+
+		if (r.d.eflags & FLAG_CF)
+			continue;
+
+		char letter = idx + 'B';
+
+		disks[idx].cylinders = (r.b.ch | (((r.b.cl & 0xC0) >> 6) << 8)) + 1;
+		disks[idx].heads = r.b.dh + 1;
+		disks[idx].sectors = r.b.cl & 0x3F;
+		disks[idx].drive = i;
+		disks[idx].letter = letter;
+		idx++;
+	}
+
+	printf("Discos: \r\n");
+	for (int i = 0; i < MAX_DISKS; i++) {
+		if (!disks[i].letter)
+			continue;
+
+		if (disks[i].drive == boot_drive)
+			boot_disk = i;
+
+		printf("\tDisco %c: \r\n", disks[i].letter);
+		printf("\t\tdrive: 0x%02hhx\r\n", disks[i].drive);
+		printf("\t\tcilindros: %hu\r\n", disks[i].cylinders);
+		printf("\t\tcabecas: %hhu\r\n", disks[i].heads);
+		printf("\t\tsetores: %hhu\r\n", disks[i].sectors);
+	}
+}

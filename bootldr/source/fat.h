@@ -5,8 +5,9 @@
 #ifndef FAT_H
 #define FAT_H
 #include <stdint.h>
+#include <stddef.h>
 
-typedef struct {
+typedef struct fat_bpb {
 	uint8_t jmp[3];
 	uint8_t oem_name[8];
 	uint16_t bytes_per_sector;
@@ -23,7 +24,7 @@ typedef struct {
 	uint32_t total_sectors32;
 } __attribute__((packed)) fat_bpb_t;
 
-typedef struct {
+typedef struct fat_entry {
 	uint8_t name[11];
 	uint8_t attr;
 	uint16_t res;
@@ -44,8 +45,11 @@ typedef struct {
 #define FAT_ATTR_DIR   0x10
 #define FAT_ATTR_ARCHV 0x20
 
-int fat_init(uint8_t drive, uint32_t lba);
+void fat_name_to_filename(char *fatname, char *out);
+void fat_filename_to_fatname(char *filename, char *out);
+int fat_configure(int disk, uint32_t lba);
 int fat_read_dir(uint16_t cluster, uint32_t index, fat_entry_t *out);
+size_t fat_read(void *dest, fat_entry_t *entry, size_t offset, size_t n);
 void fat_list_root(void);
 
 #endif /* FAT_H */
