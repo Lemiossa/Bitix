@@ -17,8 +17,9 @@ _start:
 	MOV [boot_drive], DL
 
 	;; Ativar linha A20
-	MOV AX, 0x2401
-	INT 0x15
+	IN AL, 0x92
+	OR AL, 2
+	OUT 0x92, AL
 
 	LGDT [gdtr]
 
@@ -54,6 +55,7 @@ gdtr:
 
 ;; Volta para o modo real
 %macro real_mode 0
+	CLI
 	JMP WORD 0x18:%%entry16
 %%entry16:
 	BITS 16
@@ -78,6 +80,7 @@ gdtr:
 
 ;; Volta pro modo protegido
 %macro protected_mode 0
+	CLI
 	MOV EAX, CR0
 	OR EAX, 1
 	MOV CR0, EAX
@@ -106,22 +109,17 @@ struc Regs
 	.eflags RESD 1
 endstruc
 
-real_mode_stack:
-	TIMES 256 DB 0
-real_mode_stack_top:
-
-;; Usa uma interrupção no modo de 16 bits(modo real)
+;; Usa uma interrupção no modo de 16 bits
 ;; typedef struct Regs { uint32_t eax, ebx, ecx, edx, ebp, esi, edi; uint16_t ds, es, flags; } __attribute__((packed)) Regs;
-;; void int16(uint8_t intnum, Regs *r);
-GLOBAL int16
-int16:
+;; void int*h(Regs *r);
+%macro bios_int 1
+GLOBAL int%1h
+int%1h:
 	BITS 32
 	PUSH EBP
 	MOV EBP, ESP
-	MOV AL, [EBP+8]
-	MOV [.int+1], AL
 
-	MOV ESI, [ESP+12]
+	MOV ESI, [ESP+8]
 	MOV [.struct], ESI
 
 	PUSH DS
@@ -132,7 +130,7 @@ int16:
 	PUSHFD
 	MOV [.esp], ESP
 
-	MOV ESP, real_mode_stack_top
+	MOV ESP, 0x7C00
 	PUSH DWORD [ESI+Regs.eax]
 	PUSH DWORD [ESI+Regs.ebx]
 	PUSH DWORD [ESI+Regs.ecx]
@@ -159,7 +157,7 @@ int16:
 	POP DWORD EBX
 	POP DWORD EAX
 .int:
-	INT 0x00
+	INT %1h
 	PUSHFD
 	PUSH WORD 0
 	PUSH WORD ES
@@ -199,6 +197,11 @@ int16:
 	RET
 .esp: DD 0
 .struct: DD 0
+%endmacro
+
+bios_int 10
+bios_int 13
+bios_int 15
 
 SECTION .text
 BITS 32
@@ -212,7 +215,7 @@ _start32:
 	MOV FS, AX
 	MOV GS, AX
 	MOV SS, AX
-	MOV ESP, 0x8000
+	MOV ESP, 0x90000
 
 	CALL main
 

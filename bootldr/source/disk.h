@@ -6,7 +6,7 @@
 #define DISK_H
 #include <stdint.h>
 
-#define MAX_DISKS 18
+#define MAX_DISKS 10
 #define SECTOR_SIZE 512
 extern int boot_disk;
 extern uint8_t boot_drive;

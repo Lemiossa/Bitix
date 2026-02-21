@@ -13,6 +13,8 @@
 #include "fat.h"
 #include "vga.h"
 
+#define HALT() __asm__ volatile ("cli;hlt");
+
 char *kernel_file = "/system/boot/kernel.sys";
 #define KERNEL_ADDR 0x100000
 
@@ -71,6 +73,6 @@ int main(void)
 
 halt:
 	printf("Sistema travado. Por favor, reinicie.\r\n");
-	while (1);
+	HALT();
 }
 

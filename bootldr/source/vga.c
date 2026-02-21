@@ -67,6 +67,5 @@ void vga_clear(uint8_t attributes)
 			vga_put_char(x, y, ' ', attributes);
 		}
 	}
-	vga_set_cursor(0, 0);
 }
 

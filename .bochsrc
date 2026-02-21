@@ -1,0 +1,5 @@
+clock: sync=realtime, time0=local
+
+floppya: 1_44=Bitix.img, status=inserted
+boot: floppy
+display_library: sdl2

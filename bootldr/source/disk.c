@@ -52,7 +52,7 @@ uint8_t disk_reset(int disk)
 	Regs r = {0};
 	r.b.ah = 0x00;
 	r.b.dl = disks[disk].drive;
-	int16(0x13, &r);
+	int13h(&r);
 	return r.b.ah;
 }
 
@@ -92,7 +92,7 @@ uint8_t disk_read_sector(int disk, void *dest, uint32_t lba)
 		r.d.es = MK_SEG(disk_buf);
 		r.w.bx = MK_OFF(disk_buf);
 		r.b.dl = drive;
-		int16(0x13, &r);
+		int13h(&r);
 		ret = r.b.ah;
 
 		if (ret == 0) {
@@ -150,7 +150,7 @@ void disk_dettect(void)
 		Regs r = {0};
 		r.b.ah = 0x08;
 		r.b.dl = i;
-		int16(0x13, &r);
+		int13h(&r);
 
 		if (r.d.eflags & FLAG_CF) {
 			disks[idx].letter = 0;
@@ -171,7 +171,7 @@ void disk_dettect(void)
 		Regs r = {0};
 		r.b.ah = 0x08;
 		r.b.dl = i;
-		int16(0x13, &r);
+		int13h(&r);
 
 		if (r.d.eflags & FLAG_CF)
 			continue;

@@ -45,7 +45,7 @@ ifeq ($(ARCH),x86)
 	QEMU := qemu-system-i386
 	QEMUFLAGS := \
 				 -audiodev alsa,id=audio0 \
-				 -machine pc,pcspk-audiodev=audio0 \
+				 -machine q35,pcspk-audiodev=audio0 \
 				 -serial stdio -vga std \
 				 -no-shutdown -no-reboot
 endif

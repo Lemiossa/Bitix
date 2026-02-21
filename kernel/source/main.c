@@ -19,7 +19,7 @@ typedef struct boot_info {
 	int e820_entry_count;
 } __attribute__((packed)) boot_info_t;
 
-#define GDT_MAX_ENTRIES 256
+#define GDT_ENTRIES 256
 
 typedef struct gdtr {
 	uint16_t limit;
@@ -36,35 +36,32 @@ typedef struct gdt_entry {
 } __attribute__((packed)) gdt_entry_t;
 
 gdtr_t gdtr;
-gdt_entry_t gdt[GDT_MAX_ENTRIES];
+gdt_entry_t gdt[GDT_ENTRIES];
 int gdt_entry_count = 0;
 
 /* Adiciona uma nova entrada na GDT */
-void gdt_add_entry(uint32_t base, uint32_t limit, uint8_t access, uint8_t flags)
+void gdt_set_entry(int entry, uint32_t base, uint32_t limit, uint8_t access, uint8_t flags)
 {
-	if (gdt_entry_count >= GDT_MAX_ENTRIES)
+	if (entry >= GDT_ENTRIES)
 		return;
-	flags &= 0x0F;
 
-	gdt[gdt_entry_count].limit_low = limit & 0xFFFF;
-	gdt[gdt_entry_count].base_low = base & 0xFFFF;
-	gdt[gdt_entry_count].base_mid = (base >> 16) & 0xFF;
-	gdt[gdt_entry_count].access = access;
-	gdt[gdt_entry_count].flags = (flags << 4) | ((limit >> 16) & 0x0F);
-	gdt[gdt_entry_count].base_high = (base >> 24) & 0xFF;
-	gdt_entry_count++;
-
+	gdt[entry].limit_low = limit & 0xFFFF;
+	gdt[entry].base_low = base & 0xFFFF;
+	gdt[entry].base_mid = (base >> 16) & 0xFF;
+	gdt[entry].access = access;
+	gdt[entry].flags = ((flags & 0x0F) << 4) | ((limit >> 16) & 0x0F);
+	gdt[entry].base_high = (base >> 24) & 0xFF;
 }
 
 /* Inicializa GDT basica */
 void gdt_init(void)
 {
-	gdt_add_entry(0x00000000, 0x00000, 0b00000000, 0b0000); /* NULL   */
-	gdt_add_entry(0x00000000, 0xFFFFF, 0b10011010, 0b1100); /* CODE32 */
-	gdt_add_entry(0x00000000, 0xFFFFF, 0b10010010, 0b1100); /* DATA32 */
+	gdt_set_entry(0, 0x00000000, 0x00000, 0b00000000, 0b0000); /* NULL   */
+	gdt_set_entry(1, 0x00000000, 0xFFFFF, 0b10011010, 0b1100); /* CODE32 */
+	gdt_set_entry(2, 0x00000000, 0xFFFFF, 0b10010010, 0b1100); /* DATA32 */
 
 	gdtr.base = &gdt[0];
-	gdtr.limit = GDT_MAX_ENTRIES * sizeof(gdt_entry_t) - 1;
+	gdtr.limit = GDT_ENTRIES * sizeof(gdt_entry_t) - 1;
 	__asm__ volatile(
 			"LGDT %0;"
 			"LJMP $0x08, $flush;"
@@ -82,8 +79,8 @@ void gdt_init(void)
 /* Func principal */
 void kernel_main(boot_info_t *boot_info)
 {
-	vga_clear(0x07);
 	gdt_init();
+	vga_clear(0x07);
 	printf("Kernel iniciado!\r\n");
 
 	for (int count = 0; count < boot_info->e820_entry_count; count++) {

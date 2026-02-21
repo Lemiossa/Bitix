@@ -52,6 +52,8 @@ typedef union Regs {
 #define FLAG_OF (1 << 11)
 #define FLAG_NT (1 << 14)
 
-void int16(uint8_t intnum, Regs *r);
+void int10h(Regs *r);
+void int13h(Regs *r);
+void int15h(Regs *r);
 
 #endif /* REAL_MODE_H */
