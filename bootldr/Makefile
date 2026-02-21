@@ -8,10 +8,13 @@ BUILDDIR ?= $(CURDIR)/build
 BINDIR ?= $(BUILDDIR)/bin
 OBJDIR ?= $(BUILDDIR)/obj
 DEPDIR ?= $(BUILDDIR)/dep
+LIBDIR ?= $(BUILDDIR)/lib
 
 BINDIR := $(addsuffix /boot,$(BINDIR))
 OBJDIR := $(addsuffix /boot,$(OBJDIR))
 DEPDIR := $(addsuffix /boot,$(DEPDIR))
+
+INCLUDES ?= -I$(CURDIR)/include
 
 LINKER_FILE := $(SOURCEDIR)/linker.ld
 
@@ -25,10 +28,11 @@ CFLAGS := -m32 -std=c99 -Wall -Wextra -Os \
 		  -fno-PIC -fno-pie -fno-stack-protector -march=i686 \
 		  -fno-stack-check -ffreestanding -fno-lto -fno-builtin \
 		  -ffunction-sections -fdata-sections -mno-mmx -mno-sse \
-		  -mno-sse2 -fno-common
+		  -mno-sse2 -fno-common $(INCLUDES)
 LDFLAGS := -m elf_i386 -nostdlib -static --gc-sections -T $(LINKER_FILE)
 
 TARGET ?= $(BINDIR)/bootldr.bin
+LIBS := $(LIBDIR)/libc.a
 
 SOURCE := \
 		  entry.asm \
@@ -38,8 +42,6 @@ SOURCE := \
 		  disk.c \
 		  util.c \
 		  file.c \
-		  stdio.c \
-		  string.c \
 		  main.c
 SOURCE := $(addprefix $(SOURCEDIR)/,$(SOURCE))
 
@@ -71,7 +73,7 @@ $(BINDIR)/bootsect.bin: $(SOURCEDIR)/bootsect.asm
 	mkdir -p $(dir $@) $(dir $(DEPDIR)/asm/bootsect.d)
 	$(NASM) -f bin $< -o $@ -MD -MP -MF $(DEPDIR)/asm/bootsect.d
 
-$(BINDIR)/loader.elf: $(OBJ)
+$(BINDIR)/loader.elf: $(OBJ) $(LIBS)
 	mkdir -p $(dir $@)
 	$(LD) $(LDFLAGS) -o $@ $^
 

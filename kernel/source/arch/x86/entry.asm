@@ -1,26 +1,24 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Entry.asm                        ;;
+;; entry.asm                        ;;
 ;; Criado por Matheus Leme Da Silva ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 BITS 32
 SECTION .text
-EXTERN main
+EXTERN kernel_main
 
 GLOBAL _start
 _start:
-	MOV AH, 0x0E
-	MOV AL, 'X'
-	INT 0x10
-
 	CLI
-	MOV ESP, 0x90000
+	MOV ESP, stack_top
 
-	MOV BYTE [0xB8000], 'X'
-
-	;;PUSH EAX
-	;;CALL main
-	;;ADD ESP, 2
+	PUSH EAX
+	CALL kernel_main
+	ADD ESP, 4
 
 	CLI
 	HLT
 
+SECTION .bss
+stack_bottom:
+	RESB 65536
+stack_top:

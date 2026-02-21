@@ -1,15 +1,12 @@
 /************************************
- * util.h                           *
+ * terminal.h                       *
  * Criado por Matheus Leme Da Silva *
  ***********************************/
-#ifndef UTIL_H
-#define UTIL_H
+#ifndef TERMINAL_H
+#define TERMINAL_H
 
 void putc(char c);
 void puts(const char *s);
 int printf(const char *fmt, ...);
-char to_upper(char c);
-char to_lower(char c);
-int get_path_parts(char *path, char **parts, int max);
 
-#endif /* UTIL_H */
+#endif /* TERMINAL_H */

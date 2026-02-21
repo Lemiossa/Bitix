@@ -50,6 +50,5 @@ void fat_filename_to_fatname(char *filename, char *out);
 int fat_configure(int disk, uint32_t lba);
 int fat_read_dir(uint16_t cluster, uint32_t index, fat_entry_t *out);
 size_t fat_read(void *dest, fat_entry_t *entry, size_t offset, size_t n);
-void fat_list_root(void);
 
 #endif /* FAT_H */

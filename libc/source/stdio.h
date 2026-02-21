@@ -1,15 +1,14 @@
 /************************************
- * util.h                           *
+ * stdio.h                          *
  * Criado por Matheus Leme Da Silva *
  ***********************************/
-#ifndef UTIL_H
-#define UTIL_H
+#ifndef STDIO_H
+#define STDIO_H
+#include <stdarg.h>
 
 void putc(char c);
 void puts(const char *s);
+int vsprintf(char *out, const char *fmt, va_list args);
 int printf(const char *fmt, ...);
-char to_upper(char c);
-char to_lower(char c);
-int get_path_parts(char *path, char **parts, int max);
 
-#endif /* UTIL_H */
+#endif /* STDIO_H */

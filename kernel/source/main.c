@@ -3,117 +3,94 @@
  * Criado por Matheus Leme Da Silva *
  ***********************************/
 #include <stdint.h>
+#include <stdio.h>
+#include "vga.h"
+#include "terminal.h"
 
-typedef struct E820Entry {
+typedef struct e820_entry {
 	uint64_t base;
 	uint64_t length;
 	uint32_t type;
 	uint32_t attr;
-} __attribute__((packed)) E820Entry;
+} __attribute__((packed)) e820_entry_t;
 
 typedef struct boot_info {
-	E820Entry *e820_table;
+	e820_entry_t *e820_table;
 	int e820_entry_count;
-} boot_info_t;
+} __attribute__((packed)) boot_info_t;
 
-#define VGA_WIDTH 80
-#define VGA_HEIGHT 25
+#define GDT_MAX_ENTRIES 256
 
-uint16_t *vga = (uint16_t *)0xB8000;
+typedef struct gdtr {
+	uint16_t limit;
+	void *base;
+} __attribute__((packed)) gdtr_t;
 
-/* Desenha um caractere diretamente no modo de texto VGA */
-void vga_put_char(uint16_t x, uint16_t y, char c, uint8_t attributes)
+typedef struct gdt_entry {
+	uint16_t limit_low;
+	uint16_t base_low;
+	uint8_t base_mid;
+	uint8_t access;
+	uint8_t flags;
+	uint8_t base_high;
+} __attribute__((packed)) gdt_entry_t;
+
+gdtr_t gdtr;
+gdt_entry_t gdt[GDT_MAX_ENTRIES];
+int gdt_entry_count = 0;
+
+/* Adiciona uma nova entrada na GDT */
+void gdt_add_entry(uint32_t base, uint32_t limit, uint8_t access, uint8_t flags)
 {
-	if (x >= VGA_WIDTH || y >= VGA_HEIGHT)
+	if (gdt_entry_count >= GDT_MAX_ENTRIES)
 		return;
+	flags &= 0x0F;
 
-	uint8_t uc = (uint8_t)c;
-	uint16_t pos = y * VGA_WIDTH + x;
-	vga[pos] = uc | (attributes << 8);
+	gdt[gdt_entry_count].limit_low = limit & 0xFFFF;
+	gdt[gdt_entry_count].base_low = base & 0xFFFF;
+	gdt[gdt_entry_count].base_mid = (base >> 16) & 0xFF;
+	gdt[gdt_entry_count].access = access;
+	gdt[gdt_entry_count].flags = (flags << 4) | ((limit >> 16) & 0x0F);
+	gdt[gdt_entry_count].base_high = (base >> 24) & 0xFF;
+	gdt_entry_count++;
+
 }
 
-/* Retorna um caractere de uma posição específica do modo de texto VGA */
-uint16_t vga_get_char(uint16_t x, uint16_t y)
+/* Inicializa GDT basica */
+void gdt_init(void)
 {
-	if (x >= VGA_WIDTH || y >= VGA_HEIGHT)
-		return 0;
+	gdt_add_entry(0x00000000, 0x00000, 0b00000000, 0b0000); /* NULL   */
+	gdt_add_entry(0x00000000, 0xFFFFF, 0b10011010, 0b1100); /* CODE32 */
+	gdt_add_entry(0x00000000, 0xFFFFF, 0b10010010, 0b1100); /* DATA32 */
 
-	uint16_t pos = y * VGA_WIDTH + x;
-	return vga[pos];
-}
-
-/* Faz o scroll de uma linha no modo de texto VGA */
-void vga_scroll(void)
-{
-	for (int y = 1; y < VGA_HEIGHT; y++) {
-		for (int x = 0; x < VGA_WIDTH; x++) {
-			uint16_t cell = vga_get_char(x, y);
-			char c = cell & 0xFF;
-			uint8_t attributes = (cell >> 8) & 0xFF;
-			vga_put_char(x, y - 1, c, attributes);
-		}
-	}
-
-	for (int x = 0; x < VGA_WIDTH; x++) {
-		uint16_t cell = vga_get_char(x, VGA_HEIGHT-1);
-		uint8_t attributes = (cell >> 8) & 0xFF;
-		vga_put_char(x, VGA_HEIGHT-1, ' ', attributes);
-	}
-}
-
-/* Limpa a tela no modo de texto VGA */
-void vga_clear(uint8_t attributes)
-{
-	for (uint16_t y = 0; y < VGA_HEIGHT; y++) {
-		for (uint16_t x = 0; x < VGA_WIDTH; x++) {
-			vga_put_char(x, y, ' ', attributes);
-		}
-	}
-}
-
-uint16_t cursor_x = 0, cursor_y = 0;
-uint8_t current_attributes = 0x07;
-
-/* Imprime um caractere na tela */
-void putc(char c)
-{
-	if (c == '\n') {
-		cursor_y++;
-	} else if (c == '\r') {
-		cursor_x = 0;
-	} else if (c == '\t') {
-		putc(' ');
-		putc(' ');
-	} else {
-		vga_put_char(cursor_x++, cursor_y, c, current_attributes);
-	}
-
-	if (cursor_x >= VGA_WIDTH) {
-		cursor_y++;
-		cursor_x = 0;
-	}
-
-	if (cursor_y >= VGA_HEIGHT) {
-		vga_scroll();
-		cursor_x = 0;
-		cursor_y = VGA_HEIGHT-1;
-	}
-}
-
-/* Imprime uma string na tela */
-void puts(const char *s)
-{
-	while (*s) {
-		putc(*s++);
-	}
+	gdtr.base = &gdt[0];
+	gdtr.limit = GDT_MAX_ENTRIES * sizeof(gdt_entry_t) - 1;
+	__asm__ volatile(
+			"LGDT %0;"
+			"LJMP $0x08, $flush;"
+			"flush:"
+			"MOV $0x10, %%AX;"
+			"MOV %%AX, %%DS;"
+			"MOV %%AX, %%ES;"
+			"MOV %%AX, %%FS;"
+			"MOV %%AX, %%GS;"
+			"MOV %%AX, %%SS;"
+			:: "m"(gdtr)
+	);
 }
 
 /* Func principal */
-int main(boot_info_t *boot_info)
+void kernel_main(boot_info_t *boot_info)
 {
-	(void)boot_info;
+	vga_clear(0x07);
+	gdt_init();
+	printf("Kernel iniciado!\r\n");
 
-	puts("Hello world\r\n");
+	for (int count = 0; count < boot_info->e820_entry_count; count++) {
+		e820_entry_t entry = boot_info->e820_table[count];
+		printf("E820_table[%d]: 0x%08X-0x%08X:%d\r\n",
+				count, (uint32_t)entry.base, (uint32_t)entry.length, entry.type);
+	}
 
 	while (1);
 }

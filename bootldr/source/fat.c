@@ -224,13 +224,13 @@ size_t fat_read(void *dest, fat_entry_t *entry, size_t offset, size_t n)
 		return 0;
 	}
 
-	if (offset - n > entry->file_size - offset)
+	if (offset + n > entry->file_size)
 		n = entry->file_size - offset;
 
 	size_t total = 0;
 	size_t current_offset = 0;
 	size_t remaining = n;
-	uint16_t current_cluster = entry->cluster_low; /* Para FAT32, usar cluster_high tambem e uint32_t*/
+	uint16_t current_cluster = entry->cluster_low; /* Para FAT32, usar cluster_high tambem e uint32_t */
 	uint8_t *d = (uint8_t *)dest;
 
 	while (!fat_is_eof(current_cluster)) {
@@ -250,36 +250,16 @@ size_t fat_read(void *dest, fat_entry_t *entry, size_t offset, size_t n)
 					continue;
 				}
 
-				*d++ = buf[j];
+				d[total] = buf[j];
 
 				total++;
 				current_offset++;
 				remaining--;
 			}
 		}
+
+		current_cluster = fat_read_cluster(current_cluster);
 	}
 end:
 	return total;
 }
-
-/* Lista a root dir */
-void fat_list_root(void)
-{
-	uint32_t index = 0;
-
-	while (1) {
-		char filename[13] = {0};
-		fat_entry_t entry;
-		if (fat_read_dir(0, index++, &entry) != 0)
-			break;
-
-		if (entry.attr & FAT_ATTR_VOLID)
-			continue;
-
-		fat_name_to_filename((char *)entry.name, filename);
-		printf("%s %ub \r\n", filename, entry.file_size);
-	}
-}
-
-
-

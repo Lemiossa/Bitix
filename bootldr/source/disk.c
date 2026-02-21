@@ -3,8 +3,9 @@
  * Criado por Matheus Leme Da Silva *
  ***********************************/
 #include <stdint.h>
-#include "stdio.h"
 #include "string.h"
+#include "stdio.h"
+#include "util.h"
 #include "disk.h"
 #include "real_mode.h"
 
@@ -55,12 +56,16 @@ uint8_t disk_reset(int disk)
 	return r.b.ah;
 }
 
+uint8_t disk_buf[SECTOR_SIZE];
+
 /* Le 1 setor de um disco usando o BIOS */
 /* Retorna um número diferente de zero se houver erro */
 uint8_t disk_read_sector(int disk, void *dest, uint32_t lba)
 {
 	if (!dest || disk > MAX_DISKS)
 		return 1;
+
+	memset(disk_buf, 0, SECTOR_SIZE);
 
 	uint16_t cylinders = disks[disk].cylinders;
 	uint8_t heads = disks[disk].heads;
@@ -77,10 +82,6 @@ uint8_t disk_read_sector(int disk, void *dest, uint32_t lba)
 	uint8_t head = tmp % heads;
 	uint8_t sector = (lba % sectors) + 1;
 
-	uint8_t buf[SECTOR_SIZE] = {0};
-
-	printf("Lendo %lu\r\n", lba);
-
 	uint8_t ret = 0;
 	for (int i = 0; i < 3; i++) {
 		Regs r = {0};
@@ -88,14 +89,14 @@ uint8_t disk_read_sector(int disk, void *dest, uint32_t lba)
 		r.b.ch = cylinder & 0xFF;
 		r.b.cl = sector | ((cylinder >> 2) & 0xC0);
 		r.b.dh = head;
-		r.d.es = MK_SEG(buf);
-		r.w.bx = MK_OFF(buf);
+		r.d.es = MK_SEG(disk_buf);
+		r.w.bx = MK_OFF(disk_buf);
 		r.b.dl = drive;
 		int16(0x13, &r);
 		ret = r.b.ah;
 
 		if (ret == 0) {
-			memcpy(dest, buf, SECTOR_SIZE);
+			memcpy(dest, disk_buf, SECTOR_SIZE);
 			break;
 		}
 
@@ -175,7 +176,7 @@ void disk_dettect(void)
 		if (r.d.eflags & FLAG_CF)
 			continue;
 
-		char letter = idx + 'B';
+		char letter = idx + 'C';
 
 		disks[idx].cylinders = (r.b.ch | (((r.b.cl & 0xC0) >> 6) << 8)) + 1;
 		disks[idx].heads = r.b.dh + 1;

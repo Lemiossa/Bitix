@@ -1,5 +1,5 @@
 ENTRY(_start)
-__load_addr = 0x10000;
+__load_addr = 0x100000;
 
 SECTIONS
 {

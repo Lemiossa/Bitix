@@ -1,5 +1,5 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Entry.asm                        ;;
+;; entry.asm                        ;;
 ;; Criado por Matheus Leme Da Silva ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 BITS 16
@@ -107,7 +107,7 @@ struc Regs
 endstruc
 
 real_mode_stack:
-	TIMES 512 DB 0
+	TIMES 256 DB 0
 real_mode_stack_top:
 
 ;; Usa uma interrupção no modo de 16 bits(modo real)
@@ -116,10 +116,12 @@ real_mode_stack_top:
 GLOBAL int16
 int16:
 	BITS 32
-	MOV AL, [ESP+4]
+	PUSH EBP
+	MOV EBP, ESP
+	MOV AL, [EBP+8]
 	MOV [.int+1], AL
 
-	MOV ESI, [ESP+8]
+	MOV ESI, [ESP+12]
 	MOV [.struct], ESI
 
 	PUSH DS
@@ -143,8 +145,6 @@ int16:
 	PUSH DWORD [ESI+Regs.eflags]
 
 	real_mode
-
-	;;MOV SP, real_mode_stack
 
 	POP DWORD EAX
 	POP DWORD EAX
@@ -195,6 +195,7 @@ int16:
 	POP FS
 	POP ES
 	POP DS
+	POP EBP
 	RET
 .esp: DD 0
 .struct: DD 0
@@ -211,7 +212,7 @@ _start32:
 	MOV FS, AX
 	MOV GS, AX
 	MOV SS, AX
-	MOV ESP, 0x7C00
+	MOV ESP, 0x8000
 
 	CALL main
 

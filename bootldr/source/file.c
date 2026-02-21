@@ -3,6 +3,7 @@
  * Criado por Matheus Leme Da Silva *
  ***********************************/
 #include <stddef.h>
+#include <stdint.h>
 #include "stdio.h"
 #include "string.h"
 #include "file.h"
@@ -92,8 +93,8 @@ size_t read(file_t *f, size_t n, void *dest)
 		current_disk = f->disk;
 		fat_configure(current_disk, 0);
 	}
-
-	printf("fat_read(%08x, %lu, %08x);\r\n", (uint32_t)f, n, (uint32_t)dest);
+	/*printf("fat_read(%08x, %08x, %lu, %08x);\r\n", (uint32_t)dest, (uint32_t)&f->entry, f->pos, n);
+	printf("f->pos = %lu\r\n", f->pos); */
 	return fat_read(dest, &f->entry, f->pos, n);
 }
 

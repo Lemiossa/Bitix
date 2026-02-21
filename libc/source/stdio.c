@@ -5,47 +5,6 @@
 #include <stdint.h>
 #include <stdarg.h>
 #include "stdio.h"
-#include "util.h"
-#include "vga.h"
-
-uint16_t cursor_x = 0, cursor_y = 0;
-uint8_t current_attributes = 0x07;
-
-/* Imprime um caractere na tela */
-void putc(char c)
-{
-	if (c == '\n') {
-		cursor_y++;
-	} else if (c == '\r') {
-		cursor_x = 0;
-	} else if (c == '\t') {
-		putc(' ');
-		putc(' ');
-	} else {
-		vga_put_char(cursor_x++, cursor_y, c, current_attributes);
-	}
-
-	if (cursor_x >= VGA_WIDTH) {
-		cursor_y++;
-		cursor_x = 0;
-	}
-
-	if (cursor_y >= VGA_HEIGHT) {
-		vga_scroll();
-		cursor_x = 0;
-		cursor_y = VGA_HEIGHT-1;
-	}
-
-	vga_set_cursor(cursor_x, cursor_y);
-}
-
-/* Imprime uma string na tela */
-void puts(const char *s)
-{
-	while (*s) {
-		putc(*s++);
-	}
-}
 
 /* Formata uma string */
 int vsprintf(char *out, const char *fmt, va_list args)
@@ -178,17 +137,18 @@ int vsprintf(char *out, const char *fmt, va_list args)
 				*out++ = '-';
 			}
 
-			char buf[32];
+			char buf[32] = {0};
 			int buf_idx = 0;
 			int buf_len = 0;
 			if (num == 0) {
 				buf[buf_idx++] = '0';
 			} else {
 				while (num > 0) {
+					char c = digits[num % base];
 					if (upper)
-						buf[buf_idx++] = to_upper(digits[num % base]);
+						buf[buf_idx++] = c >= 'a' && c <= 'z' ? c - ('a' - 'A') : c;
 					else
-						buf[buf_idx++] = digits[num % base];
+						buf[buf_idx++] = c;
 
 					num /= base;
 				}
@@ -218,17 +178,4 @@ int vsprintf(char *out, const char *fmt, va_list args)
 
 	*out = 0;
 	return (int)(out - start);
-}
-
-/* Imprime uma string formatada */
-int printf(const char *fmt, ...)
-{
-	va_list args;
-	char buffer[256];
-	int count = 0;
-	va_start(args, fmt);
-	count = vsprintf(buffer, fmt, args);
-	puts(buffer);
-	va_end(args);
-	return count;
 }

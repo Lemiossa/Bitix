@@ -11,19 +11,14 @@ DEPDIR ?= $(BUILDDIR)/dep
 LIBDIR ?= $(BUILDDIR)/lib
 ARCH ?= x86
 
-LIBC ?= $(LIBDIR)/libc.a
-
 INCLUDES ?= -I$(CURDIR)/include
-
-BINDIR := $(addsuffix /kernel,$(BINDIR))
-OBJDIR := $(addsuffix /kernel,$(OBJDIR))
-DEPDIR := $(addsuffix /kernel,$(DEPDIR))
-
-LINKER_FILE := $(SOURCEDIR)/arch/$(ARCH)/linker.ld
+BINDIR := $(addsuffix /libc,$(BINDIR))
+OBJDIR := $(addsuffix /libc,$(OBJDIR))
+DEPDIR := $(addsuffix /libc,$(DEPDIR))
 
 NASM := nasm
 CC ?= gcc
-LD ?= ld
+AR ?= ar
 
 ifeq ($(ARCH),x86)
 	NASMFLAGS := -f elf32
@@ -37,16 +32,13 @@ CFLAGS += -std=c99 -Wall -Wextra -O2 \
 		  -fno-stack-check -ffreestanding -fno-lto -fno-builtin \
 		  -ffunction-sections -fdata-sections -mno-mmx -mno-sse \
 		  -mno-sse2 -fno-common -I$(SOURCEDIR)/arch/$(ARCH) $(INCLUDES)
-LDFLAGS := -m elf_i386 -nostdlib -static --gc-sections -T $(LINKER_FILE)
+LDFLAGS := rcv
 
-TARGET ?= $(BINDIR)/kernel.bin
-LIBS := $(LIBC)
+TARGET ?= $(LIBDIR)/libc.a
 
 SOURCE := \
-		  arch/$(ARCH)/entry.asm \
-		  vga.c \
-		  terminal.c \
-		  main.c
+		  string.c \
+		  stdio.c
 SOURCE := $(addprefix $(SOURCEDIR)/,$(SOURCE))
 
 SOURCEC := $(filter %.c,$(SOURCE))
@@ -69,13 +61,9 @@ all: $(TARGET)
 clean:
 	rm -f $(TARGET) $(DEP) $(OBJ)
 
-$(TARGET): $(BINDIR)/kernel.elf
+$(TARGET): $(OBJ)
 	mkdir -p $(dir $@)
-	objcopy -O binary $< $@
-
-$(BINDIR)/kernel.elf: $(OBJ) $(LIBS)
-	mkdir -p $(dir $@)
-	$(LD) $(LDFLAGS) -o $@ $^
+	$(AR) $(ARFLAGS) $@ $^
 
 $(OBJDIR)/c/%.o: $(SOURCEDIR)/%.c
 	mkdir -p $(dir $@) $(dir $(DEPDIR)/c/$*.d)

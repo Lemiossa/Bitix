@@ -6,26 +6,25 @@
 #include <stdarg.h>
 #include <stddef.h>
 #include "e820.h"
-#include "stdio.h"
 #include "string.h"
+#include "util.h"
 #include "disk.h"
 #include "file.h"
 #include "fat.h"
 #include "vga.h"
 
-char *kernel_file = "a:/system/boot/kernel.sys";
-#define KERNEL_ADDR 0x10000
+char *kernel_file = "/system/boot/kernel.sys";
+#define KERNEL_ADDR 0x100000
 
 #define MAX_E820_ENTRIES 128
 
 typedef struct boot_info {
-	E820Entry *e820_table;
+	e820_entry_t *e820_table;
 	int e820_entry_count;
-} boot_info_t;
-
-E820Entry e820_table[MAX_E820_ENTRIES];
+} __attribute__((packed)) boot_info_t;
 
 boot_info_t boot_info;
+e820_entry_t e820_table[MAX_E820_ENTRIES];
 
 /* Func principal do bootloader */
 int main(void)
@@ -46,28 +45,27 @@ int main(void)
 		goto halt;
 	}
 
-	uint8_t *buf = (uint8_t *)KERNEL_ADDR;
 	size_t file_size = seek(&f, UINT32_MAX);
-	printf("Kernel tem %lu bytes\r\n", file_size);
-	if (read(&f, file_size, buf) != file_size) {
+	seek(&f, 0);
+	size_t ret = read(&f, file_size, (void *)(KERNEL_ADDR));
+	if (ret != file_size) {
 		printf("Falha ao ler arquivo do kernel: %s\r\n", kernel_file);
 		goto halt;
 	}
 
-	for (size_t i = 0; i < file_size; i++) {
-		printf("%02X ", buf[i]);
-		if ((i + 1) % 24 == 0)
-			printf("\r\n");
+	boot_info.e820_table = &e820_table[0];
+	boot_info.e820_entry_count = E820_get_table(boot_info.e820_table, MAX_E820_ENTRIES);
+
+	if (boot_info.e820_entry_count == 0) {
+		printf("Falha ao pegar mapa da memoria!\r\n");
+		goto halt;
 	}
-	printf("\r\n");
 
-	boot_info.e820_entry_count = E820_get_table(e820_table, MAX_E820_ENTRIES);
-	boot_info.e820_table = e820_table;
-
+	uint32_t boot_info_loc = (uint32_t)&boot_info;
 	__asm__ volatile (
 		"MOV %0, %%EAX;"
 		"JMP *%1"
-		:: "r"(&boot_info), "r"(buf)
+		:: "r"(boot_info_loc), "r"(KERNEL_ADDR)
 		: "eax"
 	);
 
