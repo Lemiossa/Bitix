@@ -73,7 +73,7 @@ $(BINDIR)/bootsect.bin: $(SOURCEDIR)/bootsect.asm
 	mkdir -p $(dir $@) $(dir $(DEPDIR)/asm/bootsect.d)
 	$(NASM) -f bin $< -o $@ -MD -MP -MF $(DEPDIR)/asm/bootsect.d
 
-$(BINDIR)/loader.elf: $(OBJ) $(LIBS)
+$(BINDIR)/loader.elf: $(OBJ) $(LIBS) | $(LINKER_FILE)
 	mkdir -p $(dir $@)
 	$(LD) $(LDFLAGS) -o $@ $^
 

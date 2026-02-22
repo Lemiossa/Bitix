@@ -11,7 +11,7 @@
 #include "disk.h"
 #include "fat.h"
 
-static int current_disk = 0;
+static int current_disk = -1;
 
 /* Abre um arquivo no sistema FAT */
 /* Retorna um número diferente de zero se houver erro */
@@ -93,8 +93,11 @@ size_t read(file_t *f, size_t n, void *dest)
 		current_disk = f->disk;
 		fat_configure(current_disk, 0);
 	}
-	/*printf("fat_read(%08x, %08x, %lu, %08x);\r\n", (uint32_t)dest, (uint32_t)&f->entry, f->pos, n);
-	printf("f->pos = %lu\r\n", f->pos); */
+
+	/*
+	printf("fat_read(%08x, %08x, %lu, %08x);\r\n", (uint32_t)dest, (uint32_t)&f->entry, f->pos, n);
+	printf("f->pos = %lu\r\n", f->pos);
+	*/
 	return fat_read(dest, &f->entry, f->pos, n);
 }
 

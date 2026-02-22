@@ -26,15 +26,15 @@ void putc(char c)
 		vga_put_char(cursor_x++, cursor_y, c, current_attributes);
 	}
 
-	if (cursor_x >= VGA_WIDTH) {
+	if (cursor_x >= vga_bottom_right_corner_x) {
 		cursor_y++;
-		cursor_x = 0;
+		cursor_x = vga_top_left_corner_x;
 	}
 
-	if (cursor_y >= VGA_HEIGHT) {
+	if (cursor_y >= vga_bottom_right_corner_y) {
 		vga_scroll();
-		cursor_x = 0;
-		cursor_y = VGA_HEIGHT-1;
+		cursor_x = vga_top_left_corner_x;
+		cursor_y = vga_bottom_right_corner_y;
 	}
 
 	vga_set_cursor(cursor_x, cursor_y);
@@ -77,6 +77,24 @@ char to_lower(char c)
 	return c;
 }
 
+/* Converte uma string para maiusculo */
+void str_upper(char *s)
+{
+	while (*s) {
+		*s = to_upper(*s);
+		s++;
+	}
+}
+
+/* Converte uma string para minusculo */
+void str_lower(char *s)
+{
+	while (*s) {
+		*s = to_lower(*s);
+		s++;
+	}
+}
+
 /* Separa uma path em **pathparts */
 /* Retorna o número de partes de uma path */
 int get_path_parts(char *path, char **parts, int max)
@@ -97,3 +115,51 @@ int get_path_parts(char *path, char **parts, int max)
 	return count;
 }
 
+/* Espera N microsegundos usando o BIOS */
+void wait_us(uint32_t n)
+{
+	Regs r = {0};
+	r.b.ah = 0x86;
+	r.w.cx = (n >> 16) & 0xFFFF;
+	r.w.dx = n & 0xFFFF;
+	intx(0x15, &r);
+}
+
+/* Espera N milisegundos usando o wait_us */
+void wait_ms(uint32_t n)
+{
+	wait_us(n * 1000);
+}
+
+/* Espera N segundos usando o wait_ms */
+void wait(uint32_t n)
+{
+	wait_ms(n * 1000);
+}
+
+/* Retorna 1 se tiver tecla para ler usando o BIOS */
+int kbhit(void)
+{
+	Regs r = {0};
+	r.b.ah = 0x01;
+	intx(0x16, &r);
+	return !(r.w.flags & FLAG_ZF);
+}
+
+/* Pega o codigo ASCII de uma tecla pressionada usando o BIOS */
+unsigned char kbgetchar(void)
+{
+	Regs r = {0};
+	r.b.ah = 0x00;
+	intx(0x16, &r);
+	return r.b.al;
+}
+
+/* Pega o scancode de uma tecla pressionada usando o BIOS */
+unsigned char kbgetsc(void)
+{
+	Regs r = {0};
+	r.b.ah = 0x00;
+	intx(0x16, &r);
+	return r.b.ah;
+}

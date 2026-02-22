@@ -25,6 +25,9 @@ typedef union Regs {
 		uint16_t bp, __bp;
 		uint16_t si, __si;
 		uint16_t di, __di;
+		uint16_t ds;
+		uint16_t es;
+		uint16_t flags;
 	} w;
 
 	struct {
@@ -35,9 +38,6 @@ typedef union Regs {
 		uint32_t ebp;
 		uint32_t esi;
 		uint32_t edi;
-		uint32_t ds;
-		uint32_t es;
-		uint32_t eflags;
 	} d;
 } Regs;
 
@@ -52,8 +52,6 @@ typedef union Regs {
 #define FLAG_OF (1 << 11)
 #define FLAG_NT (1 << 14)
 
-void int10h(Regs *r);
-void int13h(Regs *r);
-void int15h(Regs *r);
+void intx(unsigned char intnum, Regs *r);
 
 #endif /* REAL_MODE_H */

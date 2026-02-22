@@ -4,8 +4,11 @@
  ***********************************/
 #include <stdint.h>
 #include <stdio.h>
-#include "vga.h"
-#include "terminal.h"
+#include <vga.h>
+#include <terminal.h>
+
+#include <gdt.h>
+#include <idt.h>
 
 typedef struct e820_entry {
 	uint64_t base;
@@ -19,68 +22,13 @@ typedef struct boot_info {
 	int e820_entry_count;
 } __attribute__((packed)) boot_info_t;
 
-#define GDT_ENTRIES 256
-
-typedef struct gdtr {
-	uint16_t limit;
-	void *base;
-} __attribute__((packed)) gdtr_t;
-
-typedef struct gdt_entry {
-	uint16_t limit_low;
-	uint16_t base_low;
-	uint8_t base_mid;
-	uint8_t access;
-	uint8_t flags;
-	uint8_t base_high;
-} __attribute__((packed)) gdt_entry_t;
-
-gdtr_t gdtr;
-gdt_entry_t gdt[GDT_ENTRIES];
-int gdt_entry_count = 0;
-
-/* Adiciona uma nova entrada na GDT */
-void gdt_set_entry(int entry, uint32_t base, uint32_t limit, uint8_t access, uint8_t flags)
-{
-	if (entry >= GDT_ENTRIES)
-		return;
-
-	gdt[entry].limit_low = limit & 0xFFFF;
-	gdt[entry].base_low = base & 0xFFFF;
-	gdt[entry].base_mid = (base >> 16) & 0xFF;
-	gdt[entry].access = access;
-	gdt[entry].flags = ((flags & 0x0F) << 4) | ((limit >> 16) & 0x0F);
-	gdt[entry].base_high = (base >> 24) & 0xFF;
-}
-
-/* Inicializa GDT basica */
-void gdt_init(void)
-{
-	gdt_set_entry(0, 0x00000000, 0x00000, 0b00000000, 0b0000); /* NULL   */
-	gdt_set_entry(1, 0x00000000, 0xFFFFF, 0b10011010, 0b1100); /* CODE32 */
-	gdt_set_entry(2, 0x00000000, 0xFFFFF, 0b10010010, 0b1100); /* DATA32 */
-
-	gdtr.base = &gdt[0];
-	gdtr.limit = GDT_ENTRIES * sizeof(gdt_entry_t) - 1;
-	__asm__ volatile(
-			"LGDT %0;"
-			"LJMP $0x08, $flush;"
-			"flush:"
-			"MOV $0x10, %%AX;"
-			"MOV %%AX, %%DS;"
-			"MOV %%AX, %%ES;"
-			"MOV %%AX, %%FS;"
-			"MOV %%AX, %%GS;"
-			"MOV %%AX, %%SS;"
-			:: "m"(gdtr)
-	);
-}
-
 /* Func principal */
 void kernel_main(boot_info_t *boot_info)
 {
-	gdt_init();
-	vga_clear(0x07);
+	vga_clear(0x17);
+	/*gdt_init();
+	idt_init();*/
+
 	printf("Kernel iniciado!\r\n");
 
 	for (int count = 0; count < boot_info->e820_entry_count; count++) {

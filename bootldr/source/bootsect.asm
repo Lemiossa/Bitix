@@ -12,7 +12,7 @@ count: EQU 62
 
 JMP SHORT _start
 NOP
-TIMES 62 - ($-$$) DB 0
+TIMES 90 - ($-$$) DB 0
 
 ;; Func principal
 GLOBAL _start

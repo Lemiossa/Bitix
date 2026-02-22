@@ -21,16 +21,13 @@ int E820_get_table(e820_entry_t *out, int max)
 		r.d.eax = 0x0000E820;
 		r.d.ecx = 24;
 		r.d.edx = 0x534D4150;
-		r.d.es = MK_SEG(&out[count]);
+		r.w.es = MK_SEG(&out[count]);
 		r.w.di = MK_OFF(&out[count]);
 
-		int15h(&r);
+		intx(0x15, &r);
 
-		if (r.d.eax != 0x534D4150 || r.d.eflags & FLAG_CF)
+		if (r.d.eax != 0x534D4150 || r.w.flags & FLAG_CF)
 			return 0;
-
-		printf("E820_table[%d]: 0x%08X-0x%08X:%d\r\n",
-				count, (uint32_t)out[count].base, (uint32_t)out[count].length, out[count].type);
 
 		count++;
 

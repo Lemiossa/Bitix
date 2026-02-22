@@ -4,13 +4,14 @@
  ***********************************/
 #include <stdint.h>
 #include <stdarg.h>
-#include "stdio.h"
+#include <string.h>
+#include <stdio.h>
 
 /* Formata uma string */
-int vsprintf(char *out, const char *fmt, va_list args)
+int vsprintf(char *s, const char *fmt, va_list args)
 {
 	char *digits = "0123456789abcdef";
-	char *start = out;
+	char *start = s;
 
 	while (*fmt) {
 		if (*fmt == '%') {
@@ -66,40 +67,40 @@ int vsprintf(char *out, const char *fmt, va_list args)
 			} else if (*fmt == 'b') {
 				base = 2;
 			} else if (*fmt == 'c') {
-				*out++ = (char)va_arg(args, int);
+				*s++ = (char)va_arg(args, int);
 				fmt++;
 				continue;
 			} else if (*fmt == 's') {
-				char *s = va_arg(args, char*);
+				char *str = va_arg(args, char*);
 				int buf_len = 0;
 
-				if (!s) {
-					s = "(null)";
+				if (!str) {
+					str = "(null)";
 					buf_len = 6;
 				}
 
-				char *start = s;
+				char *start = str;
 
-				while (*s) {
+				while (*str) {
 					buf_len++;
-					s++;
+					str++;
 				}
-				s = start;
+				str = start;
 
 				if (!neg_pad) {
 					int i = 0;
 					for (i = 0; i < pad - buf_len; i++)
-						*out++ = ' ';
+						*s++ = ' ';
 				}
 
 				while (*s) {
-					*out++ = *s++;
+					*s++ = *str++;
 				}
 
 				if (neg_pad) {
 					int i = 0;
 					for (i = 0; i < pad - buf_len; i++)
-						*out++ = ' ';
+						*s++ = ' ';
 				}
 
 				fmt++;
@@ -134,7 +135,7 @@ int vsprintf(char *out, const char *fmt, va_list args)
 			}
 
 			if (sign) {
-				*out++ = '-';
+				*s++ = '-';
 			}
 
 			char buf[32] = {0};
@@ -159,23 +160,34 @@ int vsprintf(char *out, const char *fmt, va_list args)
 				int i = 0;
 				char c = zero_pad?'0':' ';
 				for (i = 0; i < pad - buf_len; i++) {
-					*out++ = c;
+					*s++ = c;
 				}
 			}
 
 			while (buf_idx--)
-				*out++ = buf[buf_idx];
+				*s++ = buf[buf_idx];
 
 			if (neg_pad) {
 				int i = 0;
 				for (i = 0; i < pad - buf_len; i++)
-					*out++ = ' ';
+					*s++ = ' ';
 			}
 		} else {
-			*out++ = *fmt++;
+			*s++ = *fmt++;
 		}
 	}
 
-	*out = 0;
-	return (int)(out - start);
+	*s = 0;
+	return (int)(s - start);
+}
+
+/* Coloca uma string formatada em um buffer */
+int sprintf(char *s, const char *fmt, ...)
+{
+	va_list args;
+	int count = 0;
+	va_start(args, fmt);
+	count = vsprintf(s, fmt, args);
+	va_end(args);
+	return count;
 }

@@ -5,8 +5,8 @@
 #ifndef TERMINAL_H
 #define TERMINAL_H
 
-void putc(char c);
-void puts(const char *s);
+void putchar(char c);
+void putstring(const char *s);
 int printf(const char *fmt, ...);
 
 #endif /* TERMINAL_H */

@@ -12,15 +12,32 @@ _start:
 	MOV DS, AX
 	MOV ES, AX
 	MOV SS, AX
-	MOV SP, 0x7C00
+	MOV SP, rm_stack_top
 
 	MOV [boot_drive], DL
 
 	;; Ativar linha A20
-	IN AL, 0x92
-	OR AL, 2
-	OUT 0x92, AL
+	MOV AX, 0x2403
+	INT 0x15
+	JC a20_error
+	TEST AH, AH
+	JNZ a20_error
 
+	MOV AX, 0x2402
+	INT 0x15
+	JC a20_error
+	TEST AH, AH
+	JNZ a20_error
+	TEST AL, AL
+	JNZ a20_ok
+
+	MOV AX, 0x2401
+	INT 0x15
+
+	JC a20_error
+	TEST AH, AH
+	JNZ a20_error
+a20_ok:
 	LGDT [gdtr]
 
 	MOV EAX, CR0
@@ -28,6 +45,33 @@ _start:
 	MOV CR0, EAX
 
 	JMP 0x08:_start32
+	;; Nunca deve chegar aqui
+	CLI
+	HLT
+
+a20_error:
+	MOV SI, a20_error_msg
+	CALL print_string
+	CLI
+	HLT
+
+a20_error_msg:
+	DB 'Falha ao ativar linha A20, impossivel continuar!', 0x0A, 0x0D, 0x00
+
+print_string:
+	PUSH AX
+	PUSH SI
+	MOV AH, 0x0E
+.loop:
+	LODSB
+	TEST AL, AL
+	JZ .end
+	INT 0x10
+	JMP .loop
+.end:
+	POP SI
+	POP AX
+	RET
 
 GLOBAL boot_drive
 boot_drive: DB 0
@@ -75,6 +119,8 @@ gdtr:
 	XOR AX, AX
 	MOV DS, AX
 	MOV ES, AX
+	MOV FS, AX
+	MOV GS, AX
 	MOV SS, AX
 %endmacro
 
@@ -104,22 +150,28 @@ struc Regs
 	.ebp RESD 1
 	.esi RESD 1
 	.edi RESD 1
-	.ds RESD 1
-	.es RESD 1
-	.eflags RESD 1
+	.ds RESW 1
+	.es RESW 1
+	.flags RESW 1
 endstruc
 
+rm_stack_bottom:
+	TIMES 1024 DB 0
+rm_stack_top:
+
+BITS 32
 ;; Usa uma interrupção no modo de 16 bits
 ;; typedef struct Regs { uint32_t eax, ebx, ecx, edx, ebp, esi, edi; uint16_t ds, es, flags; } __attribute__((packed)) Regs;
-;; void int*h(Regs *r);
-%macro bios_int 1
-GLOBAL int%1h
-int%1h:
-	BITS 32
+;; void intx(unsigned char intnum, Regs *r);
+GLOBAL intx
+intx:
 	PUSH EBP
 	MOV EBP, ESP
 
-	MOV ESI, [ESP+8]
+	MOV AL, [EBP+8]
+	MOV [.int+1], AL
+
+	MOV ESI, [EBP+12]
 	MOV [.struct], ESI
 
 	PUSH DS
@@ -130,7 +182,7 @@ int%1h:
 	PUSHFD
 	MOV [.esp], ESP
 
-	MOV ESP, 0x7C00
+	MOV ESP, rm_stack_top
 	PUSH DWORD [ESI+Regs.eax]
 	PUSH DWORD [ESI+Regs.ebx]
 	PUSH DWORD [ESI+Regs.ecx]
@@ -138,17 +190,15 @@ int%1h:
 	PUSH DWORD [ESI+Regs.ebp]
 	PUSH DWORD [ESI+Regs.esi]
 	PUSH DWORD [ESI+Regs.edi]
-	PUSH DWORD [ESI+Regs.ds]
-	PUSH DWORD [ESI+Regs.es]
-	PUSH DWORD [ESI+Regs.eflags]
+	PUSH WORD [ESI+Regs.ds]
+	PUSH WORD [ESI+Regs.es]
+	PUSH WORD [ESI+Regs.flags]
 
 	real_mode
 
-	POP DWORD EAX
-	POP DWORD EAX
-	MOV ES, AX
-	POP DWORD EAX
-	MOV DS, AX
+	POP WORD AX
+	POP WORD ES
+	POP WORD DS
 	POP DWORD EDI
 	POP DWORD ESI
 	POP DWORD EBP
@@ -157,11 +207,9 @@ int%1h:
 	POP DWORD EBX
 	POP DWORD EAX
 .int:
-	INT %1h
-	PUSHFD
-	PUSH WORD 0
+	INT 0x00
+	PUSHF
 	PUSH WORD ES
-	PUSH WORD 0
 	PUSH WORD DS
 	PUSH DWORD EDI
 	PUSH DWORD ESI
@@ -182,9 +230,9 @@ int%1h:
 	POP DWORD [ESI+Regs.ebp]
 	POP DWORD [ESI+Regs.esi]
 	POP DWORD [ESI+Regs.edi]
-	POP DWORD [ESI+Regs.ds]
-	POP DWORD [ESI+Regs.es]
-	POP DWORD [ESI+Regs.eflags]
+	POP WORD [ESI+Regs.ds]
+	POP WORD [ESI+Regs.es]
+	POP WORD [ESI+Regs.flags]
 
 	MOV ESP, [.esp]
 	POPFD
@@ -197,11 +245,6 @@ int%1h:
 	RET
 .esp: DD 0
 .struct: DD 0
-%endmacro
-
-bios_int 10
-bios_int 13
-bios_int 15
 
 SECTION .text
 BITS 32
@@ -215,10 +258,13 @@ _start32:
 	MOV FS, AX
 	MOV GS, AX
 	MOV SS, AX
-	MOV ESP, 0x90000
+	MOV ESP, 0x7C00
 
 	CALL main
 
 hang:
 	JMP hang
 
+stack_bottom:
+	RESB 4096
+stack_top:

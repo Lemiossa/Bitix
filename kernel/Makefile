@@ -31,6 +31,7 @@ ifeq ($(ARCH),x86)
 else
 	$(error Arquitetura não suportada: $(ARCH))
 endif
+INCLUDES += -I$(CURDIR)/include
 
 CFLAGS += -std=c99 -Wall -Wextra -O2 \
 		  -fno-PIC -fno-pie -fno-stack-protector \
@@ -44,6 +45,9 @@ LIBS := $(LIBC)
 
 SOURCE := \
 		  arch/$(ARCH)/entry.asm \
+		  arch/$(ARCH)/gdt.c \
+		  arch/$(ARCH)/intr.asm \
+		  arch/$(ARCH)/idt.c \
 		  vga.c \
 		  terminal.c \
 		  main.c
@@ -73,7 +77,7 @@ $(TARGET): $(BINDIR)/kernel.elf
 	mkdir -p $(dir $@)
 	objcopy -O binary $< $@
 
-$(BINDIR)/kernel.elf: $(OBJ) $(LIBS)
+$(BINDIR)/kernel.elf: $(OBJ) $(LIBS) | $(LINKER_FILE)
 	mkdir -p $(dir $@)
 	$(LD) $(LDFLAGS) -o $@ $^
 

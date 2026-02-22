@@ -7,6 +7,8 @@
 #include "vga.h"
 
 uint16_t *vga = (uint16_t *)0xB8000;
+uint16_t vga_top_left_corner_x = 0, vga_top_left_corner_y = 0;
+uint16_t vga_bottom_right_corner_x = VGA_WIDTH , vga_bottom_right_corner_y = VGA_HEIGHT - 1;
 
 /* Muda a posição do cursor no modo de texto VGA */
 void vga_set_cursor(uint16_t x, uint16_t y)
@@ -30,6 +32,25 @@ void vga_put_char(uint16_t x, uint16_t y, char c, uint8_t attributes)
 	vga[pos] = uc | (attributes << 8);
 }
 
+/* Desenha uma string diretamente no modo de texto VGA */
+void vga_put_string(uint16_t x, uint16_t y, char *s, uint8_t attributes)
+{
+	if (x >= VGA_WIDTH || y >= VGA_HEIGHT)
+		return;
+
+	while (*s) {
+		vga_put_char(x++, y, *s++, attributes);
+
+		if (x >= VGA_WIDTH) {
+			x = 0;
+			y++;
+		}
+
+		if (y >= VGA_HEIGHT)
+			vga_scroll();
+	}
+}
+
 /* Retorna um caractere de uma posição específica do modo de texto VGA */
 uint16_t vga_get_char(uint16_t x, uint16_t y)
 {
@@ -43,8 +64,8 @@ uint16_t vga_get_char(uint16_t x, uint16_t y)
 /* Faz o scroll de uma linha no modo de texto VGA */
 void vga_scroll(void)
 {
-	for (int y = 1; y < VGA_HEIGHT; y++) {
-		for (int x = 0; x < VGA_WIDTH; x++) {
+	for (int y = vga_top_left_corner_y; y < vga_bottom_right_corner_y; y++) {
+		for (int x = vga_top_left_corner_x; x < vga_bottom_right_corner_x; x++) {
 			uint16_t cell = vga_get_char(x, y);
 			char c = cell & 0xFF;
 			uint8_t attributes = (cell >> 8) & 0xFF;
@@ -52,18 +73,18 @@ void vga_scroll(void)
 		}
 	}
 
-	for (int x = 0; x < VGA_WIDTH; x++) {
-		uint16_t cell = vga_get_char(x, VGA_HEIGHT-1);
+	for (int x = vga_top_left_corner_x; x < vga_bottom_right_corner_x; x++) {
+		uint16_t cell = vga_get_char(x, vga_bottom_right_corner_y);
 		uint8_t attributes = (cell >> 8) & 0xFF;
-		vga_put_char(x, VGA_HEIGHT-1, ' ', attributes);
+		vga_put_char(x, vga_bottom_right_corner_y, ' ', attributes);
 	}
 }
 
 /* Limpa a tela no modo de texto VGA */
 void vga_clear(uint8_t attributes)
 {
-	for (uint16_t y = 0; y < VGA_HEIGHT; y++) {
-		for (uint16_t x = 0; x < VGA_WIDTH; x++) {
+	for (uint16_t y = vga_top_left_corner_y; y < vga_bottom_right_corner_y; y++) {
+		for (uint16_t x = vga_top_left_corner_x; x < vga_bottom_right_corner_x; x++) {
 			vga_put_char(x, y, ' ', attributes);
 		}
 	}

@@ -9,9 +9,9 @@ EXTERN kernel_main
 GLOBAL _start
 _start:
 	CLI
-	MOV ESP, stack_top
+	MOV ESP, 0x90000
 
-	PUSH EAX
+	PUSH EAX ;; Ponteiro para boot_info
 	CALL kernel_main
 	ADD ESP, 4
 
