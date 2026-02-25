@@ -15,6 +15,7 @@ extern void terminal_tick(void);
 /* Handler do timer */
 void timer_handler(intr_frame_t *f)
 {
+	(void)f;
 	ticks++;
 	terminal_tick();
 	pic_eoi(0);

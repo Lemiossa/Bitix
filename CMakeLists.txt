@@ -32,7 +32,7 @@ add_subdirectory(kernel)
 add_custom_target(root
 	COMMAND mkdir -p ${CMAKE_CURRENT_BINARY_DIR}/root/system/boot
 	COMMAND cp ${KERNEL_FILE} root/system/boot/kernel.sys
-	DEPENDS kernel
+	DEPENDS kernel_bin
 )
 
 add_custom_command(

@@ -45,7 +45,8 @@ kbd_event_t events[KBD_MAX_EVENTS];
 /* Retorna um número diferente de zero se houver erro */
 int kbd_read_event(kbd_event_t *out)
 {
-
+	(void)out;
+	return 0;
 }
 
 /* Handler de teclado */
@@ -58,6 +59,7 @@ void kbd_handler(void)
 		sc &= ~0x80;
 		released = 1;
 	}
+	(void)released;
 
 	pic_eoi(1);
 }
@@ -90,5 +92,5 @@ void kernel_main(boot_info_t *bi)
 	}
 
 
-	while (1) ;
+	while (1);
 }

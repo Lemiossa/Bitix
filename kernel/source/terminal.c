@@ -26,8 +26,6 @@ static uint8_t current_fg_color = 7;
 static uint8_t current_bg_color = 0;
 
 static int cursor_visible = 1;
-static int last_x = 0;
-static int last_y = 0;
 
 typedef struct char_cell {
 	char ch;
@@ -145,14 +143,6 @@ static void redraw(void)
 		}
 	}
 	draw_cursor(cursor_x, cursor_y);
-}
-
-/* Redesenha a linha atual */
-static void redraw_line(void) {
-	for (int x = top_corner_x; x < bottom_corner_x; x++) {
-		char_cell_t *cell = get_char_at(x, cursor_y);
-		put_char_at(x, cursor_y, *cell);
-	}
 }
 
 /* Faz scroll de 1 linha */
