@@ -40,33 +40,3 @@ uint16_t vga_get_char(uint16_t x, uint16_t y)
 	return vga[pos];
 }
 
-/* Faz o scroll de uma linha no modo de texto VGA */
-void vga_scroll(void)
-{
-	for (int y = 1; y < VGA_HEIGHT; y++) {
-		for (int x = 0; x < VGA_WIDTH; x++) {
-			uint16_t cell = vga_get_char(x, y);
-			char c = cell & 0xFF;
-			uint8_t attributes = (cell >> 8) & 0xFF;
-			vga_put_char(x, y - 1, c, attributes);
-		}
-	}
-
-	for (int x = 0; x < VGA_WIDTH; x++) {
-		uint16_t cell = vga_get_char(x, VGA_HEIGHT-1);
-		uint8_t attributes = (cell >> 8) & 0xFF;
-		vga_put_char(x, VGA_HEIGHT-1, ' ', attributes);
-	}
-}
-
-/* Limpa a tela no modo de texto VGA */
-void vga_clear(uint8_t attributes)
-{
-	for (uint16_t y = 0; y < VGA_HEIGHT; y++) {
-		for (uint16_t x = 0; x < VGA_WIDTH; x++) {
-			vga_put_char(x, y, ' ', attributes);
-		}
-	}
-	vga_set_cursor(0, 0);
-}
-

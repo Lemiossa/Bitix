@@ -19,5 +19,6 @@ void vga_put_string(uint16_t x, uint16_t y, char *s, uint8_t attributes);
 uint16_t vga_get_char(uint16_t x, uint16_t y);
 void vga_scroll(void);
 void vga_clear(uint8_t attributes);
+uint8_t *vga_get_font(uint8_t pointer, uint16_t *height);
 
 #endif /* VGA_H */

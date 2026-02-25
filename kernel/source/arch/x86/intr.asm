@@ -27,28 +27,26 @@ GLOBAL isr_common
 isr_common:
 	PUSHAD
 
-	XOR EAX, EAX
-	MOV AX, GS
-	PUSH EAX
-	MOV AX, FS
-	PUSH EAX
-	MOV AX, ES
-	PUSH EAX
-	MOV AX, DS
-	PUSH EAX
+	PUSH GS
+	PUSH FS
+	PUSH ES
+	PUSH DS
+
+	;; Setar DS, ES, FS e GS do kernel
+	MOV EAX, 0x10
+	MOV DS, AX
+	MOV ES, AX
+	MOV GS, AX
+	MOV FS, AX
 
 	PUSH ESP
 	CALL intr_handler
 	ADD ESP, 4 ;; Remover o parametro passado
 
-	POP EAX
-	MOV DS, AX
-	POP EAX
-	MOV ES, AX
-	POP EAX
-	MOV FS, AX
-	POP EAX
-	MOV GS, AX
+	POP DS
+	POP ES
+	POP FS
+	POP GS
 
 	POPAD
 

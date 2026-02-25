@@ -3,8 +3,11 @@
  * Criado por Matheus Leme Da Silva *
  ***********************************/
 #include <stdint.h>
+#include <stdio.h>
 #include "io.h"
 #include "vga.h"
+#include "real_mode.h"
+#include "util.h"
 
 uint16_t *vga = (uint16_t *)0xB8000;
 uint16_t vga_top_left_corner_x = 0, vga_top_left_corner_y = 0;
@@ -90,3 +93,26 @@ void vga_clear(uint8_t attributes)
 	}
 }
 
+/* Pega a fonte VGA */
+/* Retorna o ponteiro e coloca o número de bytes por caractere em height */
+uint8_t *vga_get_font(uint8_t pointer, uint16_t *height)
+{
+	Regs r = {0};
+	r.w.ax = 0x1130;
+	r.b.bh = pointer;
+	intx(0x10, &r);
+
+	if (height)
+		*height = r.w.cx;
+
+#ifdef DEBUG
+	printf("r.w.cx = %04X\r\n", r.w.cx);
+#endif /* DEBUG */
+
+	uint8_t *font = (uint8_t *)MK_PTR(r.w.es, r.w.bp);
+#ifdef DEBUG
+	printf("vga_font = %08X\r\n", (uint32_t)font);
+#endif /* DEBUG */
+
+	return font;
+}

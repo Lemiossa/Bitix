@@ -11,6 +11,8 @@ void memset(void *dest, int b, size_t n);
 size_t strcmp(const char *s1, const char *s2);
 size_t strncmp(const char *s1, const char *s2, size_t n);
 size_t strlen(const char *s);
+void strcpy(char *d, const char *s);
+void strncpy(char *d, const char *s, size_t n);
 char *strchr(const char *s, char ch);
 char *strtok(char *str, const char *delim);
 

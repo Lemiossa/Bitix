@@ -4,6 +4,7 @@
  ***********************************/
 #include <stdint.h>
 #include <stddef.h>
+#include <string.h>
 
 /* Copia N bytes de SRC para DEST */
 /* Retorna DEST */
@@ -62,6 +63,24 @@ size_t strlen(const char *s)
 
 	return i;
 }
+
+/* Copia de src para dest até encontrar \0 no src */
+void strcpy(char *d, const char *s)
+{
+	while (*s) {
+		*d++ = *s++;
+	}
+}
+
+/* Copia n bytes de src para dest até encontrar */
+void strncpy(char *d, const char *s, size_t n)
+{
+	while (n > 0 && *s) {
+		*d++ = *s++;
+		n--;
+	}
+}
+
 
 /* Retorna um ponteiro para a primeira ocorrencia de um caractere em uma string */
 /* Retorna nulo quando não encontra nada */

@@ -10,6 +10,7 @@ OBJDIR ?= $(BUILDDIR)/obj
 DEPDIR ?= $(BUILDDIR)/dep
 LIBDIR ?= $(BUILDDIR)/lib
 ARCH ?= x86
+DEBUG ?= false
 
 LIBC ?= $(LIBDIR)/libc.a
 
@@ -31,14 +32,19 @@ ifeq ($(ARCH),x86)
 else
 	$(error Arquitetura não suportada: $(ARCH))
 endif
-INCLUDES += -I$(CURDIR)/include
+INCLUDES += -I$(CURDIR)/include -I$(CURDIR)/include/arch/$(ARCH)
 
-CFLAGS += -std=c99 -Wall -Wextra -O2 \
+CFLAGS += -std=c99 -Wall -Wextra -O0 \
 		  -fno-PIC -fno-pie -fno-stack-protector \
 		  -fno-stack-check -ffreestanding -fno-lto -fno-builtin \
 		  -ffunction-sections -fdata-sections -mno-mmx -mno-sse \
-		  -mno-sse2 -fno-common -I$(SOURCEDIR)/arch/$(ARCH) $(INCLUDES)
+		  -mno-sse2 -fno-common $(INCLUDES)
 LDFLAGS := -m elf_i386 -nostdlib -static --gc-sections -T $(LINKER_FILE)
+ifeq ($(DEBUG),true)
+	CFLAGS += -DDEBUG
+	NASMFLAGS += -DDEBUG
+endif
+
 
 TARGET ?= $(BINDIR)/kernel.bin
 LIBS := $(LIBC)
@@ -48,6 +54,10 @@ SOURCE := \
 		  arch/$(ARCH)/gdt.c \
 		  arch/$(ARCH)/intr.asm \
 		  arch/$(ARCH)/idt.c \
+		  pic.c \
+		  pit.c \
+		  timer.c \
+		  graphics.c \
 		  vga.c \
 		  terminal.c \
 		  main.c

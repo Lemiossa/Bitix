@@ -8,6 +8,7 @@
 
 #define MK_SEG(ptr) (((uint32_t)(ptr) >> 4) & 0xFFFF)
 #define MK_OFF(ptr) ((uint32_t)(ptr) & 0x0F)
+#define MK_PTR(seg, off) (((uint32_t)(seg) << 4) + (uint32_t)(off))
 
 typedef union Regs {
 	struct {
@@ -38,6 +39,8 @@ typedef union Regs {
 		uint32_t ebp;
 		uint32_t esi;
 		uint32_t edi;
+		uint32_t dses;
+		uint32_t eflags;
 	} d;
 } Regs;
 

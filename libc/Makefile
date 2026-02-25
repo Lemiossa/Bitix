@@ -38,7 +38,8 @@ TARGET ?= $(LIBDIR)/libc.a
 
 SOURCE := \
 		  string.c \
-		  stdio.c
+		  stdio.c \
+		  stdlib.c
 SOURCE := $(addprefix $(SOURCEDIR)/,$(SOURCE))
 
 SOURCEC := $(filter %.c,$(SOURCE))

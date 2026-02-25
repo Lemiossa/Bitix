@@ -16,8 +16,13 @@ static inline void outb(uint16_t port, uint8_t val)
 static inline uint8_t inb(uint16_t port)
 {
 	uint8_t val = 0;
-	__asm__ volatile ("INB %0, %1" : "=r"(val) : "Nd"(port) : "memory");
+	__asm__ volatile ("INB %1, %b0" : "=Na"(val) : "Nd"(port) : "memory");
 	return val;
+}
+
+static inline void io_wait(void)
+{
+	outb(0x80, 0);
 }
 
 #endif /* IO_H */

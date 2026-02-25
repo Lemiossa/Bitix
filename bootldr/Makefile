@@ -9,6 +9,7 @@ BINDIR ?= $(BUILDDIR)/bin
 OBJDIR ?= $(BUILDDIR)/obj
 DEPDIR ?= $(BUILDDIR)/dep
 LIBDIR ?= $(BUILDDIR)/lib
+DEBUG ?= false
 
 BINDIR := $(addsuffix /boot,$(BINDIR))
 OBJDIR := $(addsuffix /boot,$(OBJDIR))
@@ -24,12 +25,17 @@ NASMFLAGS := -f elf32
 CC ?= gcc
 LD ?= ld
 
-CFLAGS := -m32 -std=c99 -Wall -Wextra -Os \
+CFLAGS := -m32 -std=c99 -Wall -Wextra -O0 \
 		  -fno-PIC -fno-pie -fno-stack-protector -march=i686 \
 		  -fno-stack-check -ffreestanding -fno-lto -fno-builtin \
 		  -ffunction-sections -fdata-sections -mno-mmx -mno-sse \
 		  -mno-sse2 -fno-common $(INCLUDES)
 LDFLAGS := -m elf_i386 -nostdlib -static --gc-sections -T $(LINKER_FILE)
+
+ifeq ($(DEBUG),true)
+	CFLAGS += -DDEBUG
+	NASMFLAGS += -DDEBUG
+endif
 
 TARGET ?= $(BINDIR)/bootldr.bin
 LIBS := $(LIBDIR)/libc.a
@@ -42,6 +48,7 @@ SOURCE := \
 		  disk.c \
 		  util.c \
 		  file.c \
+		  vesa.c \
 		  main.c
 SOURCE := $(addprefix $(SOURCEDIR)/,$(SOURCE))
 

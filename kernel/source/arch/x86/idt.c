@@ -38,9 +38,19 @@ void idt_set_trap(int entry, void (*trap)(void), uint16_t selector)
 }
 
 
+extern void timer_handler(intr_frame_t *f);
+extern void kbd_handler(void);
+
 /* Handler de interrupções */
 void intr_handler(intr_frame_t *f)
 {
+	if (f->int_no >= 32 && f->int_no <= 47) {
+		switch (f->int_no) {
+			case 32: timer_handler(f); return;
+			case 33: kbd_handler(); return;
+		}
+	}
+
 	printf("EAX: 0x%08X ", f->eax);
 	printf("EBX: 0x%08X\r\n", f->ebx);
 	printf("ECX: 0x%08X ", f->ecx);
@@ -92,6 +102,8 @@ extern void isr_28(void);
 extern void isr_29(void);
 extern void isr_30(void);
 extern void isr_31(void);
+extern void isr_32(void);
+extern void isr_33(void);
 
 /* Inicializa IDT basica */
 void idt_init(void)
@@ -128,6 +140,10 @@ void idt_init(void)
 	idt_set_trap(29, isr_29, 0x08);
 	idt_set_trap(30, isr_30, 0x08);
 	idt_set_trap(31, isr_31, 0x08);
+
+	idt_set_trap(32, isr_32, 0x08);
+	idt_set_trap(33, isr_33, 0x08);
+
 
 	idtr.base = &idt[0];
 	idtr.limit = IDT_ENTRIES * sizeof(idt_entry_t) - 1;

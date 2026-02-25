@@ -8,6 +8,7 @@ ARCH := x86
 IMAGE := Bitix.img
 FAT_TYPE := 12
 IMAGE_SIZE := 1440K
+DEBUG ?= false
 
 ifneq ($(ARCH),x86)
 	$(error Arquitetura não suportada: $(ARCH))
@@ -34,6 +35,7 @@ export BINDIR
 export OBJDIR
 export DEPDIR
 export LIBDIR
+export DEBUG
 export INCLUDES
 export CC
 export LD

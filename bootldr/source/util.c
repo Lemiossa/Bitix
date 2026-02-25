@@ -15,6 +15,14 @@ uint8_t current_attributes = 0x07;
 /* Imprime um caractere na tela */
 void putc(char c)
 {
+#ifdef DEBUG
+	Regs r = {0};
+	r.b.ah = 0x01;
+	r.b.al = c;
+	r.w.dx = 0;
+	intx(0x14, &r);
+#endif /* DEBUG */
+
 	if (c == '\n') {
 		cursor_y++;
 	} else if (c == '\r') {
@@ -34,7 +42,7 @@ void putc(char c)
 	if (cursor_y >= vga_bottom_right_corner_y) {
 		vga_scroll();
 		cursor_x = vga_top_left_corner_x;
-		cursor_y = vga_bottom_right_corner_y;
+		cursor_y = vga_bottom_right_corner_y - 1;
 	}
 
 	vga_set_cursor(cursor_x, cursor_y);
@@ -55,7 +63,7 @@ int printf(const char *fmt, ...)
 	char buffer[256];
 	int count = 0;
 	va_start(args, fmt);
-	count = vsprintf(buffer, fmt, args);
+	count = vsnprintf(buffer, sizeof(buffer), fmt, args);
 	puts(buffer);
 	va_end(args);
 	return count;

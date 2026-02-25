@@ -5,6 +5,9 @@
 BITS 16
 SECTION .entry
 
+stack_top: EQU 0x90000
+stack_bottom: EQU 0x70000
+
 GLOBAL _start
 _start:
 	CLI
@@ -250,6 +253,9 @@ SECTION .text
 BITS 32
 EXTERN main
 
+EXTERN __bss_start
+EXTERN __bss_end
+
 GLOBAL _start32
 _start32:
 	MOV AX, 0x10
@@ -258,13 +264,23 @@ _start32:
 	MOV FS, AX
 	MOV GS, AX
 	MOV SS, AX
-	MOV ESP, 0x7C00
+	MOV ESP, stack_top
+
+	CLD
+
+	;; zerar BSS
+	XOR EAX, EAX
+	MOV ECX, __bss_end
+	MOV EDI, __bss_start
+	SUB ECX, EDI
+	REP STOSB
+
+	MOV ECX, stack_top
+	MOV EDI, stack_bottom
+	SUB ECX, EDI
+	REP STOSB
 
 	CALL main
 
 hang:
 	JMP hang
-
-stack_bottom:
-	RESB 4096
-stack_top:

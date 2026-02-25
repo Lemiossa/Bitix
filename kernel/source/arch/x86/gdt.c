@@ -2,7 +2,7 @@
  * gdt.c                            *
  * Criado por Matheus Leme Da Silva *
  ***********************************/
-#include "gdt.h"
+#include <gdt.h>
 
 gdtr_t gdtr;
 gdt_entry_t gdt[GDT_ENTRIES];
