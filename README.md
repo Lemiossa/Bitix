@@ -7,6 +7,8 @@ Não crie muita expectativa.
 
 Para compilar o projeto, use:
 ```bash
+mkdir -p build
+cd build
 make
 ```
 
@@ -14,10 +16,6 @@ e para rodar use:
 
 ```bash
 make qemu
-```
-ou
-```bash
-bochs
 ```
 
 ## License
