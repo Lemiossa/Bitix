@@ -166,6 +166,9 @@ static void scroll(void)
 /* Inicializa sistema do terminal */
 void terminal_init(void)
 {
+	if (boot_info.vga_font_type == 6)
+		char_height = 16;
+
 	if (boot_info.graphics.mode == 1) {
 
 		width = boot_info.graphics.width / 8;

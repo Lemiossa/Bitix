@@ -23,9 +23,9 @@ if(ARCH STREQUAL "x86")
 		loader.elf PRIVATE
 		-m32
 		-nostdlib
+		-static
 		-T${CMAKE_CURRENT_SOURCE_DIR}/source/linker.ld
 		-Wl,-melf_i386
-		-Wl,-static
 		-Wl,--gc-sections
 		)
 endif()
@@ -57,6 +57,6 @@ add_custom_command(
 			${CMAKE_CURRENT_BINARY_DIR}/loader.bin
 )
 
-add_custom_target(bootldr_bin
+add_custom_target(bootldr_bin ALL
 	DEPENDS ${BOOTLDR_FILE}
 )

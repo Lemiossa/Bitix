@@ -22,7 +22,7 @@
 #define KERNEL_FILE "/system/boot/kernel.sys"
 #define KERNEL_ADDR 0x100000
 
-#define VESA_MODE 0x101
+#define VESA_MODE 0x13
 #define FONT 0x03
 
 /* FIM DA AREA DE CONFIGURAÇÃO ============================== */
@@ -45,6 +45,7 @@ typedef struct boot_info {
 	int e820_entry_count;
 	graphics_info_t graphics;
 	uint8_t *vga_font;
+	uint8_t vga_font_type;
 } __attribute__((packed)) boot_info_t;
 
 #ifdef VESA_MODE
@@ -119,12 +120,25 @@ void set_vesa(void)
 void set_font(void)
 {
 #ifdef FONT
+	boot_info->vga_font_type = FONT;
 	boot_info->vga_font = vga_get_font(FONT, NULL);
 	if (!boot_info->vga_font) {
 		printf("Falha ao pegar a fonte!\r\n");
 		halt();
 	}
 #endif /* FONT */
+}
+
+/* Configura E820 */
+void set_e820(void)
+{
+	boot_info->e820_table = &e820_table[0];
+	boot_info->e820_entry_count = E820_get_table(boot_info->e820_table, MAX_E820_ENTRIES);
+
+	if (boot_info->e820_entry_count == 0) {
+		printf("Falha ao pegar mapa da memoria!\r\n");
+		halt();
+	}
 }
 
 /* Carrega o kernel */
@@ -160,16 +174,7 @@ int main()
 	memset(boot_info, 0, sizeof(boot_info_t));
 
 	load_kernel();
-
-
-	boot_info->e820_table = &e820_table[0];
-	boot_info->e820_entry_count = E820_get_table(boot_info->e820_table, MAX_E820_ENTRIES);
-
-	if (boot_info->e820_entry_count == 0) {
-		printf("Falha ao pegar mapa da memoria!\r\n");
-		halt();
-	}
-
+	set_e820();
 	set_vesa();
 	set_font();
 

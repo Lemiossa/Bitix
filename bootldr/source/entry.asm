@@ -5,9 +5,6 @@
 BITS 16
 SECTION .entry
 
-stack_top: EQU 0x90000
-stack_bottom: EQU 0x70000
-
 GLOBAL _start
 _start:
 	CLI
@@ -284,3 +281,8 @@ _start32:
 
 hang:
 	JMP hang
+
+SECTION	.bss 
+stack_bottom: 
+	RESB 4096
+stack_top:

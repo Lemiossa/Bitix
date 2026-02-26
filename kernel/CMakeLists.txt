@@ -3,6 +3,7 @@ add_executable(kernel.elf
 	source/arch/${ARCH}/intr.asm
 	source/arch/${ARCH}/gdt.c
 	source/arch/${ARCH}/idt.c
+	source/arch/${ARCH}/pmm.c
 	source/graphics.c
 	source/terminal.c
 	source/timer.c
@@ -10,19 +11,20 @@ add_executable(kernel.elf
 	source/pic.c
 	source/pit.c
 	source/vga.c
+	source/kbd.c
 )
 
 target_link_libraries(kernel.elf PRIVATE libc)
 
-set(INCLUDES
-	-I${CMAKE_CURRENT_SOURCE_DIR}/include/arch/${ARCH}
-	-I${CMAKE_CURRENT_SOURCE_DIR}/include
+target_include_directories(kernel.elf PRIVATE
+	${CMAKE_CURRENT_SOURCE_DIR}/include/arch/${ARCH}
+	${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
 if(ARCH STREQUAL "x86")
 	target_compile_options(
 		kernel.elf PRIVATE
-		$<$<COMPILE_LANGUAGE:C>:-m32 -march=i686 ${BASE_CFLAGS} ${INCLUDES}>
+		$<$<COMPILE_LANGUAGE:C>:-m32 -march=i686 ${BASE_CFLAGS}>
 		$<$<COMPILE_LANGUAGE:ASM_NASM>:-f elf32>
 	)
 
@@ -46,6 +48,6 @@ add_custom_command(
 	DEPENDS kernel.elf
 )
 
-add_custom_target(kernel_bin
+add_custom_target(kernel_bin ALL
 	DEPENDS ${KERNEL_FILE}
 )

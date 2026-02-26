@@ -6,13 +6,13 @@ BITS 16
 SECTION .text
 ORG 0x7C00
 
-addr: EQU 0x8000
+addr: EQU 0x500
 start_lba: EQU 1
-count: EQU 62
+count: EQU 59
 
 JMP SHORT _start
 NOP
-TIMES 90 - ($-$$) DB 0
+TIMES 62 - ($-$$) DB 0
 
 ;; Func principal
 GLOBAL _start

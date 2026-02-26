@@ -1,0 +1,204 @@
+./CMakeLists.txt:
+cmake_minimum_required(VERSION 3.16)
+
+set(ARCH "x86" CACHE STRING "Arquitetura do OS")
+set_property(CACHE ARCH PROPERTY STRINGS "x86")
+
+if(ARCH STREQUAL "x86")
+set(CMAKE_ASM_NASM_OBJECT_FORMAT "elf32")
+endif()
+
+project(Bitix C ASM_NASM)
+
+set(KERNEL_FILE
+	${CMAKE_CURRENT_BINARY_DIR}/kernel.bin
+)
+
+set(BOOTLDR_FILE
+	${CMAKE_CURRENT_BINARY_DIR}/bootldr.bin
+)
+
+set(BASE_CFLAGS
+	-std=c99 -Wall -Wextra -fno-PIC
+	-fno-pie -fno-stack-protector
+	-ffreestanding -fno-builtin
+	-mno-mmx -mno-sse
+	-I${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
+add_subdirectory(libc)
+add_subdirectory(bootldr)
+add_subdirectory(kernel)
+
+add_custom_command(
+	OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/root
+	COMMAND mkdir -p ${CMAKE_CURRENT_BINARY_DIR}/root/system/boot
+	COMMAND cp ${KERNEL_FILE} root/system/boot/kernel.sys
+	DEPENDS kernel_bin
+)
+
+add_custom_command(
+	OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/Bitix.img
+	COMMAND truncate -s 1440K ${CMAKE_CURRENT_BINARY_DIR}/Bitix.img
+	COMMAND mkfs.fat -F 12 -R 64 -n "BITIX" ${CMAKE_CURRENT_BINARY_DIR}/Bitix.img
+	COMMAND dd if=bootldr.bin of=${CMAKE_CURRENT_BINARY_DIR}/Bitix.img bs=1 count=3 conv=notrunc
+	COMMAND dd if=bootldr.bin
+			of=${CMAKE_CURRENT_BINARY_DIR}/Bitix.img bs=1 skip=60 seek=60 count=448 conv=notrunc
+	COMMAND dd if=bootldr.bin of=${CMAKE_CURRENT_BINARY_DIR}/Bitix.img
+			bs=1 skip=512 seek=512 conv=notrunc
+	COMMAND mcopy -i ${CMAKE_CURRENT_BINARY_DIR}/Bitix.img root/* ::/ -s
+	DEPENDS bootldr_bin ${CMAKE_CURRENT_BINARY_DIR}/root
+)
+
+add_custom_target(image ALL
+	DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/Bitix.img
+)
+
+set(QEMU_FLAGS
+	-audiodev alsa,id=audio0
+	-machine pc,pcspk-audiodev=audio0
+	-serial stdio
+	-vga std
+	-m 16
+	-no-shutdown -no-reboot
+)
+
+if(ARCH STREQUAL "x86")
+	add_custom_target(qemu
+		COMMAND qemu-system-i386 ${QEMU_FLAGS} -fda ${CMAKE_CURRENT_BINARY_DIR}/Bitix.img
+		DEPENDS image
+	)
+endif()
+
+./kernel/CMakeLists.txt:
+add_executable(kernel.elf
+	source/arch/${ARCH}/entry.asm
+	source/arch/${ARCH}/intr.asm
+	source/arch/${ARCH}/gdt.c
+	source/arch/${ARCH}/idt.c
+	source/arch/${ARCH}/pmm.c
+	source/graphics.c
+	source/terminal.c
+	source/timer.c
+	source/main.c
+	source/pic.c
+	source/pit.c
+	source/vga.c
+	source/kbd.c
+)
+
+target_link_libraries(kernel.elf PRIVATE libc)
+
+target_include_directories(kernel.elf PRIVATE
+	${CMAKE_CURRENT_SOURCE_DIR}/include/arch/${ARCH}
+	${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
+if(ARCH STREQUAL "x86")
+	target_compile_options(
+		kernel.elf PRIVATE
+		$<$<COMPILE_LANGUAGE:C>:-m32 -march=i686 ${BASE_CFLAGS}>
+		$<$<COMPILE_LANGUAGE:ASM_NASM>:-f elf32>
+	)
+
+	target_link_options(
+		kernel.elf PRIVATE
+		-m32
+		-nostdlib
+		-T${CMAKE_CURRENT_SOURCE_DIR}/source/arch/${ARCH}/linker.ld
+		-Wl,-melf_i386
+		-Wl,-static
+		-Wl,--gc-sections
+		)
+endif()
+
+add_custom_command(
+	OUTPUT ${KERNEL_FILE}
+	COMMAND ${CMAKE_OBJCOPY}
+			-O binary
+			kernel.elf
+			${KERNEL_FILE}
+	DEPENDS kernel.elf
+)
+
+add_custom_target(kernel_bin ALL
+	DEPENDS ${KERNEL_FILE}
+)
+./bootldr/CMakeLists.txt:
+add_executable(loader.elf
+	source/entry.asm
+	source/main.c
+	source/disk.c
+	source/vesa.c
+	source/e820.c
+	source/file.c
+	source/util.c
+	source/vga.c
+	source/fat.c
+)
+
+target_link_libraries(loader.elf PRIVATE libc)
+
+if(ARCH STREQUAL "x86")
+	target_compile_options(
+		loader.elf PRIVATE
+		$<$<COMPILE_LANGUAGE:C>:-m32 -march=i686 ${BASE_CFLAGS}>
+		$<$<COMPILE_LANGUAGE:ASM_NASM>:-f elf32>
+	)
+
+	target_link_options(
+		loader.elf PRIVATE
+		-m32
+		-nostdlib
+		-static
+		-T${CMAKE_CURRENT_SOURCE_DIR}/source/linker.ld
+		-Wl,-melf_i386
+		-Wl,--gc-sections
+		)
+endif()
+
+add_custom_command(
+	OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/bootsect.bin
+	COMMAND ${CMAKE_ASM_NASM_COMPILER} -f bin
+			${CMAKE_CURRENT_SOURCE_DIR}/source/bootsect.asm
+			-o ${CMAKE_CURRENT_BINARY_DIR}/bootsect.bin
+	DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/source/bootsect.asm
+)
+
+add_custom_command(
+	OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/loader.bin
+	COMMAND ${CMAKE_OBJCOPY}
+			-O binary
+			loader.elf
+			${CMAKE_CURRENT_BINARY_DIR}/loader.bin
+	DEPENDS loader.elf
+)
+
+add_custom_command(
+	OUTPUT ${BOOTLDR_FILE}
+	COMMAND cat
+			${CMAKE_CURRENT_BINARY_DIR}/bootsect.bin
+			${CMAKE_CURRENT_BINARY_DIR}/loader.bin
+			> ${BOOTLDR_FILE}
+	DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/bootsect.bin
+			${CMAKE_CURRENT_BINARY_DIR}/loader.bin
+)
+
+add_custom_target(bootldr_bin ALL
+	DEPENDS ${BOOTLDR_FILE}
+)
+./libc/CMakeLists.txt:
+add_library(libc STATIC
+	source/string.c
+	source/stdio.c
+	source/stdlib.c
+)
+
+if(ARCH STREQUAL "x86")
+target_compile_options(
+	libc PRIVATE
+	$<$<COMPILE_LANGUAGE:C>:-m32 -march=i686 ${BASE_CFLAGS}>
+	$<$<COMPILE_LANGUAGE:ASM_NASM>:-f elf32>
+)
+endif()
+

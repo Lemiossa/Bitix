@@ -37,7 +37,6 @@ void idt_set_trap(int entry, void (*trap)(void), uint16_t selector)
 	idt_set_entry(entry, (uint32_t)trap, selector, TRAP_GATE32);
 }
 
-
 extern void timer_handler(intr_frame_t *f);
 extern void kbd_handler(void);
 
