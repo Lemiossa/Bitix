@@ -9,6 +9,7 @@ Para compilar o projeto, use:
 ```bash
 mkdir -p build
 cd build
+cmake ..
 make
 ```
 
