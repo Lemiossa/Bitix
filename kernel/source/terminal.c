@@ -139,10 +139,14 @@ static void redraw(void)
 	for (int y = 0; y < height; y++) {
 		for (int x = 0; x < width; x++) {
 			char_cell_t *cell = get_char_at(x, y);
-			put_char_at(x, y, *cell);
+			if (boot_info.graphics.mode == 0) {
+				uint8_t attributes = (uint8_t)terminal_pallete[cell->fg] | ((uint8_t)terminal_pallete[cell->bg] << 4);
+				vga_put_char(x, y, cell->ch, attributes);
+			} else {
+				draw_char(x, y, cell->ch, terminal_pallete[cell->fg], terminal_pallete[cell->bg]);
+			}
 		}
 	}
-	draw_cursor(cursor_x, cursor_y);
 }
 
 /* Faz scroll de 1 linha */
@@ -234,6 +238,10 @@ void terminal_clear(uint8_t fg, uint8_t bg)
 /* Imprime um caractere na tela */
 void terminal_putchar(char c)
 {
+	static int state = 0; /* 0 = normal, 1 = escape, 2 = csi */
+	static int csi_param_table[TERMINAL_MAX_CSI_PARAMS];
+	static int csi_params; /* Quantidade de parametros */
+
 	if (c == '\n') {
 		cursor_y++;
 	} else if (c == '\r') {
@@ -243,6 +251,27 @@ void terminal_putchar(char c)
 	} else if (c == '\b') {
 		if (cursor_x > 0)
 			cursor_x--;
+	} else if (c == '\033') { /* Ativar modo escape */
+		state = 1;
+	} else if (c == '[' && state == 1) {  /* Ativar o modo CSI */
+		state = 2;
+	} else if (c >= '0' && c <= '9' && state == 2) { /* Parametros */
+		csi_param_table[csi_params] = csi_param_table[csi_params] * 10 + (c - '0');
+	} else if (c == ';' && state == 2) { /* Novo parametro */
+		if (csi_params >= TERMINAL_MAX_CSI_PARAMS)
+			csi_params++;
+	} else if (c == 'm' && state == 2) { /* Sequencia SGR */
+		for (int i = 0; i < csi_params; i++) {
+			int param = csi_param_table[i];
+			if (param >= 30 && param <= 37) {
+				param -= 30;
+				current_fg_color = param;
+			} else if (param >= 40 && param <= 47) {
+				param -= 40;
+				current_bg_color = param;
+			}
+		}
+		state = 0;
 	} else {
 		char_cell_t *cell = get_char_at(cursor_x, cursor_y);
 		cell->bg = current_bg_color;
