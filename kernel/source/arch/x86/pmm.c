@@ -62,7 +62,7 @@ void pmm_init(void)
 		total_pages += e820_table[i].length / PAGE_SIZE;
 	}
 
-	pmm_mark_page(0);
+	pmm_mark_page(0); /* IVT e BDA, pode ser que voltemos ao modo real alguma hora */
 
 	for (int i = 0; i < boot_info.e820_entry_count; i++) {
 		if (e820_table[i].type != 1) {
@@ -74,6 +74,33 @@ void pmm_init(void)
 	}
 
 	for (uint32_t i = (uint32_t)(&__start); i < (uint32_t)(&__end); i++) {
+		uint32_t page = ((uint32_t)(&__start) + i) / PAGE_SIZE;
 		pmm_mark_page(i);
 	}
+
+	/* Marcar paginas do bitmap */
+	for (uint32_t i = (uint32_t)(&bitmap[0]); i < (uint32_t)(&bitmap[total_pages / 32]); i++) {
+		uint32_t page = ((uint32_t)(&bitmap[0]) + i) / PAGE_SIZE;
+		pmm_mark_page(i);
+	}
+}
+
+/* Aloca uma pagina */
+void *pmm_alloc_page(void)
+{
+	for (uint32_t i = 0; i < total_pages; i++) {
+		if (pmm_test_page(i) == false) {
+			pmm_mark_page(i);
+			return (void *)(i * PAGE_SIZE);
+		}
+	}
+
+	return NULL;
+}
+
+/* Libera uma pagina */
+void pmm_free_page(void *pg)
+{
+	uint32_t page = (uint32_t)pg / PAGE_SIZE;
+	pmm_unmark_page(page);
 }

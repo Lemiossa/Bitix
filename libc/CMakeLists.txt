@@ -1,3 +1,8 @@
+####################################
+# CMakeLists.txt                   #
+# Criado por Matheus Leme Da Silva #
+####################################
+
 add_library(libc STATIC
 	source/string.c
 	source/stdio.c

@@ -8,4 +8,6 @@
 
 int abs(int x);
 
+#define DIFF(v0, v1) (abs((v0) - (v1)))
+
 #endif /* STDLIB_H */

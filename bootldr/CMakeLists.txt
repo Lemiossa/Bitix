@@ -1,4 +1,15 @@
-add_executable(loader.elf
+####################################
+# CMakeLists.txt                   #
+# Criado por Matheus Leme Da Silva #
+####################################
+
+set(BOOTSECT_ASM ${CMAKE_CURRENT_SOURCE_DIR}/source/bootsect.asm)
+set(BOOTSECT_BIN ${CMAKE_CURRENT_BINARY_DIR}/bootsect.bin)
+
+set(LOADER_ELF loader.elf)
+set(LOADER_BIN ${CMAKE_CURRENT_BINARY_DIR}/loader.bin)
+
+add_executable(${LOADER_ELF}
 	source/entry.asm
 	source/main.c
 	source/disk.c
@@ -10,7 +21,7 @@ add_executable(loader.elf
 	source/fat.c
 )
 
-target_link_libraries(loader.elf PRIVATE libc)
+target_link_libraries(${LOADER_ELF} PRIVATE libc)
 
 if(ARCH STREQUAL "x86")
 	target_compile_options(
@@ -30,33 +41,17 @@ if(ARCH STREQUAL "x86")
 		)
 endif()
 
-add_custom_command(
-	OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/bootsect.bin
-	COMMAND ${CMAKE_ASM_NASM_COMPILER} -f bin
-			${CMAKE_CURRENT_SOURCE_DIR}/source/bootsect.asm
-			-o ${CMAKE_CURRENT_BINARY_DIR}/bootsect.bin
-	DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/source/bootsect.asm
+add_custom_target(bootsect_bin
+	COMMAND ${CMAKE_ASM_NASM_COMPILER} -f bin ${BOOTSECT_ASM} -o ${BOOTSECT_BIN}
+	DEPENDS ${BOOTSECT_ASM}
 )
 
-add_custom_command(
-	OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/loader.bin
-	COMMAND ${CMAKE_OBJCOPY}
-			-O binary
-			loader.elf
-			${CMAKE_CURRENT_BINARY_DIR}/loader.bin
-	DEPENDS loader.elf
-)
-
-add_custom_command(
-	OUTPUT ${BOOTLDR_FILE}
-	COMMAND cat
-			${CMAKE_CURRENT_BINARY_DIR}/bootsect.bin
-			${CMAKE_CURRENT_BINARY_DIR}/loader.bin
-			> ${BOOTLDR_FILE}
-	DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/bootsect.bin
-			${CMAKE_CURRENT_BINARY_DIR}/loader.bin
+add_custom_target(loader_bin
+	COMMAND ${CMAKE_OBJCOPY} -O binary ${LOADER_ELF} ${LOADER_BIN}
+	DEPENDS ${LOADER_ELF}
 )
 
 add_custom_target(bootldr_bin
-	DEPENDS ${BOOTLDR_FILE}
+	COMMAND cat ${BOOTSECT_BIN} ${LOADER_BIN} > ${BOOTLDR_FILE}
+	DEPENDS bootsect_bin loader_bin
 )

@@ -1,3 +1,8 @@
+####################################
+# CMakeLists.txt                   #
+# Criado por Matheus Leme Da Silva #
+####################################
+
 add_executable(kernel.elf
 	source/arch/${ARCH}/entry.asm
 	source/arch/${ARCH}/intr.asm
@@ -39,15 +44,11 @@ if(ARCH STREQUAL "x86")
 		)
 endif()
 
-add_custom_command(
-	OUTPUT ${KERNEL_FILE}
+add_custom_target(kernel_bin
 	COMMAND ${CMAKE_OBJCOPY}
 			-O binary
 			kernel.elf
 			${KERNEL_FILE}
-	DEPENDS kernel.elf
-)
 
-add_custom_target(kernel_bin
-	DEPENDS ${KERNEL_FILE}
+	DEPENDS kernel.elf
 )

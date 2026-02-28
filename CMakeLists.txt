@@ -1,3 +1,8 @@
+####################################
+# CMakeLists.txt                   #
+# Criado por Matheus Leme Da Silva #
+####################################
+
 cmake_minimum_required(VERSION 3.16)
 
 set(ARCH "x86" CACHE STRING "Arquitetura do OS")
@@ -28,15 +33,10 @@ add_subdirectory(libc)
 add_subdirectory(bootldr)
 add_subdirectory(kernel)
 
-add_custom_command(
-	OUTPUT ${ROOT_DIR}
+add_custom_target(root_dir
 	COMMAND mkdir -p ${ROOT_DIR}/system/boot
 	COMMAND cp ${KERNEL_FILE} ${ROOT_DIR}/system/boot/kernel.sys
-	DEPENDS kernel_bin ${KERNEL_FILE}
-)
-
-add_custom_target(root_dir
-	DEPENDS ${ROOT_DIR}
+	DEPENDS ${KERNEL_FILE}
 )
 
 add_custom_command(
@@ -49,11 +49,11 @@ add_custom_command(
 	COMMAND dd if=bootldr.bin of=${IMAGE_FILE}
 			bs=1 skip=512 seek=512 conv=notrunc
 	COMMAND mcopy -i ${IMAGE_FILE} ${ROOT_DIR}/* ::/ -s
-	DEPENDS bootldr_bin ${BOOTLDR_FILE} root_dir ${ROOT_DIR}
+	DEPENDS ${BOOTLDR_FILE} ${ROOT_DIR}
 )
 
 add_custom_target(image ALL
-	DEPENDS ${IMAGE_FILE}
+	DEPENDS bootldr_bin kernel_bin root_dir ${IMAGE_FILE}
 )
 
 set(QEMU_FLAGS
