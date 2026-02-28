@@ -49,6 +49,5 @@ void kernel_main(boot_info_t *bi)
 	}
 
 
-
 	while (1);
 }

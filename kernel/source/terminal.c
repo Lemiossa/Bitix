@@ -203,8 +203,8 @@ void terminal_init(void)
 		terminal_pallete[15] = 15; /* Branco*/
 	}
 
-	current_bg_color = 0;
-	current_fg_color = 7;
+	current_bg_color = TERMINAL_DEFAULT_BG_COLOR;
+	current_fg_color = TERMINAL_DEFAULT_FG_COLOR;
 }
 
 /* Muda a posição do cursor */
@@ -235,12 +235,13 @@ void terminal_clear(uint8_t fg, uint8_t bg)
 	terminal_set_cursor(top_corner_x, top_corner_y);
 }
 
+static int state = 0; /* 0 = normal, 1 = escape, 2 = csi */
+static int csi_param_table[TERMINAL_MAX_CSI_PARAMS];
+static int csi_params = 0; /* Quantidade de parametros */
+
 /* Imprime um caractere na tela */
 void terminal_putchar(char c)
 {
-	static int state = 0; /* 0 = normal, 1 = escape, 2 = csi */
-	static int csi_param_table[TERMINAL_MAX_CSI_PARAMS];
-	static int csi_params; /* Quantidade de parametros */
 
 	if (c == '\n') {
 		cursor_y++;
@@ -258,21 +259,36 @@ void terminal_putchar(char c)
 	} else if (c >= '0' && c <= '9' && state == 2) { /* Parametros */
 		csi_param_table[csi_params] = csi_param_table[csi_params] * 10 + (c - '0');
 	} else if (c == ';' && state == 2) { /* Novo parametro */
-		if (csi_params >= TERMINAL_MAX_CSI_PARAMS)
+		if (csi_params < TERMINAL_MAX_CSI_PARAMS)
 			csi_params++;
 	} else if (c == 'm' && state == 2) { /* Sequencia SGR */
-		for (int i = 0; i < csi_params; i++) {
+		for (int i = 0; i <= csi_params; i++) {
 			int param = csi_param_table[i];
+
 			if (param >= 30 && param <= 37) {
-				param -= 30;
-				current_fg_color = param;
+				current_fg_color = param - 30;
 			} else if (param >= 40 && param <= 47) {
-				param -= 40;
-				current_bg_color = param;
+				current_bg_color = param - 40;
+			} else if (param >= 90 && param <= 97) {
+				current_fg_color = param - 90 + 8;
+			} else if (param >= 100 && param <= 107) {
+				current_fg_color = param - 100 + 8;
+			} else if (param == 1) {
+				if (current_bg_color < 8)
+					current_bg_color += 8;
+
+				if (current_fg_color < 8)
+					current_fg_color += 8;
+			} else if (param == 0) {
+				current_bg_color = TERMINAL_DEFAULT_BG_COLOR;
+				current_fg_color = TERMINAL_DEFAULT_FG_COLOR;
 			}
 		}
+		csi_params = 0;
+		memset(csi_param_table, 0, sizeof(csi_param_table));
 		state = 0;
 	} else {
+		state = 0;
 		char_cell_t *cell = get_char_at(cursor_x, cursor_y);
 		cell->bg = current_bg_color;
 		cell->fg = current_fg_color;

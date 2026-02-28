@@ -13,6 +13,8 @@ set(KERNEL_FILE ${CMAKE_CURRENT_BINARY_DIR}/kernel.bin)
 set(BOOTLDR_FILE ${CMAKE_CURRENT_BINARY_DIR}/bootldr.bin)
 set(IMAGE_FILE ${CMAKE_CURRENT_BINARY_DIR}/Bitix.img)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 set(BASE_CFLAGS
 	-std=c99 -Wall -Wextra -fno-PIC
 	-fno-pie -fno-stack-protector
