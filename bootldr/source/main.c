@@ -22,7 +22,7 @@
 #define KERNEL_FILE "/system/boot/kernel.sys"
 #define KERNEL_ADDR 0x100000
 
-#define VESA_MODE 0x101
+#define VESA_MODE 0x115
 #define FONT 0x03
 
 /* FIM DA AREA DE CONFIGURAÇÃO ============================== */

@@ -48,6 +48,6 @@ add_custom_command(
 	DEPENDS kernel.elf
 )
 
-add_custom_target(kernel_bin ALL
+add_custom_target(kernel_bin
 	DEPENDS ${KERNEL_FILE}
 )

@@ -287,6 +287,21 @@ void terminal_putchar(char c)
 		csi_params = 0;
 		memset(csi_param_table, 0, sizeof(csi_param_table));
 		state = 0;
+	} else if (c == 'P' && state == 2) { /* Mudar tabela de cores */
+		if (csi_params < 3)
+			return;
+		int idx = csi_param_table[0];
+		int r = csi_param_table[1];
+		int g = csi_param_table[2];
+		int b = csi_param_table[3];
+
+		if (idx > 15)
+			return;
+
+		terminal_pallete[idx] = RGB(r, g, b);
+		csi_params = 0;
+		memset(csi_param_table, 0, sizeof(csi_param_table));
+		state = 0;
 	} else {
 		state = 0;
 		char_cell_t *cell = get_char_at(cursor_x, cursor_y);

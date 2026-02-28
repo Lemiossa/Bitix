@@ -57,6 +57,6 @@ add_custom_command(
 			${CMAKE_CURRENT_BINARY_DIR}/loader.bin
 )
 
-add_custom_target(bootldr_bin ALL
+add_custom_target(bootldr_bin
 	DEPENDS ${BOOTLDR_FILE}
 )
