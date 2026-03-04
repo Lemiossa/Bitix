@@ -81,7 +81,6 @@ void strncpy(char *d, const char *s, size_t n)
 	}
 }
 
-
 /* Retorna um ponteiro para a primeira ocorrencia de um caractere em uma string */
 /* Retorna nulo quando não encontra nada */
 char *strchr(const char *s, char ch)

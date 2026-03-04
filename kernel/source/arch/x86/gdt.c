@@ -24,9 +24,12 @@ void gdt_set_entry(int entry, uint32_t base, uint32_t limit, uint8_t access, uin
 /* Inicializa GDT basica */
 void gdt_init(void)
 {
-	gdt_set_entry(0, 0x00000000, 0x00000, 0b00000000, 0b0000); /* NULL   */
-	gdt_set_entry(1, 0x00000000, 0xFFFFF, 0b10011010, 0b1100); /* CODE32 */
-	gdt_set_entry(2, 0x00000000, 0xFFFFF, 0b10010010, 0b1100); /* DATA32 */
+	gdt_set_entry(0, 0x00000000, 0x00000, 0b00000000, 0b0000); /* NULL          */
+	gdt_set_entry(1, 0x00000000, 0xFFFFF, 0b10011010, 0b1100); /* KERNEL CODE32 */
+	gdt_set_entry(2, 0x00000000, 0xFFFFF, 0b10010010, 0b1100); /* KERNEL DATA32 */
+	gdt_set_entry(3, 0x00000000, 0xFFFFF, 0b11111010, 0b1100); /* USER CODE32   */
+	gdt_set_entry(4, 0x00000000, 0xFFFFF, 0b11110010, 0b1100); /* USER DATA32   */
+
 
 	gdtr.base = &gdt[0];
 	gdtr.limit = GDT_ENTRIES * sizeof(gdt_entry_t) - 1;

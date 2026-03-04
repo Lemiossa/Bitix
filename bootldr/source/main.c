@@ -17,15 +17,7 @@
 
 #define HALT() __asm__ volatile ("cli;hlt");
 
-/* AREA DE CONFIGURAÇÃO ===================================== */
-
-#define KERNEL_FILE "/system/boot/kernel.sys"
-#define KERNEL_ADDR 0x100000
-
-#define VESA_MODE 0x115
-#define FONT 0x03
-
-/* FIM DA AREA DE CONFIGURAÇÃO ============================== */
+#include "config.h"
 
 #define MAX_E820_ENTRIES 128
 
@@ -48,11 +40,9 @@ typedef struct boot_info {
 	uint8_t vga_font_type;
 } __attribute__((packed)) boot_info_t;
 
-#ifdef VESA_MODE
 vbe_mode_info_t vbe_mode_info;
-#endif /* VESA_MODE */
 
-boot_info_t *boot_info = (boot_info_t *)0x20000;
+boot_info_t boot_info = {0};
 e820_entry_t e820_table[MAX_E820_ENTRIES];
 
 #define BAR_BACKGROUND 7
@@ -69,60 +59,62 @@ void halt(void)
 	HALT();
 }
 
-/* Imprime a UI do bootloader */
-void bootloader_ui(void)
-{
-	vga_clear(TERM_ATTR);
-
-	for (uint16_t i = 0; i < VGA_WIDTH; i++) {
-		vga_put_char(i, 0, ' ', BAR_ATTR);
-	}
-	vga_put_string(1, 0, "Carregador do Bitix", BAR_ATTR);
-
-	for (uint16_t i = 0; i < VGA_WIDTH; i++) {
-		vga_put_char(i, VGA_HEIGHT - 1, ' ', BAR_ATTR);
-	}
-	vga_put_string(1, VGA_HEIGHT - 1, "Criado por Matheus Leme Da Silva - Brasil", BAR_ATTR);
-
-	current_attributes = TERM_ATTR;
-	cursor_x = 0;
-	cursor_y = 1;
-
-	vga_top_left_corner_x = 0;
-	vga_top_left_corner_y = 1;
-	vga_bottom_right_corner_x = VGA_WIDTH;
-	vga_bottom_right_corner_y = VGA_HEIGHT - 2;
-}
-
 /* Configura o VESA */
 void set_vesa(void)
 {
-#ifdef VESA_MODE
-	if (vesa_set_mode(VESA_MODE, &vbe_mode_info) != 0) {
-		printf("Falha ao entrar no modo grafico!\r\n");
+	uint16_t vesa_mode = 0x13;
+
+	if (!video_modes[0]) {
+		boot_info.graphics.mode = 0;
+		return;
 	}
-	boot_info->graphics.mode = 1;
-	boot_info->graphics.width =  vbe_mode_info.width;
-	boot_info->graphics.height = vbe_mode_info.height;
-	boot_info->graphics.pitch = vbe_mode_info.pitch;
-	boot_info->graphics.bpp = vbe_mode_info.bpp;
-	boot_info->graphics.red_mask = vbe_mode_info.red_mask;
-	boot_info->graphics.red_position = vbe_mode_info.red_position;
-	boot_info->graphics.green_mask = vbe_mode_info.green_mask;
-	boot_info->graphics.green_position = vbe_mode_info.green_position;
-	boot_info->graphics.blue_mask = vbe_mode_info.blue_mask;
-	boot_info->graphics.blue_position = vbe_mode_info.blue_position;
-	boot_info->graphics.framebuffer = vbe_mode_info.framebuffer;
-#endif /* VESA_MODE */
+
+	/* Tentar entrar nos modos */
+	for (int i = 0; video_modes[i]; i++) {
+		uint16_t mode = vesa_find_mode(video_modes[i]);
+		if (mode != 0x13) {
+			vesa_mode = mode;
+			break;
+		}
+	}
+
+	if (vesa_mode == 0x13) {
+		boot_info.graphics.mode = 0;
+		return;
+	}
+
+	if (vesa_set_mode(vesa_mode) != 0) {
+		printf("Falha ao entrar no modo grafico!\r\n");
+		boot_info.graphics.mode = 0;
+		return;
+	} else {
+		if (vesa_get_mode_info(vesa_mode, &vbe_mode_info) != 0) {
+			printf("Falha ao pegar informações do modo grafico!\r\n");
+			halt();
+		}
+	}
+
+	boot_info.graphics.mode = 1;
+	boot_info.graphics.width =  vbe_mode_info.width;
+	boot_info.graphics.height = vbe_mode_info.height;
+	boot_info.graphics.pitch = vbe_mode_info.pitch;
+	boot_info.graphics.bpp = vbe_mode_info.bpp;
+	boot_info.graphics.red_mask = vbe_mode_info.red_mask;
+	boot_info.graphics.red_position = vbe_mode_info.red_position;
+	boot_info.graphics.green_mask = vbe_mode_info.green_mask;
+	boot_info.graphics.green_position = vbe_mode_info.green_position;
+	boot_info.graphics.blue_mask = vbe_mode_info.blue_mask;
+	boot_info.graphics.blue_position = vbe_mode_info.blue_position;
+	boot_info.graphics.framebuffer = vbe_mode_info.framebuffer;
 }
 
 /* Configura a fonte */
 void set_font(void)
 {
 #ifdef FONT
-	boot_info->vga_font_type = FONT;
-	boot_info->vga_font = vga_get_font(FONT, NULL);
-	if (!boot_info->vga_font) {
+	boot_info.vga_font_type = FONT;
+	boot_info.vga_font = vga_get_font(FONT, NULL);
+	if (!boot_info.vga_font) {
 		printf("Falha ao pegar a fonte!\r\n");
 		halt();
 	}
@@ -132,10 +124,10 @@ void set_font(void)
 /* Configura E820 */
 void set_e820(void)
 {
-	boot_info->e820_table = &e820_table[0];
-	boot_info->e820_entry_count = E820_get_table(boot_info->e820_table, MAX_E820_ENTRIES);
+	boot_info.e820_table = &e820_table[0];
+	boot_info.e820_entry_count = E820_get_table(boot_info.e820_table, MAX_E820_ENTRIES);
 
-	if (boot_info->e820_entry_count == 0) {
+	if (boot_info.e820_entry_count == 0) {
 		printf("Falha ao pegar mapa da memoria!\r\n");
 		halt();
 	}
@@ -168,17 +160,17 @@ int main()
 	printf("Bem vindo ao Bitix!\r\n");
 	current_attributes = 0x07;
 
-	bootloader_ui();
+	wait(1);
 	disk_detect();
 
-	memset(boot_info, 0, sizeof(boot_info_t));
+	memset(&boot_info, 0, sizeof(boot_info_t));
 
 	load_kernel();
 	set_e820();
 	set_vesa();
 	set_font();
 
-	uint32_t boot_info_loc = (uint32_t)boot_info;
+	uint32_t boot_info_loc = (uint32_t)&boot_info;
 	__asm__ volatile (
 		"MOV %0, %%EAX;"
 		"JMP *%1"

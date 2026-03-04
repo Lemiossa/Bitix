@@ -51,7 +51,25 @@ isr_common:
 	POPAD
 
 	ADD ESP, 8 ;; Remover int_no e err_code
+	IRETD
+
+
+;; Troca o contexto usando intr_frame
+;; void switch_context(intr_frame_t *f);
+GLOBAL switch_context
+switch_context:
+	MOV ESP, [ESP+4]
+
+	POP DS
+	POP ES
+	POP FS
+	POP GS
+
+	POPAD
+
+	ADD ESP, 8 ;; Remover int_no e err_code
 	IRET
+
 
 ISR_NO_ERR 0
 ISR_NO_ERR 1

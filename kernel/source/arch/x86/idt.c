@@ -3,6 +3,7 @@
  * Criado por Matheus Leme Da Silva *
  ***********************************/
 #include <stdint.h>
+#include <stdio.h>
 #include <terminal.h>
 #include <idt.h>
 
@@ -37,19 +38,19 @@ void idt_set_trap(int entry, void (*trap)(void), uint16_t selector)
 	idt_set_entry(entry, (uint32_t)trap, selector, TRAP_GATE32);
 }
 
+extern void page_fault_handler(intr_frame_t *f);
 extern void timer_handler(intr_frame_t *f);
 extern void kbd_handler(void);
 
 /* Handler de interrupções */
 void intr_handler(intr_frame_t *f)
 {
-	if (f->int_no >= 32 && f->int_no <= 47) {
-		switch (f->int_no) {
-			case 32: timer_handler(f); return;
-			case 33: kbd_handler(); return;
-		}
+	switch (f->int_no) {
+		case 32: timer_handler(f); return;
+		case 33: kbd_handler(); return;
 	}
 
+	printf("Int %u\r\n", f->int_no);
 	printf("EAX: 0x%08X ", f->eax);
 	printf("EBX: 0x%08X\r\n", f->ebx);
 	printf("ECX: 0x%08X ", f->ecx);
@@ -57,10 +58,7 @@ void intr_handler(intr_frame_t *f)
 	printf("EBP: 0x%08X ", f->ebp);
 	printf("ESI: 0x%08X\r\n", f->esi);
 	printf("EDI: 0x%08X\r\n\r\n", f->edi);
-	printf("INT: 0x%08X ", f->int_no);
-	printf("ERR: 0x%08X\r\n", f->err_code);
-	printf("EIP: 0x%08X ", f->eip);
-	printf("FLG: 0x%08X\r\n", f->eflags);
+	printf("EIP: 0x%08X\r\n", f->eip);
 	printf("CS:  0x%08X ", f->cs);
 	printf("DS:  0x%08X\r\n", f->ds);
 	printf("ES:  0x%08X ", f->es);

@@ -6,6 +6,7 @@
 add_executable(kernel.elf
 	source/arch/${ARCH}/entry.asm
 	source/arch/${ARCH}/intr.asm
+	source/arch/${ARCH}/cpuid.asm
 	source/arch/${ARCH}/gdt.c
 	source/arch/${ARCH}/idt.c
 	source/arch/${ARCH}/pmm.c
@@ -29,26 +30,23 @@ target_include_directories(kernel.elf PRIVATE
 if(ARCH STREQUAL "x86")
 	target_compile_options(
 		kernel.elf PRIVATE
-		$<$<COMPILE_LANGUAGE:C>:-m32 -march=i686 ${BASE_CFLAGS}>
+		$<$<COMPILE_LANGUAGE:C>:-m32 -march=i686 -O2 ${BASE_CFLAGS}>
 		$<$<COMPILE_LANGUAGE:ASM_NASM>:-f elf32>
 	)
 
 	target_link_options(
 		kernel.elf PRIVATE
 		-m32
+		-static
 		-nostdlib
 		-T${CMAKE_CURRENT_SOURCE_DIR}/source/arch/${ARCH}/linker.ld
 		-Wl,-melf_i386
-		-Wl,-static
 		-Wl,--gc-sections
 		)
 endif()
 
-add_custom_target(kernel_bin
-	COMMAND ${CMAKE_OBJCOPY}
-			-O binary
-			kernel.elf
-			${KERNEL_FILE}
+add_custom_target(kernel-bin
+	COMMAND ${CMAKE_OBJCOPY} -O binary kernel.elf ${KERNEL_FILE}
 
 	DEPENDS kernel.elf
 )

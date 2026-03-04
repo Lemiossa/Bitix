@@ -29,6 +29,7 @@ typedef struct intr_frame {
 	uint32_t user_esp, user_ss;
 } __attribute__((packed)) intr_frame_t;
 
+void switch_context(intr_frame_t *f);
 void idt_set_intr(int entry, void (*intr)(void), uint16_t selector);
 void idt_set_trap(int entry, void (*trap)(void), uint16_t selector);
 void idt_init(void);

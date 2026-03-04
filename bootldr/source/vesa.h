@@ -42,7 +42,20 @@ typedef struct vbe_mode_info {
 	uint8_t reserved1[206];
 } __attribute__ ((packed)) vbe_mode_info_t;
 
+typedef struct vbe_info_block {
+	char signature[4];
+	uint16_t vbe_version; /* Byte alto = major, byte baixo = minor */
+	uint16_t oem_seg;
+	uint16_t oem_off;
+	uint32_t capabilities;
+	uint16_t video_mode_seg;
+	uint16_t video_mode_off;
+	uint16_t total_memory;
+	uint8_t reserved[492];
+} __attribute__((packed)) vbe_info_block_t;
 
-int vesa_set_mode(uint16_t mode, vbe_mode_info_t *mode_info);
+int vesa_get_mode_info(uint16_t mode, vbe_mode_info_t *mode_info);
+int vesa_set_mode(uint16_t mode);
+uint16_t vesa_find_mode(const char *mode);
 
 #endif /* VESA_H */

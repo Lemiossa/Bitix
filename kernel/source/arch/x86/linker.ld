@@ -1,5 +1,5 @@
 ENTRY(_start)
-__start = 0x100000;
+__start = 0x00100000;
 
 SECTIONS
 {

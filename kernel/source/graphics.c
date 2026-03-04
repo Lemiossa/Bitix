@@ -3,9 +3,25 @@
  * Criado por Matheus Leme Da Silva *
  ***********************************/
 #include <stdint.h>
+
 #include <graphics.h>
-#include <boot.h>
 #include <terminal.h>
+
+#include <boot.h>
+
+#include <pmm.h>
+
+/* Inicializa graficos */
+/* Mapeia framebuffer */
+void graphics_init(void)
+{
+	if (!boot_info.graphics.framebuffer)
+		return;
+	uint32_t size = (uint32_t)boot_info.graphics.pitch * (uint32_t)boot_info.graphics.height;
+	void *start = (void *)boot_info.graphics.framebuffer;
+	void *end = (void *)(boot_info.graphics.framebuffer + size);
+	pmm_mark_area(start, end); /* Marca todo o framebuffer como usado caso já não esteja */
+}
 
 /* Desenha um PIXEL no modo grafico */
 void put_pixel(int x, int y, uint32_t color)

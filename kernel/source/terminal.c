@@ -34,22 +34,22 @@ typedef struct char_cell {
 
 static char_cell_t buffer[CELLS];
 
-static uint32_t terminal_pallete[16] = {
-	0x000000, /* Preto */
-	0xAA0000, /* Vermelho */
-	0x00AA00, /* Verde */
-	0xAA5500, /* Marrom  */
-	0x0000AA, /* Azul */
-	0xAA00AA, /* Roxo */
-	0x00AAAA, /* Ciano */
-	0xAAAAAA, /* Cinza */
-	0x555555, /* Cinza escuro */
-	0xFF5555, /* Vermelho brilhante */
-	0x55FF55, /* Verde brilhante */
-	0xFFFF55, /* Amarelo */
-	0x5555FF, /* Azul brilhante */
-	0xFF55FF, /* Roxo brilhante */
-	0x55FFFF, /* Ciano brilhante */
+static uint32_t terminal_palette[16] = {
+	0x1E1E2E, /* Preto */
+	0xE06C75, /* Vermelho */
+	0x98C379, /* Verde */
+	0xD19A66, /* Amarelo */
+	0x61AFEF, /* Azul */
+	0xC678DD, /* Roxo */
+	0x56B6C2, /* Ciano */
+	0xABB2BF, /* Cinza claro */
+	0x5C6370, /* Cinza escuro */
+	0xF28B82, /* Vermelho claro */
+	0xB5E48C, /* Verde claro */
+	0xF9E2AF, /* Amarelo claro */
+	0x89B4FA, /* Azul claro */
+	0xDDB6F2, /* Roxo claro */
+	0x94E2D5, /* Ciano claro */
 	0xFFFFFF  /* Branco */
 };
 
@@ -92,12 +92,12 @@ static void put_char_at(int x, int y, char_cell_t cell)
 	uint8_t c = cell.ch;
 
 	if (boot_info.graphics.mode == 0) {
-		uint8_t attr = ((terminal_pallete[bg] & 0x0F) << 4) | (terminal_pallete[fg] & 0x0F);
+		uint8_t attr = ((terminal_palette[bg] & 0x0F) << 4) | (terminal_palette[fg] & 0x0F);
 		vga_put_char(x, y, c, attr);
 		return;
 	}
 
-	draw_char(x, y, c, terminal_pallete[fg], terminal_pallete[bg]);
+	draw_char(x, y, c, terminal_palette[fg], terminal_palette[bg]);
 }
 
 /* pega um caractere numa posição específica do terminal */
@@ -120,8 +120,8 @@ static void draw_cursor(int x, int y)
 	uint8_t bg = cell->bg;
 
 	draw_char(x, y, cell->ch,
-		terminal_pallete[bg],
-		terminal_pallete[fg]);
+		terminal_palette[bg],
+		terminal_palette[fg]);
 }
 
 /* "Limpa" o cursor */
@@ -140,10 +140,10 @@ static void redraw(void)
 		for (int x = 0; x < width; x++) {
 			char_cell_t *cell = get_char_at(x, y);
 			if (boot_info.graphics.mode == 0) {
-				uint8_t attributes = (uint8_t)terminal_pallete[cell->fg] | ((uint8_t)terminal_pallete[cell->bg] << 4);
+				uint8_t attributes = (uint8_t)terminal_palette[cell->fg] | ((uint8_t)terminal_palette[cell->bg] << 4);
 				vga_put_char(x, y, cell->ch, attributes);
 			} else {
-				draw_char(x, y, cell->ch, terminal_pallete[cell->fg], terminal_pallete[cell->bg]);
+				draw_char(x, y, cell->ch, terminal_palette[cell->fg], terminal_palette[cell->bg]);
 			}
 		}
 	}
@@ -185,22 +185,22 @@ void terminal_init(void)
 
 	if (boot_info.graphics.bpp <= 8) {
 		/* Mudar a paleta para VGA */
-		terminal_pallete[0] = 0; /* Preto */
-		terminal_pallete[1] = 4; /* Vermelho */
-		terminal_pallete[2] = 2; /* Verde */
-		terminal_pallete[3] = 6; /* Marrom */
-		terminal_pallete[4] = 1; /* Azul */
-		terminal_pallete[5] = 5; /* Roxo */
-		terminal_pallete[6] = 3; /* Ciano */
-		terminal_pallete[7] = 7; /* Cinza */
-		terminal_pallete[8] = 8; /* Cinza escuro */
-		terminal_pallete[9] = 12; /* Vermelho brilhante */
-		terminal_pallete[10] = 10; /* Verde brilhante */
-		terminal_pallete[11] = 14; /* Amarelo */
-		terminal_pallete[12] = 9; /* Azul brilhante */
-		terminal_pallete[13] = 13; /* Roxo brilhante */
-		terminal_pallete[14] = 11; /* Ciano brilhante */
-		terminal_pallete[15] = 15; /* Branco*/
+		terminal_palette[0] = 0; /* Preto */
+		terminal_palette[1] = 4; /* Vermelho */
+		terminal_palette[2] = 2; /* Verde */
+		terminal_palette[3] = 6; /* Marrom */
+		terminal_palette[4] = 1; /* Azul */
+		terminal_palette[5] = 5; /* Roxo */
+		terminal_palette[6] = 3; /* Ciano */
+		terminal_palette[7] = 7; /* Cinza */
+		terminal_palette[8] = 8; /* Cinza escuro */
+		terminal_palette[9] = 12; /* Vermelho brilhante */
+		terminal_palette[10] = 10; /* Verde brilhante */
+		terminal_palette[11] = 14; /* Amarelo */
+		terminal_palette[12] = 9; /* Azul brilhante */
+		terminal_palette[13] = 13; /* Roxo brilhante */
+		terminal_palette[14] = 11; /* Ciano brilhante */
+		terminal_palette[15] = 15; /* Branco*/
 	}
 
 	current_bg_color = TERMINAL_DEFAULT_BG_COLOR;
@@ -235,14 +235,13 @@ void terminal_clear(uint8_t fg, uint8_t bg)
 	terminal_set_cursor(top_corner_x, top_corner_y);
 }
 
-static int state = 0; /* 0 = normal, 1 = escape, 2 = csi */
-static int csi_param_table[TERMINAL_MAX_CSI_PARAMS];
-static int csi_params = 0; /* Quantidade de parametros */
 
 /* Imprime um caractere na tela */
 void terminal_putchar(char c)
 {
-
+	static int state = 0; /* 0 = normal, 1 = escape, 2 = csi */
+	static int csi_param_table[TERMINAL_MAX_CSI_PARAMS];
+	static int csi_params = 0; /* Quantidade de parametros */
 	if (c == '\n') {
 		cursor_y++;
 	} else if (c == '\r') {
@@ -274,9 +273,6 @@ void terminal_putchar(char c)
 			} else if (param >= 100 && param <= 107) {
 				current_fg_color = param - 100 + 8;
 			} else if (param == 1) {
-				if (current_bg_color < 8)
-					current_bg_color += 8;
-
 				if (current_fg_color < 8)
 					current_fg_color += 8;
 			} else if (param == 0) {
@@ -298,7 +294,7 @@ void terminal_putchar(char c)
 		if (idx > 15)
 			return;
 
-		terminal_pallete[idx] = RGB(r, g, b);
+		terminal_palette[idx] = RGB(r, g, b);
 		csi_params = 0;
 		memset(csi_param_table, 0, sizeof(csi_param_table));
 		state = 0;

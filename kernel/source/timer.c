@@ -11,6 +11,7 @@ static uint32_t volatile ticks = 0;
 static uint16_t freq = 0;
 
 extern void terminal_tick(void);
+extern void sched(intr_frame_t *f);
 
 /* Handler do timer */
 void timer_handler(intr_frame_t *f)

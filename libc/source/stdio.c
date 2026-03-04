@@ -7,13 +7,13 @@
 #include <string.h>
 #include <stdio.h>
 
-/* Formata uma string com a saída de, no maximo N bytes */
-int vsnprintf(char *s, size_t n, const char *fmt, va_list args)
+/* Formata uma string com a saída de, no maximo N-1 bytes e coloca 0 em N */
+int vsnprintf(char *s, int n, const char *fmt, va_list args)
 {
 	char *digits = "0123456789abcdef";
-	char *start = s;
+	int count = 0;
 
-	while (*fmt && (size_t)(s - start) < n) {
+	while (*fmt && count < (n - 1)) {
 		if (*fmt == '%') {
 			int base = 0;
 			int size = 0;
@@ -73,6 +73,7 @@ int vsnprintf(char *s, size_t n, const char *fmt, va_list args)
 			} else if (*fmt == 'c') {
 				*s++ = (char)va_arg(args, int);
 				fmt++;
+				count++;
 				continue;
 			} else if (*fmt == 's') {
 				char *str = va_arg(args, char*);
@@ -83,28 +84,33 @@ int vsnprintf(char *s, size_t n, const char *fmt, va_list args)
 					buf_len = 6;
 				}
 
-				char *start = str;
+				char *str_start = str;
 
 				while (*str) {
 					buf_len++;
 					str++;
 				}
-				str = start;
+				str = str_start;
 
 				if (!neg_pad) {
 					int i = 0;
-					for (i = 0; i < pad - buf_len && (size_t)(s - start) < n; i++)
+					for (i = 0; i < pad - buf_len && count < (n - 1); i++) {
 						*s++ = ' ';
+						count++;
+					}
 				}
 
-				while (*s && (size_t)(s - start) < n) {
+				while (*str && count < (n - 1)) {
 					*s++ = *str++;
+					count++;
 				}
 
 				if (neg_pad) {
 					int i = 0;
-					for (i = 0; i < pad - buf_len && (size_t)(s - start) < n; i++)
+					for (i = 0; i < pad - buf_len && count < (n - 1); i++) {
 						*s++ = ' ';
+						count++;
+					}
 				}
 
 				fmt++;
@@ -139,8 +145,10 @@ int vsnprintf(char *s, size_t n, const char *fmt, va_list args)
 			}
 
 			if (sign) {
-				if ((size_t)(s - start) < n)
+				if (count < (n - 1)) {
 					*s++ = '-';
+					count++;
+				}
 			}
 
 			char buf[32] = {0};
@@ -164,27 +172,32 @@ int vsnprintf(char *s, size_t n, const char *fmt, va_list args)
 			if (!neg_pad) {
 				int i = 0;
 				char c = zero_pad?'0':' ';
-				for (i = 0; i < pad - buf_len && (size_t)(s - start) < n; i++) {
+				for (i = 0; i < pad - buf_len && count < (n - 1); i++) {
 					*s++ = c;
+					count++;
 				}
 			}
 
-			while (buf_idx-- && (size_t)(s - start) < n)
+			while (buf_idx-- && count < (n - 1)) {
 				*s++ = buf[buf_idx];
+				count++;
+			}
 
 			if (neg_pad) {
 				int i = 0;
-				for (i = 0; i < pad - buf_len && (size_t)(s - start) < n; i++)
+				for (i = 0; i < pad - buf_len && count < (n - 1); i++) {
 					*s++ = ' ';
+					count++;
+				}
 			}
 		} else {
-			if ((size_t)(s - start) < n)
+			if (count < (n - 1))
 				*s++ = *fmt++;
 		}
 	}
 
 	*s = 0;
-	return (int)(s - start);
+	return  count;
 }
 
 /* Formata uma string */
@@ -194,12 +207,14 @@ int vsprintf(char *s, const char *fmt, va_list args)
 }
 
 /* Coloca uma string formatada em um buffer com no maximo n bytes */
-int snprintf(char *s, size_t n, const char *fmt, ...)
+int snprintf(char *s, int n, const char *fmt, ...)
 {
 	va_list args;
 	int count = 0;
 	va_start(args, fmt);
+
 	count = vsnprintf(s, n, fmt, args);
+
 	va_end(args);
 	return count;
 }
@@ -210,7 +225,89 @@ int sprintf(char *s, const char *fmt, ...)
 	va_list args;
 	int count = 0;
 	va_start(args, fmt);
+
 	count = snprintf(s, SIZE_MAX, fmt, args);
+
+	va_end(args);
+	return count;
+}
+
+/* Pula "\r\t\n " */
+static void skip_whitespaces(const char **s)
+{
+	while (**s && strchr("\r\t\n ", **s)) {
+		(*s)++;
+	}
+}
+
+/* Pega um formato em fmt, tenta achar em s e vai colocando nos ponteiros passados */
+/* Retorna o número de coisas que encontrou */
+int sscanf(const char *s, const char *fmt, ...)
+{
+	va_list args;
+	int count = 0;
+	va_start(args, fmt);
+
+	while (*fmt) {
+		if (*fmt == '%') {
+			fmt++;
+
+			if (*fmt == 'd') {
+				int *out = va_arg(args, int *);
+				int sign = 1;
+				int value = 0;
+				int found = 0;
+
+				if (out) {
+					skip_whitespaces(&s);
+
+					if (*s == '-') {
+						sign = -1;
+						s++;
+					}
+
+					while (*s >= '0' && *s <= '9') {
+						value = value * 10 + (*s - '0');
+						s++;
+						found = 1;
+					}
+
+					*out = value * sign;
+				}
+
+				if (found)
+					count++;
+			} else if (*fmt == 's') {
+				char *out = va_arg(args, char *);
+				if (out) {
+					char *start = out;
+					skip_whitespaces(&s);
+
+					while (*s && !strchr("\r\t\n ", *s)) {
+						*out++ = *s++;
+					}
+
+					*out = 0;
+					if ((uint32_t)(out - start) > 0)
+						count++;
+				}
+			} else if (*fmt == 'c') {
+				char *out = va_arg(args, char *);
+				if (out) {
+					if (*s) {
+						*out = *s++;
+						count++;
+					}
+				}
+			}
+		} else {
+			if (*fmt == *s)
+				s++;
+		}
+
+		fmt++;
+	}
+
 	va_end(args);
 	return count;
 }

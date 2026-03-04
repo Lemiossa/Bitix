@@ -12,8 +12,8 @@ EXTERN __bss_end
 GLOBAL _start
 _start:
 	CLI
-	MOV ESP, 0x90000
-	MOV EBX, EAX
+	MOV ESP, stack_top
+	MOV ESI, EAX
 
 	CLD
 	XOR EAX, EAX
@@ -22,8 +22,7 @@ _start:
 	SUB ECX, EDI
 	REP STOSB
 
-	MOV EAX, EBX
-	PUSH EAX ;; Ponteiro para boot_info
+	PUSH ESI ;; Ponteiro para boot_info
 	CALL kernel_main
 	ADD ESP, 4
 
@@ -34,3 +33,4 @@ SECTION .bss
 stack_bottom:
 	RESB 65536
 stack_top:
+

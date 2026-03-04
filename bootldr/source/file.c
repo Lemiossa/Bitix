@@ -94,10 +94,10 @@ size_t read(file_t *f, size_t n, void *dest)
 		fat_configure(current_disk, 0);
 	}
 
-	/*
+#ifdef DEBUG
 	printf("fat_read(%08x, %08x, %lu, %08x);\r\n", (uint32_t)dest, (uint32_t)&f->entry, f->pos, n);
 	printf("f->pos = %lu\r\n", f->pos);
-	*/
+#endif /* DEBUG */
 	return fat_read(dest, &f->entry, f->pos, n);
 }
 

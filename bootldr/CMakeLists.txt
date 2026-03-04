@@ -41,17 +41,19 @@ if(ARCH STREQUAL "x86")
 		)
 endif()
 
-add_custom_target(bootsect_bin
+add_custom_command(
+	OUTPUT ${BOOTSECT_BIN}
 	COMMAND ${CMAKE_ASM_NASM_COMPILER} -f bin ${BOOTSECT_ASM} -o ${BOOTSECT_BIN}
 	DEPENDS ${BOOTSECT_ASM}
 )
 
-add_custom_target(loader_bin
+add_custom_command(
+	OUTPUT ${LOADER_BIN}
 	COMMAND ${CMAKE_OBJCOPY} -O binary ${LOADER_ELF} ${LOADER_BIN}
 	DEPENDS ${LOADER_ELF}
 )
 
-add_custom_target(bootldr_bin
+add_custom_target(bootldr-bin
 	COMMAND cat ${BOOTSECT_BIN} ${LOADER_BIN} > ${BOOTLDR_FILE}
-	DEPENDS bootsect_bin loader_bin
+	DEPENDS ${BOOTSECT_BIN} ${LOADER_BIN}
 )
