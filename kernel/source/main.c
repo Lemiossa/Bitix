@@ -7,7 +7,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include <cpuid.h>
+#include <asm.h>
 
 #include <graphics.h>
 #include <vga.h>
@@ -72,7 +72,6 @@ void kernel_main(boot_info_t *bi)
 		printf("E820[%d]: 0x%08X-0x%08X:%d\r\n",
 				count, (uint32_t)entry.base, (uint32_t)entry.length, entry.type);
 	}
-
 
 	if (!cpuid_is_available()) {
 		printf("\033[31mERRO: CPUID nao esta disponivel\r\n");
