@@ -7,6 +7,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <fpu.h>
+#include <cpuid.h>
 #include <asm.h>
 
 #include <graphics.h>
@@ -27,42 +29,6 @@
 #include <kbd.h>
 
 boot_info_t boot_info = {0};
-char *cpu_vendor = "            ";
-uint32_t cpu_features_ebx = 0;
-uint32_t cpu_features_ecx = 0;
-uint32_t cpu_features_edx = 0;
-
-/* Pega todas as features da CPU e coloca na variavel global CPU features ebx, ecx e edx*/
-void cpuid_get_features(void)
-{
-	uint32_t ebx = 0, ecx = 0, edx = 0;
-	cpuid(0, NULL, &ebx, &ecx, &edx);
-
-	((uint32_t *)cpu_vendor)[0] = ebx;
-	((uint32_t *)cpu_vendor)[1] = edx;
-	((uint32_t *)cpu_vendor)[2] = ecx;
-	cpuid(1, NULL, &cpu_features_ebx, &cpu_features_ecx, &cpu_features_edx);
-}
-
-/* Inicializa FPU */
-/* Retorna false se houver erro */
-bool fpu_init(void)
-{
-	if (!cpu_features_edx)
-		cpuid_get_features();
-
-	if (!(cpu_features_edx & CPUID_FEAT_EDX_FPU))
-		return false;
-
-	uint32_t cr0 = get_cr0();
-	if (!(cr0 & CR0_ET))
-		return false;
-
-	cr0 &= ~(CR0_EM | CR0_TS); /* Desativar emulação */
-	set_cr0(cr0);
-	fninit();
-	return true;
-}
 
 /* Func principal */
 void kernel_main(boot_info_t *bi)
@@ -107,10 +73,7 @@ void kernel_main(boot_info_t *bi)
 
 	printf("Fornecedor de CPU: %s\r\n", (char *)cpu_vendor);
 
-	double a = 2.5;
-	double b = 2.5;
-	double c = a + b;
-	printf("Resultado : %d\r\n", (int)c);
+
 halt:
 	printf("Sistema travado. Por favor, reinicie\r\n");
 halt_no_msg:
