@@ -32,6 +32,10 @@ set(BASE_CFLAGS
 	-I${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+	add_compile_definitions(DEBUG)
+endif()
+
 add_subdirectory(libc)
 add_subdirectory(bootldr)
 add_subdirectory(kernel)

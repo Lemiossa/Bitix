@@ -54,7 +54,13 @@ static uint32_t terminal_palette[16] = {
 /* Desenha um caractere da fonte VGA */
 static void draw_char(int x, int y, char c, uint32_t fg, uint32_t bg)
 {
-	if (!boot_info.vga_font || boot_info.graphics.mode == 0)
+	if (boot_info.graphics.mode == 0) {
+		uint8_t attr = ((terminal_palette[bg] & 0x0F) << 4) | (terminal_palette[fg] & 0x0F);
+		vga_put_char(x, y, c, attr);
+		return;
+	}
+
+	if (!boot_info.vga_font)
 		return;
 
 	int height = char_height;
@@ -85,17 +91,10 @@ static void put_char_at(int x, int y, char_cell_t cell)
 	if (x < 0 || y < 0 || x >= width || y >= height)
 		return;
 
-	uint8_t bg = cell.bg;
-	uint8_t fg = cell.fg;
-	uint8_t c = cell.ch;
+	uint16_t pos = y * width + x;
+	buffer[pos] = cell;
 
-	if (boot_info.graphics.mode == 0) {
-		uint8_t attr = ((terminal_palette[bg] & 0x0F) << 4) | (terminal_palette[fg] & 0x0F);
-		vga_put_char(x, y, c, attr);
-		return;
-	}
-
-	draw_char(x, y, c, terminal_palette[fg], terminal_palette[bg]);
+	draw_char(x, y, cell.ch, terminal_palette[cell.fg], terminal_palette[cell.bg]);
 }
 
 /* pega um caractere numa posição específica do terminal */
@@ -106,6 +105,23 @@ static char_cell_t *get_char_at(int x, int y)
 
 	uint16_t pos = y * width + x;
 	return &buffer[pos];
+}
+
+/* Desenha o cursor */
+static void draw_cursor(int x, int y)
+{
+	char_cell_t cell = *get_char_at(x, y);
+	uint8_t bg = cell.bg;
+	cell.bg = cell.fg;
+	cell.fg = bg;
+	draw_char(x, y, cell.ch, terminal_palette[cell.fg], terminal_palette[cell.bg]);
+}
+
+/* "Limpa" o cursor */
+static void erase_cursor(int x, int y)
+{
+	char_cell_t cell = *get_char_at(x, y);
+	draw_char(x, y, cell.ch, terminal_palette[cell.fg], terminal_palette[cell.bg]);
 }
 
 /* Redesenha todo o terminal */
@@ -216,6 +232,9 @@ void terminal_putchar(char c)
 	static int state = 0; /* 0 = normal, 1 = escape, 2 = csi */
 	static int csi_param_table[TERMINAL_MAX_CSI_PARAMS];
 	static int csi_params = 0; /* Quantidade de parametros */
+
+
+	erase_cursor(cursor_x, cursor_y);
 	if (c == '\n') {
 		cursor_y++;
 	} else if (c == '\r') {
@@ -294,6 +313,7 @@ void terminal_putchar(char c)
 	}
 
 	terminal_set_cursor(cursor_x, cursor_y);
+	draw_cursor(cursor_x, cursor_y);
 }
 
 /* Imprime uma string na tela */

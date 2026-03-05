@@ -12,7 +12,9 @@
 /* Lista de modos */
 /* Ele vai tentar entrar em um, se falhar, tenta o proximo, por assim vai  */
 char *video_modes[] = {
-	/*NULL,*/ /* Descomente isso se quiser mudar pro modo texto */
+#ifdef DEBUG
+	NULL,
+#endif /* DEBUG */
 	/* 800x600 */
 	"800x600x32",
 	"800x600x24",

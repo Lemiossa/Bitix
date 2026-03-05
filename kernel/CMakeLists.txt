@@ -7,8 +7,10 @@ add_executable(kernel.elf
 	source/arch/${ARCH}/entry.asm
 	source/arch/${ARCH}/intr.asm
 	source/arch/${ARCH}/cpuid.asm
+	source/arch/${ARCH}/cpuid.c
 	source/arch/${ARCH}/gdt.c
 	source/arch/${ARCH}/idt.c
+	source/arch/${ARCH}/fpu.c
 	source/arch/${ARCH}/pmm.c
 	source/graphics.c
 	source/terminal.c
@@ -30,7 +32,7 @@ target_include_directories(kernel.elf PRIVATE
 if(ARCH STREQUAL "x86")
 	target_compile_options(
 		kernel.elf PRIVATE
-		$<$<COMPILE_LANGUAGE:C>:-m32 -march=i686 -O2 ${BASE_CFLAGS}>
+		$<$<COMPILE_LANGUAGE:C>:-m32 -march=i686 -O2 ${BASE_CFLAGS} -mno-sse -mno-sse2 -mfpmath=387>
 		$<$<COMPILE_LANGUAGE:ASM_NASM>:-f elf32>
 	)
 
