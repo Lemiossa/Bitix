@@ -188,5 +188,10 @@ enum {
 	CPUID_FEAT_EDX_PBE                = 1 << 31
 };
 
+/* FNINIT */
+static inline void fninit(void)
+{
+	__asm__ volatile ("fninit");
+}
 
 #endif /* ASM_H */

@@ -44,6 +44,26 @@ void cpuid_get_features(void)
 	cpuid(1, NULL, &cpu_features_ebx, &cpu_features_ecx, &cpu_features_edx);
 }
 
+/* Inicializa FPU */
+/* Retorna false se houver erro */
+bool fpu_init(void)
+{
+	if (!cpu_features_edx)
+		cpuid_get_features();
+
+	if (!(cpu_features_edx & CPUID_FEAT_EDX_FPU))
+		return false;
+
+	uint32_t cr0 = get_cr0();
+	if (!(cr0 & CR0_ET))
+		return false;
+
+	cr0 &= ~(CR0_EM | CR0_TS); /* Desativar emulação */
+	set_cr0(cr0);
+	fninit();
+	return true;
+}
+
 /* Func principal */
 void kernel_main(boot_info_t *bi)
 {
@@ -56,6 +76,17 @@ void kernel_main(boot_info_t *bi)
 	graphics_init();
 	terminal_init();
 	terminal_clear(TERMINAL_DEFAULT_FG_COLOR, TERMINAL_DEFAULT_BG_COLOR);
+
+	if (!cpuid_is_available()) {
+		printf("\033[31mERRO: CPUID nao esta disponivel\r\n");
+		goto halt;
+	}
+	cpuid_get_features();
+
+	if (!fpu_init()) {
+		printf("Falha ao inicializar FPU(80387)\r\n");
+		goto halt;
+	}
 
 	pic_remap(0x20, 0x28);
 	timer_init(100);
@@ -73,13 +104,13 @@ void kernel_main(boot_info_t *bi)
 				count, (uint32_t)entry.base, (uint32_t)entry.length, entry.type);
 	}
 
-	if (!cpuid_is_available()) {
-		printf("\033[31mERRO: CPUID nao esta disponivel\r\n");
-		goto halt;
-	}
-	cpuid_get_features();
 
 	printf("Fornecedor de CPU: %s\r\n", (char *)cpu_vendor);
+
+	double a = 2.5;
+	double b = 2.5;
+	double c = a + b;
+	printf("Resultado : %d\r\n", (int)c);
 halt:
 	printf("Sistema travado. Por favor, reinicie\r\n");
 halt_no_msg:

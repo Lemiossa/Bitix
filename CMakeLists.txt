@@ -29,7 +29,6 @@ set(BASE_CFLAGS
 	-std=c99 -Wall -Wextra -fno-PIC
 	-fno-pie -fno-stack-protector
 	-ffreestanding -fno-builtin
-	-mno-mmx -mno-sse
 	-I${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 

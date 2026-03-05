@@ -25,8 +25,6 @@ static int cursor_x = 0, cursor_y = 0;
 static uint8_t current_fg_color = 7;
 static uint8_t current_bg_color = 0;
 
-static int cursor_visible = 1;
-
 typedef struct char_cell {
 	char ch;
 	uint8_t fg, bg;
@@ -108,29 +106,6 @@ static char_cell_t *get_char_at(int x, int y)
 
 	uint16_t pos = y * width + x;
 	return &buffer[pos];
-}
-
-/* Desenha o cursor */
-static void draw_cursor(int x, int y)
-{
-	char_cell_t *cell = get_char_at(x, y);
-	if (!cell) return;
-
-	uint8_t fg = cell->fg;
-	uint8_t bg = cell->bg;
-
-	draw_char(x, y, cell->ch,
-		terminal_palette[bg],
-		terminal_palette[fg]);
-}
-
-/* "Limpa" o cursor */
-static void erase_cursor(int x, int y)
-{
-	char_cell_t *cell = get_char_at(x, y);
-		if (!cell) return;
-
-	put_char_at(x, y, *cell);
 }
 
 /* Redesenha todo o terminal */
@@ -222,7 +197,6 @@ void terminal_set_cursor(int x, int y)
 /* Limpa toda a tela */
 void terminal_clear(uint8_t fg, uint8_t bg)
 {
-	erase_cursor(cursor_x, cursor_y);
 	for (int y = 0; y < height; y++) {
 		for (int x = 0; x < width; x++) {
 			char_cell_t *cell = get_char_at(x, y);
@@ -320,24 +294,6 @@ void terminal_putchar(char c)
 	}
 
 	terminal_set_cursor(cursor_x, cursor_y);
-}
-
-
-/* Tick de um terminal pra piscar o cursor */
-static uint32_t ticks = 0;
-void terminal_tick(void)
-{
-	if (boot_info.graphics.mode != 0 &&
-			ticks >= timer_ms_to_tick(TERMINAL_CURSOR_BLINK_MS)) {
-		cursor_visible = !cursor_visible;
-		ticks = 0;
-		if (cursor_visible)
-			draw_cursor(cursor_x, cursor_y);
-		else
-			erase_cursor(cursor_x, cursor_y);
-	}
-
-	ticks++;
 }
 
 /* Imprime uma string na tela */
