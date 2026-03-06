@@ -12,16 +12,6 @@
 /* Lista de modos */
 /* Ele vai tentar entrar em um, se falhar, tenta o proximo, por assim vai  */
 char *video_modes[] = {
-#ifdef DEBUG
-	NULL,
-#endif /* DEBUG */
-
-	/* 1024x768 */
-	"1024x768x32",
-	"1024x768x24",
-	"1024x768x16",
-	"1024x768x8",
-
 	/* 800x600 */
 	"800x600x32",
 	"800x600x24",
