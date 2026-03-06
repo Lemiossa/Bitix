@@ -61,6 +61,27 @@ bool vmm_map(uint32_t *pd, uint32_t phys, uint32_t virt, uint32_t flags)
 	return true;
 }
 
+/* Desmapeia uma pagina */
+bool vmm_unmap(uint32_t *pd, uint32_t virt)
+{
+	if (!pd)
+		return false;
+
+	uint32_t pd_index = (virt >> 22) & 0x3FF;
+	uint32_t pt_index = (virt >> 12) & 0x3FF;
+
+	if (!(pd[pd_index] & PAGE_PRESENT))
+		return true;
+
+	uint32_t *pt = (uint32_t *)get_phys(pd[pd_index]);
+	pt[pt_index] = 0;
+
+	if (paging_enabled)
+		invlpg(virt);
+
+	return true;
+}
+
 /* Inicializa o virtual memory manager */
 bool vmm_init(void)
 {
@@ -71,7 +92,8 @@ bool vmm_init(void)
 	memset(kernel_pd, 0, PAGE_SIZE);
 
 	for (uint32_t i = 0; i < 0x00400000; i += PAGE_SIZE) {
-		vmm_map(kernel_pd, i, i, PAGE_WRITE | PAGE_PRESENT);
+		if (!vmm_map(kernel_pd, i, i, PAGE_WRITE | PAGE_PRESENT))
+			break;
 	}
 
 	set_cr3((uint32_t)kernel_pd);

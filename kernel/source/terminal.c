@@ -33,22 +33,22 @@ typedef struct char_cell {
 static char_cell_t buffer[CELLS];
 
 static uint32_t terminal_palette[16] = {
-	0x1E1E2E, /* Preto */
-	0xE06C75, /* Vermelho */
-	0x98C379, /* Verde */
-	0xD19A66, /* Amarelo */
-	0x61AFEF, /* Azul */
-	0xC678DD, /* Roxo */
-	0x56B6C2, /* Ciano */
-	0xABB2BF, /* Cinza claro */
-	0x5C6370, /* Cinza escuro */
-	0xF28B82, /* Vermelho claro */
-	0xB5E48C, /* Verde claro */
-	0xF9E2AF, /* Amarelo claro */
-	0x89B4FA, /* Azul claro */
-	0xDDB6F2, /* Roxo claro */
-	0x94E2D5, /* Ciano claro */
-	0xFFFFFF  /* Branco */
+	RGB(0, 0, 0), /* Preto */
+	RGB(170, 0, 0), /* Vermelho */
+	RGB(0, 170, 0), /* Verde */
+	RGB(170, 85, 0), /* Amarelo */
+	RGB(0, 0, 170), /* Azul */
+	RGB(170, 0, 170), /* Roxo */
+	RGB(0, 170, 170), /* Ciano */
+	RGB(170, 170, 170), /* Cinza claro */
+	RGB(85, 85, 85), /* Cinza escuro */
+	RGB(255, 85, 85), /* Vermelho claro */
+	RGB(85, 255, 85), /* Verde claro */
+	RGB(255, 255, 85), /* Amarelo claro */
+	RGB(85, 85, 255), /* Azul claro */
+	RGB(255, 85, 255), /* Roxo claro */
+	RGB(85, 255, 255), /* Ciano claro */
+	RGB(255, 255, 255)  /* Branco */
 };
 
 /* Desenha um caractere da fonte VGA */

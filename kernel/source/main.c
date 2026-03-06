@@ -47,7 +47,7 @@ void kernel_main(boot_info_t *bi)
 	terminal_clear(TERMINAL_DEFAULT_FG_COLOR, TERMINAL_DEFAULT_BG_COLOR);
 
 	if (!cpuid_is_available()) {
-		printf("\033[31mERRO: CPUID nao esta disponivel\r\n");
+		printf("ERRO: CPUID nao esta disponivel\r\n");
 		goto halt;
 	}
 	cpuid_get_features();

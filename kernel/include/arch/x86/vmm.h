@@ -14,6 +14,7 @@
 extern uint32_t *kernel_pd;
 
 bool vmm_map(uint32_t *pd, uint32_t phys, uint32_t virt, uint32_t flags);
+bool vmm_unmap(uint32_t *pd, uint32_t virt);
 bool vmm_init(void);
 
 #endif /* VMM_H */
