@@ -4,7 +4,7 @@ Bitix é um simples sistema operacional feito pra estudo.
 Não crie muita expectativa.
 
 *Print do estado atual*
-![Bitix screenshot](current.bmp)
+![Bitix screenshot](current.png)
 
 ## Como testar
 
