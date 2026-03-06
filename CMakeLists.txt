@@ -69,7 +69,7 @@ set(QEMU_FLAGS
 	-machine pc,pcspk-audiodev=audio0
 	-serial stdio
 	-vga std
-	-m 16
+	-m 4M
 	-no-shutdown -no-reboot
 )
 
