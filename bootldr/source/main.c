@@ -66,21 +66,18 @@ void set_vesa(void)
 
 	if (!video_modes[0]) {
 		boot_info.graphics.mode = 0;
+		printf("No video modes!\r\n");
+		wait(1);
 		return;
 	}
 
 	/* Tentar entrar nos modos */
 	for (int i = 0; video_modes[i]; i++) {
 		uint16_t mode = vesa_find_mode(video_modes[i]);
-		if (mode != 0x13) {
-			vesa_mode = mode;
-			break;
-		}
-	}
-
-	if (vesa_mode == 0x13) {
-		boot_info.graphics.mode = 0;
-		return;
+		if (mode == 0x13)
+			continue;
+		vesa_mode = mode;
+		break;
 	}
 
 	if (vesa_set_mode(vesa_mode) != 0) {

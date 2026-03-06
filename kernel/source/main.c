@@ -24,6 +24,7 @@
 #include <pit.h>
 
 #include <pmm.h>
+#include <vmm.h>
 
 #include <timer.h>
 #include <kbd.h>
@@ -37,6 +38,8 @@ void kernel_main(boot_info_t *bi)
 	gdt_init();
 	idt_init();
 	if (!pmm_init())
+		goto halt_no_msg;
+	if (!vmm_init())
 		goto halt_no_msg;
 
 	graphics_init();
@@ -72,7 +75,6 @@ void kernel_main(boot_info_t *bi)
 
 
 	printf("Fornecedor de CPU: %s\r\n", (char *)cpu_vendor);
-
 
 halt:
 	printf("Sistema travado. Por favor, reinicie\r\n");

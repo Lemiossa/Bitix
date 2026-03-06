@@ -93,7 +93,7 @@ static inline uint32_t get_cr4(void)
 	return v;
 }
 
-/* Executa CPUID */
+/* CPUID */
 static inline void cpuid(uint32_t code, uint32_t *a, uint32_t *b, uint32_t *c, uint32_t *d)
 {
 	uint32_t eax = code, ebx = b?*b:0, ecx = c?*c:0, edx = d?*d:0;
@@ -162,6 +162,12 @@ static inline uint16_t fnstsw(void)
 static inline void fldsw(uint16_t sw)
 {
 	__asm__ volatile ("FLDCW %0" ::"m"(sw));
+}
+
+/* INVLPG */
+static inline void invlpg(uint32_t p)
+{
+	__asm__ volatile("INVLPG (%0)"::"r"(p):"memory");
 }
 
 #endif /* ASM_H */

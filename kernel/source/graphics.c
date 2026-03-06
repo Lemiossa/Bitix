@@ -10,6 +10,7 @@
 #include <boot.h>
 
 #include <pmm.h>
+#include <vmm.h>
 
 /* Inicializa graficos */
 /* Mapeia framebuffer */
@@ -21,6 +22,10 @@ void graphics_init(void)
 	void *start = (void *)boot_info.graphics.framebuffer;
 	void *end = (void *)(boot_info.graphics.framebuffer + size);
 	pmm_mark_area(start, end); /* Marca todo o framebuffer como usado caso já não esteja */
+
+	for (uint32_t i = 0; i < size; i += PAGE_SIZE) {
+		vmm_map(kernel_pd, boot_info.graphics.framebuffer + i, boot_info.graphics.framebuffer + i, PAGE_PRESENT | PAGE_WRITE);
+	}
 }
 
 /* Desenha um PIXEL no modo grafico */

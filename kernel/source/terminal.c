@@ -165,13 +165,14 @@ void terminal_init(void)
 		char_height = 16;
 
 	if (boot_info.graphics.mode == 1) {
-
 		width = boot_info.graphics.width / 8;
 		height = boot_info.graphics.height / char_height;
 		top_corner_x = 0;
 		top_corner_y = 0;
 		bottom_corner_x = width;
 		bottom_corner_y = height;
+	} else {
+		vga_disable_cursor(); /* Desabilitar o cursor porque desenharemos nosso proprio */
 	}
 
 	if (boot_info.graphics.bpp <= 8) {

@@ -8,6 +8,10 @@
 
 uint16_t *vga = (uint16_t *)0xB8000;
 
+
+/* Operações de cursor */
+/* https://wiki.osdev.org/Text_Mode_Cursor */
+
 /* Muda a posição do cursor no modo de texto VGA */
 void vga_set_cursor(int x, int y)
 {
@@ -17,6 +21,35 @@ void vga_set_cursor(int x, int y)
 	outb(0x3D5, (uint8_t)(pos & 0xFF));
 	outb(0x3D4, 0x0E);
 	outb(0x3D5, (uint8_t)((pos >> 8) & 0xFF));
+}
+
+/* Pega a posição atual do cursor */
+uint16_t vga_get_cursor(void)
+{
+	uint16_t pos = 0;
+	outb(0x3D4, 0x0F);
+	pos |= inb(0x3D5);
+	outb(0x3D4, 0x0E);
+	pos |= ((uint16_t)inb(0x3D5)) << 8;
+	return pos;
+}
+
+/* Muda o formato do cursor */
+/* Start é a linha inicial(de cima pra baixo). End a linha final(de cima pra baixo) */
+void vga_set_cursor_shape(uint8_t start, uint8_t end)
+{
+	outb(0x3D4, 0x0A);
+	outb(0x3D5, (inb(0x3D5) & 0xC0) | start);
+
+	outb(0x3D4, 0x0B);
+	outb(0x3D5, (inb(0x3D5) & 0xE0) | end);
+}
+
+/* Desabilita o cursor */
+void vga_disable_cursor(void)
+{
+	outb(0x3D4, 0x0A);
+	outb(0x3D5, 0x20);
 }
 
 /* Desenha um caractere diretamente no modo de texto VGA */

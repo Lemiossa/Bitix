@@ -90,7 +90,6 @@ if(ARCH STREQUAL "x86")
 		DEPENDS image
 	)
 
-
 	add_custom_target(bochs
 		COMMAND echo c | bochs -q -f ${BOCHSRC_FILE}
 		DEPENDS image ${BOCHSRC_FILE}
