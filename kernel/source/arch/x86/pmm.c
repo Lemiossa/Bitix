@@ -119,7 +119,7 @@ bool pmm_init(void)
 void *pmm_alloc_page(void)
 {
 	for (uint32_t i = 0; i < pmm_total_pages; i++) {
-		uint32_t pos = i / 32;
+		uint32_t pos = i / 8;
 
 		if (pmm_bitmap[pos] == 0xFF)
 			continue;
