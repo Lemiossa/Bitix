@@ -15,12 +15,10 @@ add_executable(kernel.elf
 	source/arch/${ARCH}/vmm.c
 	source/graphics.c
 	source/terminal.c
-	source/timer.c
 	source/main.c
 	source/pic.c
 	source/pit.c
 	source/vga.c
-	source/kbd.c
 )
 
 target_link_libraries(kernel.elf PRIVATE libc)

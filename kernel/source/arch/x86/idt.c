@@ -45,11 +45,6 @@ extern void kbd_handler(void);
 /* Handler de interrupções */
 void intr_handler(intr_frame_t *f)
 {
-	switch (f->int_no) {
-		case 32: timer_handler(f); return;
-		case 33: kbd_handler(); return;
-	}
-
 	printf("Int %u\r\n", f->int_no);
 	printf("EAX: 0x%08X ", f->eax);
 	printf("EBX: 0x%08X\r\n", f->ebx);

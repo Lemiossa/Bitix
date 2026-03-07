@@ -11,7 +11,6 @@
 #include <io.h>
 #include <graphics.h>
 #include <stddef.h>
-#include <timer.h>
 #include <terminal.h>
 
 #define CELLS 180 * 80

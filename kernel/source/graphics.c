@@ -21,7 +21,7 @@ void graphics_init(void)
 	uint32_t size = (uint32_t)boot_info.graphics.pitch * (uint32_t)boot_info.graphics.height;
 
 	for (uint32_t i = 0; i < size; i += PAGE_SIZE) {
-		vmm_map(kernel_pd, boot_info.graphics.framebuffer + i, boot_info.graphics.framebuffer + i, PAGE_PRESENT | PAGE_WRITE);
+		vmm_map(boot_info.graphics.framebuffer + i, boot_info.graphics.framebuffer + i, PAGE_PRESENT | PAGE_WRITE);
 	}
 }
 
