@@ -54,6 +54,32 @@ typedef struct rsdt {
 	uint32_t ptrs[];
 } __attribute__((packed)) rsdt_t;
 
+typedef struct madt_entry {
+	uint8_t type;
+	uint8_t length;
+} __attribute__((packed)) madt_entry_t;
+
+typedef struct madt_local_apic {
+	madt_entry_t entry;
+	uint8_t processor_id;
+	uint8_t apic_id;
+	uint32_t flags;
+} __attribute__((packed)) madt_local_apic_t;
+
+typedef struct madt_io_apic {
+	madt_entry_t entry;
+	uint8_t io_apic_id;
+	uint8_t res;
+	uint32_t io_apic_address;
+	uint32_t gsi_base;
+} __attribute__((packed)) madt_io_apic_t;
+
+typedef struct madt {
+	sdt_header_t header;
+	uint32_t local_apic_address;
+	uint32_t flags;
+} __attribute__((packed)) madt_t;
+
 /* Procura RSDP */
 rsdp_t *acpi_find_rsdp(void *start, void *end)
 {
@@ -81,6 +107,45 @@ rsdp_t *acpi_find_rsdp(void *start, void *end)
 	return NULL; /* Não achou */
 }
 
+/* Retorna o ponteiro de uma entrada no RSDT com um nome */
+uint32_t acpi_find_rsdt_entry(uint32_t rsdt_phys, char *name)
+{
+	if (!name)
+		return 0;
+
+	uint32_t rsdt_virt_addr = vmm_get_free_virt();
+	if (!vmm_map(rsdt_phys, rsdt_virt_addr, PAGE_WRITE | PAGE_PRESENT))
+		return 0;
+	rsdt_t *rsdt = (rsdt_t *)(rsdt_virt_addr + (rsdt_phys & 0xFFF));
+
+	uint32_t rsdt_ptr_count = (rsdt->header.length - sizeof(sdt_header_t)) / 4;
+
+	uint32_t addr = 0;
+	for (uint32_t i = 0; i < rsdt_ptr_count; i++) {
+		uint32_t ptr = rsdt->ptrs[i];
+
+		uint32_t virt = vmm_get_free_virt();
+
+		if (!vmm_map(ptr, virt, PAGE_WRITE | PAGE_PRESENT))
+			continue;
+
+		sdt_header_t *h = (sdt_header_t *)(virt + (ptr & 0xFFF));
+
+		if (h->signature[0] == name[0] &&
+				h->signature[1] == name[1] &&
+				h->signature[2] == name[2] &&
+				h->signature[3] == name[3]) {
+			addr = ptr;
+		}
+
+		vmm_unmap(virt);
+	}
+
+	vmm_unmap(rsdt_virt_addr);
+
+	return addr;
+}
+
 /* Valida uma RSDP */
 /* Retorna true se ela for válida */
 bool acpi_check_rsdp(rsdp_t *rsdp)
@@ -101,6 +166,7 @@ void kernel_main(boot_info_t *bi)
 	boot_info = *bi;
 	gdt_init();
 	idt_init();
+	pic_remap(0x20, 0x28);
 	if (!pmm_init())
 		goto halt_no_msg;
 	if (!vmm_init())
@@ -120,9 +186,6 @@ void kernel_main(boot_info_t *bi)
 		printf("Falha ao inicializar FPU(80387)\r\n");
 		goto halt;
 	}
-
-	pic_remap(0x20, 0x28);
-	__asm__ volatile("sti");
 
 	printf("\033[32mKernel iniciado!\033[0m\r\n");
 	printf("Modo de video: \033[32m%d\033[0mx\033[33m%d\033[0mx\033[34m%d\033[0m\r\n", boot_info.graphics.width, boot_info.graphics.height,
@@ -155,32 +218,43 @@ check_rsdp:
 		goto check_rsdp;
 	}
 
-	printf("RSDT esta em 0x%08X\r\n", rsdp->rsdt);
+	uint32_t madt_phys = acpi_find_rsdt_entry(rsdp->rsdt, "APIC");
 
-	rsdt_t *rsdt = (rsdt_t *)rsdp->rsdt;
-	if (!vmm_map((uint32_t)rsdt, (uint32_t)rsdt, PAGE_WRITE | PAGE_PRESENT)) {
-		printf("Falha ao mapear RSDT!\r\n");
+	uint32_t madt_virt = vmm_get_free_virt();
+	if (!madt_virt || !vmm_map(madt_phys, madt_virt, PAGE_WRITE | PAGE_PRESENT))
 		goto halt;
+
+	madt_t *madt = (madt_t *)(madt_virt + (madt_phys & 0xFFF));
+
+	/* Mapear todas as paginas necessarias */
+	uint32_t madt_size = madt->header.length;
+	for (uint32_t i = 0; i < madt_size; i += PAGE_SIZE)
+		vmm_map(madt_phys + i, madt_virt + i, PAGE_WRITE | PAGE_PRESENT);
+
+	uint8_t *ptr = (uint8_t *)madt + sizeof(madt_t);
+	uint8_t *end = (uint8_t *)madt + madt_size;
+
+	while (ptr < end) {
+		madt_entry_t *entry = (madt_entry_t *)ptr;
+
+		switch (entry->type) {
+			case 0: {
+				madt_local_apic_t *lapic = (madt_local_apic_t *)entry;
+				printf("lapic: apic_id: %hhu, processor_id: %hhu\r\n", lapic->apic_id, lapic->processor_id);
+			} break;
+			case 1: {
+				madt_io_apic_t *ioapic = (madt_io_apic_t *)entry;
+				printf("ioapic: io_apic_id: %hhu, io_apic_address: 0x%08X\r\n", ioapic->io_apic_id, ioapic->io_apic_address);
+			} break;
+		}
+
+		ptr += entry->length;
 	}
 
-	uint32_t rsdt_ptr_count = (rsdt->header.length - sizeof(sdt_header_t)) / 4;
-	printf("Possuem %u ponteiros na RSDT\r\n", rsdt_ptr_count);
+	for (uint32_t i = 0; i < madt_size; i++)
+		vmm_unmap(madt_virt + i);
 
-	printf("Ponteiros: \r\n");
-	for (uint32_t i = 0; i < rsdt_ptr_count; i++) {
-		printf("Ponteiro %u: 0x%08X, ", i, rsdt->ptrs[i]);
-		/* Sabemos que todos os ponteiros apontam pra um sdt_header(tem mais coisa, só que isso é comum em todos) */
-		sdt_header_t *h = (sdt_header_t *)rsdt->ptrs[i];
-
-		if (!vmm_map((uint32_t)h, (uint32_t)h, PAGE_WRITE | PAGE_PRESENT))
-			continue;
-
-		printf("Assinatura: %c%c%c%c\r\n",
-				h->signature[0],
-				h->signature[1],
-				h->signature[2],
-				h->signature[3]);
-	}
+	vmm_unmap(madt_virt);
 
 halt:
 	printf("Sistema travado. Por favor, reinicie\r\n");

@@ -5,10 +5,14 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
-
+#include <stdio.h>
 #include <string.h>
 
+#include <terminal.h>
+
 #include <asm.h>
+
+#include <idt.h>
 
 #include <pmm.h>
 #include <vmm.h>
@@ -64,6 +68,46 @@ uint32_t get_pd_index(uint32_t virt)
 uint32_t get_pt_index(uint32_t virt)
 {
 	return (virt >> 12) & 0x3FF;
+}
+
+/* Retorna true se um endereço virtual está presente */
+bool virt_is_present(uint32_t virt)
+{
+	uint32_t pd_index = get_pd_index(virt);
+	uint32_t pt_index = get_pt_index(virt);
+
+	uint32_t *pd = get_pd();
+
+	if (!pd)
+		return false;
+
+	if (!(pd[pd_index] & PAGE_PRESENT))
+		return false;
+
+	uint32_t *pt = get_pt(pd_index);
+
+	return pt[pt_index] & PAGE_PRESENT;
+}
+
+/* Retorna o endereço fisico de um virtual atualmente */
+uint32_t vmm_get_phys(uint32_t virt)
+{
+	uint32_t pd_index = get_pd_index(virt);
+	uint32_t pt_index = get_pt_index(virt);
+
+	uint32_t *pd = get_pd();
+
+	if (!pd)
+		return 0;
+
+	if (!(pd[pd_index] & PAGE_PRESENT))
+		return 0;
+
+	uint32_t *pt = get_pt(pd_index);
+	if (!(pt[pt_index] & PAGE_PRESENT))
+		return 0;
+
+	return get_phys(pt[pt_index]);
 }
 
 /* Mapeia uma pagina */
@@ -123,6 +167,21 @@ bool vmm_unmap(uint32_t virt)
 	return true;
 }
 
+/* Retorna um endereço virtual temporario */
+/* Por enquanto é lento, mas funciona */
+/* 0 é inválido */
+uint32_t vmm_get_free_virt(void)
+{
+	uint32_t ptr = 0x400000;
+	while (ptr < 0xFFC00000) {
+		if (!virt_is_present(ptr))
+			break;
+		ptr += PAGE_SIZE;
+	}
+
+	return ptr;
+}
+
 /* Inicializa o virtual memory manager */
 bool vmm_init(void)
 {
@@ -145,3 +204,25 @@ bool vmm_init(void)
 	return true;
 }
 
+
+/* Handler de page fault */
+void page_fault_handler(intr_frame_t *f)
+{
+	printf("Falha de pagina!\r\n");
+
+	printf("CR2: 0x%08X\r\n", get_cr2());
+
+	printf("EAX: 0x%08X ", f->eax);
+	printf("EBX: 0x%08X\r\n", f->ebx);
+	printf("ECX: 0x%08X ", f->ecx);
+	printf("EDX: 0x%08X\r\n", f->edx);
+	printf("EBP: 0x%08X ", f->ebp);
+	printf("ESI: 0x%08X\r\n", f->esi);
+	printf("EDI: 0x%08X\r\n\r\n", f->edi);
+	printf("EIP: 0x%08X\r\n", f->eip);
+	printf("CS:  0x%08X ", f->cs);
+	printf("DS:  0x%08X\r\n", f->ds);
+	printf("ES:  0x%08X ", f->es);
+	printf("FS:  0x%08X\r\n", f->fs);
+	printf("GS:  0x%08X\r\n", f->gs);
+}

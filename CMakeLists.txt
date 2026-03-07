@@ -70,6 +70,7 @@ set(QEMU_FLAGS
 	-serial stdio
 	-vga std
 	-m 4M
+	-smp 4
 	-no-shutdown -no-reboot
 )
 

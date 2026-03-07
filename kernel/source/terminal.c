@@ -223,8 +223,9 @@ void terminal_clear(uint8_t fg, uint8_t bg)
 	}
 	redraw();
 	terminal_set_cursor(top_corner_x, top_corner_y);
+	current_fg_color = fg;
+	current_bg_color = bg;
 }
-
 
 /* Imprime um caractere na tela */
 void terminal_putchar(char c)
@@ -232,7 +233,6 @@ void terminal_putchar(char c)
 	static int state = 0; /* 0 = normal, 1 = escape, 2 = csi */
 	static int csi_param_table[TERMINAL_MAX_CSI_PARAMS];
 	static int csi_params = 0; /* Quantidade de parametros */
-
 
 	erase_cursor(cursor_x, cursor_y);
 	if (c == '\n') {

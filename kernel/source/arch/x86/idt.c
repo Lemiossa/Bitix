@@ -39,26 +39,31 @@ void idt_set_trap(int entry, void (*trap)(void), uint16_t selector)
 }
 
 extern void page_fault_handler(intr_frame_t *f);
-extern void timer_handler(intr_frame_t *f);
-extern void kbd_handler(void);
 
 /* Handler de interrupções */
 void intr_handler(intr_frame_t *f)
 {
-	printf("Int %u\r\n", f->int_no);
-	printf("EAX: 0x%08X ", f->eax);
-	printf("EBX: 0x%08X\r\n", f->ebx);
-	printf("ECX: 0x%08X ", f->ecx);
-	printf("EDX: 0x%08X\r\n", f->edx);
-	printf("EBP: 0x%08X ", f->ebp);
-	printf("ESI: 0x%08X\r\n", f->esi);
-	printf("EDI: 0x%08X\r\n\r\n", f->edi);
-	printf("EIP: 0x%08X\r\n", f->eip);
-	printf("CS:  0x%08X ", f->cs);
-	printf("DS:  0x%08X\r\n", f->ds);
-	printf("ES:  0x%08X ", f->es);
-	printf("FS:  0x%08X\r\n", f->fs);
-	printf("GS:  0x%08X\r\n", f->gs);
+	switch (f->int_no) {
+		case 14:
+			page_fault_handler(f);
+			break;
+		default:
+			printf("Int %u\r\n", f->int_no);
+			printf("EAX: 0x%08X ", f->eax);
+			printf("EBX: 0x%08X\r\n", f->ebx);
+			printf("ECX: 0x%08X ", f->ecx);
+			printf("EDX: 0x%08X\r\n", f->edx);
+			printf("EBP: 0x%08X ", f->ebp);
+			printf("ESI: 0x%08X\r\n", f->esi);
+			printf("EDI: 0x%08X\r\n\r\n", f->edi);
+			printf("EIP: 0x%08X\r\n", f->eip);
+			printf("CS:  0x%08X ", f->cs);
+			printf("DS:  0x%08X\r\n", f->ds);
+			printf("ES:  0x%08X ", f->es);
+			printf("FS:  0x%08X\r\n", f->fs);
+			printf("GS:  0x%08X\r\n", f->gs);
+			break;
+	}
 	__asm__ volatile("cli;hlt");
 }
 
