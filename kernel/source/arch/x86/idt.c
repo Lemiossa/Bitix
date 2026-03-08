@@ -39,10 +39,19 @@ void idt_set_trap(int entry, void (*trap)(void), uint16_t selector)
 }
 
 extern void page_fault_handler(intr_frame_t *f);
+extern intr_frame_t irqs_frames[16];
+extern void (*irqs[16])(void);
 
 /* Handler de interrupções */
 void intr_handler(intr_frame_t *f)
 {
+	if (f->int_no >= 32 && f->int_no <= 47) {
+		uint8_t irq = f->int_no - 32;
+		irqs_frames[irq] = *f;
+		irqs[irq]();
+		return;
+	}
+
 	switch (f->int_no) {
 		case 14:
 			page_fault_handler(f);

@@ -172,7 +172,7 @@ bool vmm_unmap(uint32_t virt)
 /* 0 é inválido */
 uint32_t vmm_get_free_virt(void)
 {
-	uint32_t ptr = 0x400000;
+	uint32_t ptr = 0x80000000;
 	while (ptr < 0xFFC00000) {
 		if (!virt_is_present(ptr))
 			break;

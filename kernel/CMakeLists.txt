@@ -8,6 +8,7 @@ add_executable(kernel.elf
 	source/arch/${ARCH}/intr.asm
 	source/arch/${ARCH}/cpuid.asm
 	source/arch/${ARCH}/cpuid.c
+	source/arch/${ARCH}/acpi.c
 	source/arch/${ARCH}/gdt.c
 	source/arch/${ARCH}/idt.c
 	source/arch/${ARCH}/fpu.c

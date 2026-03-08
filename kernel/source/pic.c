@@ -2,6 +2,7 @@
  * pic.c                            *
  * Criado por Matheus Leme Da Silva *
  ***********************************/
+#include "idt.h"
 #include <stdint.h>
 #include <io.h>
 
@@ -17,6 +18,9 @@
 #define ICW4_8086_MODE 0x01
 
 #define CASCADE_IRQ 0x02
+
+intr_frame_t irqs_frames[16];
+void (*irqs[16])(void) = {0};
 
 /* Remapeia PICs */
 void pic_remap(uint8_t offset1, uint8_t offset2)
@@ -72,4 +76,13 @@ void pic_unmask_irq(uint8_t irq)
 	} else {
 		outb(SLAVE_DATA, inb(SLAVE_DATA) & ~(1 << (irq - 8)));
 	}
+}
+
+/* Muda um handler de IRQ no PIC */
+void pic_set_irq_handler(uint8_t irq, void (*handler)(void))
+{
+	if (irq > 15)
+		return;
+
+	irqs[irq] = handler;
 }

@@ -282,7 +282,7 @@ _start32:
 hang:
 	JMP hang
 
-SECTION	.bss 
-stack_bottom: 
-	RESB 4096
+SECTION	.bss
+stack_bottom:
+	RESB 8192
 stack_top:
