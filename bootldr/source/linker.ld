@@ -1,17 +1,22 @@
 ENTRY(_start)
-__load_addr = 0x500;
+__start = 0x00000500;
 
 SECTIONS
 {
-	. = __load_addr;
+	. = __start;
+
+	__text_start = .;
 	.text : {
 		*(.entry)
 		*(.text*)
 	}
+	__text_end = .;
 
+	__data_start = .;
 	.data : {
 		*(.data*)
 	}
+	__data_end = .;
 
 	__bss_start = .;
 	.bss : {
@@ -19,4 +24,6 @@ SECTIONS
 		*(.bss*)
 	}
 	__bss_end = .;
+	__end = .;
 }
+

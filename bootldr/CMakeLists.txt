@@ -23,6 +23,8 @@ add_executable(${LOADER_ELF}
 
 target_link_libraries(${LOADER_ELF} PRIVATE libc)
 
+target_include_directories(${LOADER_ELF} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/source)
+
 if(ARCH STREQUAL "x86")
 	target_compile_options(
 		loader.elf PRIVATE

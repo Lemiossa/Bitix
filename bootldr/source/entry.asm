@@ -111,7 +111,7 @@ gdtr:
 	MOV SS, AX
 
 	MOV EAX, CR0
-	AND EAX, ~1 ;; Desabilitar o bit PE
+	AND EAX, 0x7FFFFFFE ;; Desabilitar o bit PE e paging
 	MOV CR0, EAX
 
 	JMP WORD 0x00:%%realmode
@@ -122,7 +122,14 @@ gdtr:
 	MOV FS, AX
 	MOV GS, AX
 	MOV SS, AX
+	LIDT [idtr_real_mode]
 %endmacro
+
+GLOBAL idtr_real_mode
+idtr_real_mode:
+	DW 0x3FF
+	DD 0
+
 
 ;; Volta pro modo protegido
 %macro protected_mode 0
