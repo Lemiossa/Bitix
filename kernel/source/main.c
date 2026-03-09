@@ -33,119 +33,6 @@
 
 boot_info_t boot_info = {0};
 
-#define MAX_PROCESSES 256
-
-#define PROC_QUANTUM 4
-
-#define PROC_READY 0
-#define PROC_RUNNING 1
-#define PROC_BLOCKED 2
-
-typedef struct process {
-	uint32_t id;
-	uint32_t cr3;
-	uint32_t esp;
-	uint32_t quantum;
-	uint8_t state;
-} process_t;
-
-process_t processes[MAX_PROCESSES];
-
-uint32_t current_id = 0;
-uint32_t process_count = 0;
-
-/* Cria um novo processo */
-void process_create(void (*entry)(void))
-{
-	if (process_count > MAX_PROCESSES)
-		return;
-
-	processes[process_count].id = process_count;
-	processes[process_count].cr3 = (uint32_t)kernel_pd;
-	processes[process_count].quantum = 0;
-	processes[process_count].state = PROC_READY;
-
-	uint32_t phys = (uint32_t)pmm_alloc_page();
-	uint32_t stack = vmm_get_free_virt_user();
-	vmm_map(phys, stack, PAGE_PRESENT | PAGE_WRITE);
-	uint32_t esp = stack + PAGE_SIZE;
-	processes[process_count].esp = esp;
-
-	intr_frame_t *ctx = (intr_frame_t *)(esp - sizeof(*ctx));
-	processes[process_count].esp = (uint32_t)ctx;
-
-	memset(ctx, 0, sizeof(*ctx));
-
-	ctx->cs = 0x08;
-	ctx->ds = 0x10;
-	ctx->es = 0x10;
-	ctx->fs = 0x10;
-	ctx->gs = 0x10;
-
-	ctx->eflags = 0x202;
-	ctx->eip = (uint32_t)entry;
-
-	process_count++;
-}
-
-/* Inicializa escalonador */
-void scheduler_init(void)
-{
-	processes[0].id = 0;
-	processes[0].cr3 = (uint32_t)kernel_pd;
-	processes[0].state = PROC_RUNNING;
-	process_count = 1;
-	current_id = 0;
-}
-
-/* Escalonador */
-void scheduler(void)
-{
-	if (process_count <= 1)
-		return;
-
-	processes[current_id].quantum++;
-	if (processes[current_id].quantum <=  PROC_QUANTUM)
-		return;
-
-	processes[current_id].quantum = 0;
-	processes[current_id].esp = (uint32_t)last_frame;
-	processes[current_id].state = PROC_READY;
-
-	uint32_t next = (current_id + 1) % process_count;
-	uint32_t checked = 0;
-	while (processes[next].state != PROC_READY) {
-		next = (next + 1) % process_count;
-		checked++;
-		if (checked >= process_count) {
-			next = 0;
-			break;
-		}
-	}
-	current_id = next;
-
-	processes[current_id].state = PROC_RUNNING;
-
-	set_cr3(processes[current_id].cr3);
-	switch_context((intr_frame_t *)processes[current_id].esp);
-}
-
-void proc1(void)
-{
-	while (1) {
-		printf("1");
-		timer_wait(1000);
-	}
-}
-
-void proc2(void)
-{
-	while (1) {
-		printf("2");
-		timer_wait(1000);
-	}
-}
-
 /* Func principal */
 void kernel_main(boot_info_t *bi)
 {
@@ -192,7 +79,7 @@ void kernel_main(boot_info_t *bi)
 		goto halt;
 	}
 
-
+	timer_init(5);
 
 	while (1)
 		hlt();

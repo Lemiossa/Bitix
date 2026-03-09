@@ -11,14 +11,11 @@
 uint32_t timer_ms_per_tick = 0;
 uint32_t volatile timer_ticks = 0;
 
-extern void scheduler(void);
-
 /* Handler do timer */
 void timer_handler(void)
 {
 	timer_ticks++;
 	acpi_lapic_write(0xB0, 0); /* EOI */
-	scheduler();
 }
 
 /* Busy wait */

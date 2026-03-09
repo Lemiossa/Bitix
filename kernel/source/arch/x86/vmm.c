@@ -152,7 +152,6 @@ uint32_t vmm_create_pd(void)
 		return 0;
 	}
 
-
 	return virt;
 }
 
@@ -218,7 +217,7 @@ bool vmm_unmap(uint32_t virt)
 /* 0 é inválido */
 uint32_t vmm_get_free_virt(void)
 {
-	uint32_t ptr = 0x80000000;
+	uint32_t ptr = 0xC0000000;
 	while (ptr < 0xFFC00000) {
 		if (!virt_is_present(ptr))
 			break;
@@ -234,7 +233,7 @@ uint32_t vmm_get_free_virt(void)
 uint32_t vmm_get_free_virt_user(void)
 {
 	uint32_t ptr = 0x00400000;
-	while (ptr < 0x80000000) {
+	while (ptr < 0xC0000000) {
 		if (!virt_is_present(ptr))
 			break;
 		ptr += PAGE_SIZE;

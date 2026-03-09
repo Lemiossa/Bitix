@@ -188,4 +188,10 @@ static inline void hlt(void)
 	__asm__ volatile("HLT");
 }
 
+/* LTR */
+static inline void ltr(uint16_t selector)
+{
+	__asm__ volatile ("LTR %w0" ::"r"(selector));
+}
+
 #endif /* ASM_H */
