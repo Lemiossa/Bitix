@@ -6,27 +6,20 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdio.h>
-
 #include <fpu.h>
 #include <cpuid.h>
 #include <asm.h>
-
 #include <graphics.h>
-#include <string.h>
 #include <vga.h>
 #include <terminal.h>
-#include <io.h>
-
 #include <boot.h>
-
 #include <gdt.h>
 #include <idt.h>
 #include <pic.h>
 #include <pit.h>
-
+#include <pci.h>
 #include <pmm.h>
 #include <vmm.h>
-
 #include <acpi.h>
 #include <legacy_timer.h>
 #include <timer.h>
@@ -40,10 +33,8 @@ void kernel_main(boot_info_t *bi)
 	gdt_init();
 	idt_init();
 	pic_remap(0x20, 0x28);
-
 	terminal_init();
 	terminal_clear(TERMINAL_DEFAULT_FG_COLOR, TERMINAL_DEFAULT_BG_COLOR);
-
 	if (!pmm_init())
 		goto halt_no_msg;
 	if (!vmm_init())
@@ -62,17 +53,6 @@ void kernel_main(boot_info_t *bi)
 		goto halt;
 	}
 
-	printf("\033[32mKernel iniciado!\033[0m\r\n");
-	printf("Modo de video: \033[32m%d\033[0mx\033[33m%d\033[0mx\033[34m%d\033[0m\r\n", boot_info.graphics.width, boot_info.graphics.height,
-			boot_info.graphics.bpp);
-
-	printf("Ponteiro para e820_table: 0x%08X\r\n", boot_info.e820_table);
-	for (int count = 0; count < boot_info.e820_entry_count; count++) {
-		e820_entry_t entry = boot_info.e820_table[count];
-		printf("E820[%d]: 0x%08X-0x%08X:%d\r\n",
-				count, (uint32_t)entry.base, (uint32_t)entry.length, entry.type);
-	}
-
 	printf("Fornecedor de CPU: %s\r\n", (char *)cpu_vendor);
 	if (!acpi_init()) {
 		printf("Falha ao iniciar ACPI\r\n");
@@ -80,6 +60,18 @@ void kernel_main(boot_info_t *bi)
 	}
 
 	timer_init(5);
+	pci_enumerate();
+
+	printf("Procurando dispositivos IDE...\r\n");
+	pci_device_t *dev = pci_find(1, 1);
+	if (!dev) {
+		printf("Nao existe dispositivo IDE\r\n");
+	} else {
+		printf("Encontrado dispositivo IDE em %hhu:%hhu:%hhu\r\n", dev->bus, dev->dev, dev->func);
+		for (int i  = 0; i < 6; i++) {
+			printf("BAR[%d] = %08X\r\n", i, dev->bars[i]);
+		}
+	}
 
 	while (1)
 		hlt();

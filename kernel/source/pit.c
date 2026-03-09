@@ -3,7 +3,7 @@
  * Criado por Matheus Leme Da Silva *
  ***********************************/
 #include <stdint.h>
-#include <io.h>
+#include <asm.h>
 
 #define PIT_BASE 0x40
 #define PIT_CMD PIT_BASE + 3

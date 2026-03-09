@@ -2,9 +2,9 @@
  * pic.c                            *
  * Criado por Matheus Leme Da Silva *
  ***********************************/
-#include "idt.h"
 #include <stdint.h>
-#include <io.h>
+#include <asm.h>
+#include <idt.h>
 
 #define MASTER 0x20
 #define SLAVE 0xA0

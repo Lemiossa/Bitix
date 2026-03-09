@@ -43,6 +43,55 @@
 #define CR4_SMAP       (1 << 21)
 #define CR4_PKE        (1 << 22)
 
+/* Envia um byte para uma porta IO */
+static inline void outb(uint16_t port, uint8_t val)
+{
+	__asm__ volatile ("OUTB %0, %1" :: "a"(val), "Nd"(port));
+}
+
+/* Recebe um byte de uma porta IO */
+static inline uint8_t inb(uint16_t port)
+{
+	uint8_t val = 0;
+	__asm__ volatile ("INB %1, %0" : "=a"(val) : "Nd"(port));
+	return val;
+}
+
+/* Envia um word para uma porta IO */
+static inline void outw(uint16_t port, uint16_t val)
+{
+	__asm__ volatile ("OUTW %0, %1" :: "a"(val), "Nd"(port));
+}
+
+/* Recebe um word de uma porta IO */
+static inline uint16_t inw(uint16_t port)
+{
+	uint16_t val = 0;
+	__asm__ volatile ("INW %1, %0" : "=a"(val) : "Nd"(port));
+	return val;
+}
+
+/* Envia um dword para uma porta IO */
+static inline void outl(uint16_t port, uint32_t val)
+{
+	__asm__ volatile ("OUTL %0, %1" :: "a"(val), "Nd"(port));
+}
+
+/* Recebe um dword de uma porta IO */
+static inline uint32_t inl(uint16_t port)
+{
+	uint32_t val = 0;
+	__asm__ volatile ("INL %1, %0" : "=a"(val) : "Nd"(port));
+	return val;
+}
+
+/* Espera o tempo de uma saída */
+static inline void io_wait(void)
+{
+	outb(0x80, 0);
+}
+
+
 /* Seta o CR0 */
 static inline void set_cr0(uint32_t v)
 {

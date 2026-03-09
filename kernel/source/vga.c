@@ -3,7 +3,7 @@
  * Criado por Matheus Leme Da Silva *
  ***********************************/
 #include <stdint.h>
-#include <io.h>
+#include <asm.h>
 #include <vga.h>
 
 uint16_t *vga = (uint16_t *)0xB8000;

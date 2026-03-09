@@ -87,7 +87,7 @@ add_custom_command(
 
 if(ARCH STREQUAL "x86")
 	add_custom_target(qemu
-		COMMAND qemu-system-i386 ${QEMU_FLAGS} -fda ${IMAGE_FILE}
+		COMMAND qemu-system-i386 ${QEMU_FLAGS} -drive file=${IMAGE_FILE},format=raw,if=ide
 		DEPENDS image
 	)
 

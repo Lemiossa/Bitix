@@ -21,6 +21,7 @@ add_executable(kernel.elf
 	source/main.c
 	source/pic.c
 	source/pit.c
+	source/pci.c
 	source/vga.c
 )
 
