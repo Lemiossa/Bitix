@@ -17,10 +17,10 @@ endif()
 
 project(Bitix C ASM_NASM)
 
-set(KERNEL_FILE ${CMAKE_CURRENT_BINARY_DIR}/kernel.bin)
-set(BOOTLDR_FILE ${CMAKE_CURRENT_BINARY_DIR}/bootldr.bin)
-set(IMAGE_FILE ${CMAKE_CURRENT_BINARY_DIR}/Bitix.img)
-set(ROOT_DIR ${CMAKE_CURRENT_BINARY_DIR}/rootdir)
+set(KERNEL_FILE ${CMAKE_CURRENT_BINARY_DIR}/kernel/kernel.bin)
+set(BOOTLDR_FILE ${CMAKE_CURRENT_BINARY_DIR}/bootldr/bootldr.bin)
+set(IMAGE_FILE ${CMAKE_CURRENT_BINARY_DIR}/image/Bitix.flp)
+set(ROOT_DIR ${CMAKE_CURRENT_BINARY_DIR}/image/rootdir)
 set(BOCHSRC_FILE ${CMAKE_CURRENT_BINARY_DIR}/bochsrc)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -51,10 +51,10 @@ add_custom_command(
 	OUTPUT ${IMAGE_FILE}
 	COMMAND truncate -s 1440K ${IMAGE_FILE}
 	COMMAND mkfs.fat -F 12 -R 64 -n "BITIX" ${IMAGE_FILE}
-	COMMAND dd if=bootldr.bin of=${IMAGE_FILE} bs=1 count=3 conv=notrunc
-	COMMAND dd if=bootldr.bin
+	COMMAND dd if=${BOOTLDR_FILE} of=${IMAGE_FILE} bs=1 count=3 conv=notrunc
+	COMMAND dd if=${BOOTLDR_FILE}
 			of=${IMAGE_FILE} bs=1 skip=60 seek=60 count=448 conv=notrunc
-	COMMAND dd if=bootldr.bin of=${IMAGE_FILE}
+	COMMAND dd if=${BOOTLDR_FILE} of=${IMAGE_FILE}
 			bs=1 skip=512 seek=512 conv=notrunc
 	COMMAND mcopy -i ${IMAGE_FILE} ${ROOT_DIR}/* ::/ -s
 	DEPENDS ${BOOTLDR_FILE} ${KERNEL_FILE} ${ROOT_DIR}

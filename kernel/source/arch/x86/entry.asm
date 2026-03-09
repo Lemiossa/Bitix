@@ -33,4 +33,3 @@ SECTION .bss
 stack_bottom:
 	RESB 65536
 stack_top:
-

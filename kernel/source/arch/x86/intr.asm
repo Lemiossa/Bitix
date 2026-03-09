@@ -68,8 +68,7 @@ switch_context:
 	POPAD
 
 	ADD ESP, 8 ;; Remover int_no e err_code
-	IRET
-
+	IRETD
 
 ISR_NO_ERR 0
 ISR_NO_ERR 1
@@ -104,22 +103,16 @@ ISR_NO_ERR 29
 ISR_NO_ERR 30
 ISR_NO_ERR 31
 
-;; IRQs
-ISR_NO_ERR 32
-ISR_NO_ERR 33
-ISR_NO_ERR 34
-ISR_NO_ERR 35
-ISR_NO_ERR 36
-ISR_NO_ERR 37
-ISR_NO_ERR 38
-ISR_NO_ERR 39
+%assign i 32
+%rep 224
+	ISR_NO_ERR i
+	%assign i i+1
+%endrep
 
-ISR_NO_ERR 40
-ISR_NO_ERR 41
-ISR_NO_ERR 42
-ISR_NO_ERR 43
-ISR_NO_ERR 44
-ISR_NO_ERR 45
-ISR_NO_ERR 46
-ISR_NO_ERR 47
-
+GLOBAL isrs
+isrs:
+%assign i 0
+%rep 256
+	DD isr_%+i
+	%assign i i+1
+%endrep

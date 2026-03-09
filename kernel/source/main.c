@@ -12,6 +12,7 @@
 #include <asm.h>
 
 #include <graphics.h>
+#include <string.h>
 #include <vga.h>
 #include <terminal.h>
 #include <io.h>
@@ -27,34 +28,122 @@
 #include <vmm.h>
 
 #include <acpi.h>
+#include <legacy_timer.h>
+#include <timer.h>
 
 boot_info_t boot_info = {0};
 
-volatile uint32_t pit0_timer_ticks = 0;
-void pit0_timer_handler(void)
+#define MAX_PROCESSES 256
+
+#define PROC_QUANTUM 4
+
+#define PROC_READY 0
+#define PROC_RUNNING 1
+#define PROC_BLOCKED 2
+
+typedef struct process {
+	uint32_t id;
+	uint32_t cr3;
+	uint32_t esp;
+	uint32_t quantum;
+	uint8_t state;
+} process_t;
+
+process_t processes[MAX_PROCESSES];
+
+uint32_t current_id = 0;
+uint32_t process_count = 0;
+
+/* Cria um novo processo */
+void process_create(void (*entry)(void))
 {
-	pit0_timer_ticks++;
-	pic_eoi(0);
+	if (process_count > MAX_PROCESSES)
+		return;
+
+	processes[process_count].id = process_count;
+	processes[process_count].cr3 = (uint32_t)kernel_pd;
+	processes[process_count].quantum = 0;
+	processes[process_count].state = PROC_READY;
+
+	uint32_t phys = (uint32_t)pmm_alloc_page();
+	uint32_t stack = vmm_get_free_virt();
+	vmm_map(phys, stack, PAGE_PRESENT | PAGE_WRITE);
+	uint32_t esp = stack + PAGE_SIZE;
+	processes[process_count].esp = esp;
+
+	intr_frame_t *ctx = (intr_frame_t *)(esp - sizeof(*ctx));
+	processes[process_count].esp = (uint32_t)ctx;
+
+	memset(ctx, 0, sizeof(*ctx));
+
+	ctx->cs = 0x08;
+	ctx->ds = 0x10;
+	ctx->es = 0x10;
+	ctx->fs = 0x10;
+	ctx->gs = 0x10;
+
+	ctx->eflags = 0x202;
+	ctx->eip = (uint32_t)entry;
+
+	process_count++;
 }
 
-/* Calibra o LAPIC timer */
-/* Retorna o número de ticks por segundo */
-uint32_t lapic_timer_calibrate(void)
+/* Inicializa escalonador */
+void scheduler_init(void)
 {
-	acpi_lapic_write(0x320, 0x20); /* Modo Oneshot */
-	acpi_lapic_write(0x3E0, 0xB); /* Divide por 1 */
-	acpi_lapic_write(0x380, 0xFFFFFFFF); /* O Contador pro maximo */
-	acpi_lapic_write(0x320, 0x10020);
+	processes[0].id = 0;
+	processes[0].cr3 = (uint32_t)kernel_pd;
+	processes[0].state = PROC_RUNNING;
+	process_count = 1;
+	current_id = 0;
+}
 
-	pit_set(0, PIT_SQUARE_WAVE_GENERATOR, 100);
-	pic_set_irq_handler(0, pit0_timer_handler);
-	pic_unmask_irq(0);
-	__asm__ volatile("sti");
-	uint32_t start = pit0_timer_ticks;
-	while ((pit0_timer_ticks - start) < 10);
-	uint32_t current = acpi_lapic_read(0x390);
-	uint32_t elapsed = 0xFFFFFFFF - current;
-	return (elapsed / 10) * 100;
+/* Escalonador */
+void scheduler(void)
+{
+	if (process_count <= 1)
+		return;
+
+	processes[current_id].quantum++;
+	if (processes[current_id].quantum <=  PROC_QUANTUM)
+		return;
+
+	processes[current_id].quantum = 0;
+	processes[current_id].esp = (uint32_t)last_frame;
+	processes[current_id].state = PROC_READY;
+
+	uint32_t next = (current_id + 1) % process_count;
+	uint32_t checked = 0;
+	while (processes[next].state != PROC_READY) {
+		next = (next + 1) % process_count;
+		checked++;
+		if (checked >= process_count) {
+			next = 0;
+			break;
+		}
+	}
+	current_id = next;
+
+	processes[current_id].state = PROC_RUNNING;
+
+	set_cr3(processes[current_id].cr3);
+	switch_context((intr_frame_t *)processes[current_id].esp);
+}
+
+void proc1(void)
+{
+	while (1) {
+		printf("1");
+		timer_wait(1000);
+	}
+}
+
+void proc2(void)
+{
+	while (1) {
+		printf("2");
+		timer_wait(1000);
+	}
 }
 
 /* Func principal */
@@ -103,12 +192,22 @@ void kernel_main(boot_info_t *bi)
 		goto halt;
 	}
 
-	acpi_lapic_write(0xF0, acpi_lapic_read(0xF0) | 0x1FF);
-	uint32_t lapic_timer_frec = lapic_timer_calibrate();
-	printf("Frequencia do lapic timer: %u\r\n", lapic_timer_frec);
+	scheduler_init();
+	timer_init(5);
+
+	process_create(proc1);
+	process_create(proc2);
+
+	printf("Ola kernel!\r\n");
+
+	while (1) {
+		printf("0");
+		timer_wait(1000);
+	}
 
 halt:
 	printf("Sistema travado. Por favor, reinicie\r\n");
 halt_no_msg:
-	while (1);
+	cli();
+	hlt();
 }

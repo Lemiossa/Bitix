@@ -59,19 +59,19 @@ static inline uint32_t *get_pt(uint32_t pd_index)
 }
 
 /* Pega o pd_index de um endereço virtual */
-uint32_t get_pd_index(uint32_t virt)
+static inline uint32_t get_pd_index(uint32_t virt)
 {
 	return (virt >> 22) & 0x3FF;
 }
 
 /* Pega o pt_index de um endereço virtual */
-uint32_t get_pt_index(uint32_t virt)
+static inline uint32_t get_pt_index(uint32_t virt)
 {
 	return (virt >> 12) & 0x3FF;
 }
 
 /* Retorna true se um endereço virtual está presente */
-bool virt_is_present(uint32_t virt)
+static inline bool virt_is_present(uint32_t virt)
 {
 	uint32_t pd_index = get_pd_index(virt);
 	uint32_t pt_index = get_pt_index(virt);
@@ -87,6 +87,29 @@ bool virt_is_present(uint32_t virt)
 	uint32_t *pt = get_pt(pd_index);
 
 	return pt[pt_index] & PAGE_PRESENT;
+}
+
+/* Handler de page fault */
+void page_fault_handler(void)
+{
+	intr_frame_t f = *last_frame;
+	printf("Falha de pagina!\r\n");
+
+	printf("CR2: 0x%08X\r\n", get_cr2());
+
+	printf("EAX: 0x%08X ", f.eax);
+	printf("EBX: 0x%08X\r\n", f.ebx);
+	printf("ECX: 0x%08X ", f.ecx);
+	printf("EDX: 0x%08X\r\n", f.edx);
+	printf("EBP: 0x%08X ", f.ebp);
+	printf("ESI: 0x%08X\r\n", f.esi);
+	printf("EDI: 0x%08X\r\n\r\n", f.edi);
+	printf("EIP: 0x%08X\r\n", f.eip);
+	printf("CS:  0x%08X ", f.cs);
+	printf("DS:  0x%08X\r\n", f.ds);
+	printf("ES:  0x%08X ", f.es);
+	printf("FS:  0x%08X\r\n", f.fs);
+	printf("GS:  0x%08X\r\n", f.gs);
 }
 
 /* Retorna o endereço fisico de um virtual atualmente */
@@ -108,6 +131,29 @@ uint32_t vmm_get_phys(uint32_t virt)
 		return 0;
 
 	return get_phys(pt[pt_index]);
+}
+
+/* Cria uma nova PD */
+/* Retorna o endereço virtual dela */
+uint32_t vmm_create_pd(void)
+{
+	uint32_t pd = (uint32_t)pmm_alloc_page();
+	if (!pd)
+		return 0;
+
+	uint32_t virt = vmm_get_free_virt();
+	if (!virt) {
+		pmm_free_page((void *)pd);
+		return 0;
+	}
+
+	if (!vmm_map(pd, virt, PAGE_PRESENT | PAGE_WRITE)) {
+		pmm_free_page((void *)pd);
+		return 0;
+	}
+
+
+	return virt;
 }
 
 /* Mapeia uma pagina */
@@ -167,13 +213,28 @@ bool vmm_unmap(uint32_t virt)
 	return true;
 }
 
-/* Retorna um endereço virtual temporario */
+/* Retorna um endereço virtual temporario na area do kernel */
 /* Por enquanto é lento, mas funciona */
 /* 0 é inválido */
 uint32_t vmm_get_free_virt(void)
 {
 	uint32_t ptr = 0x80000000;
 	while (ptr < 0xFFC00000) {
+		if (!virt_is_present(ptr))
+			break;
+		ptr += PAGE_SIZE;
+	}
+
+	return ptr;
+}
+
+/* Retorna um endereço virtual temporario na area do usuario */
+/* Por enquanto é lento, mas funciona */
+/* 0 é inválido */
+uint32_t vmm_get_free_virt_user(void)
+{
+	uint32_t ptr = 0x00400000;
+	while (ptr < 0x80000000) {
 		if (!virt_is_present(ptr))
 			break;
 		ptr += PAGE_SIZE;
@@ -201,28 +262,8 @@ bool vmm_init(void)
 
 	set_cr0(get_cr0() | CR0_PG);
 	paging_enabled = true;
+	idt_set_trap(14, page_fault_handler, 0x08);
 	return true;
 }
 
 
-/* Handler de page fault */
-void page_fault_handler(intr_frame_t *f)
-{
-	printf("Falha de pagina!\r\n");
-
-	printf("CR2: 0x%08X\r\n", get_cr2());
-
-	printf("EAX: 0x%08X ", f->eax);
-	printf("EBX: 0x%08X\r\n", f->ebx);
-	printf("ECX: 0x%08X ", f->ecx);
-	printf("EDX: 0x%08X\r\n", f->edx);
-	printf("EBP: 0x%08X ", f->ebp);
-	printf("ESI: 0x%08X\r\n", f->esi);
-	printf("EDI: 0x%08X\r\n\r\n", f->edi);
-	printf("EIP: 0x%08X\r\n", f->eip);
-	printf("CS:  0x%08X ", f->cs);
-	printf("DS:  0x%08X\r\n", f->ds);
-	printf("ES:  0x%08X ", f->es);
-	printf("FS:  0x%08X\r\n", f->fs);
-	printf("GS:  0x%08X\r\n", f->gs);
-}

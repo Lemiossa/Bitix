@@ -68,7 +68,7 @@ cpu_t cpus[MAX_CPUS];
 int cpu_count = 0;
 
 uint32_t lapic = 0; /* Endereço virtual */
-uint32_t ioapic = 0; /* Endereço fisico */
+uint32_t ioapic = 0; /* Endereço virtual */
 
 /* Procura RSDP */
 rsdp_t *acpi_find_rsdp(void *start, void *end)
@@ -156,10 +156,24 @@ uint32_t acpi_lapic_read(uint32_t offset)
 	return *(uint32_t volatile*)(lapic + offset);
 }
 
-/* Write um dword no LAPIC */
+/* Escreve um dword no LAPIC */
 void acpi_lapic_write(uint32_t offset, uint32_t value)
 {
 	*(uint32_t volatile*)(lapic + offset) = value;
+}
+
+/* Escreve em um reg no IOAPIC */
+void acpi_ioapic_write(uint32_t reg, uint32_t val)
+{
+	*(uint32_t volatile*)(ioapic) = reg;
+	*(uint32_t volatile*)(ioapic + 0x10) = val;
+}
+
+/* Lê em um reg no IOAPIC */
+uint32_t acpi_ioapic_read(uint32_t reg)
+{
+	*(uint32_t volatile*)(ioapic) = reg;
+	return *(uint32_t volatile*)(ioapic + 0x10);
 }
 
 /* Inicializa ACPI */
@@ -230,6 +244,13 @@ check_rsdp:
 		vmm_unmap(madt_virt + i);
 
 	vmm_unmap(madt_virt);
+
+	uint32_t ioapic_virt = vmm_get_free_virt();
+	if (!ioapic_virt)
+		return false;
+
+	vmm_map(ioapic, ioapic_virt, PAGE_PRESENT | PAGE_WRITE);
+	ioapic = ioapic_virt;
 
 	return true;
 }

@@ -20,6 +20,8 @@ extern int cpu_count;
 
 uint32_t acpi_lapic_read(uint32_t offset);
 void acpi_lapic_write(uint32_t offset, uint32_t value);
+void acpi_ioapic_write(uint32_t reg, uint32_t val);
+uint32_t acpi_ioapic_read(uint32_t reg);
 bool acpi_init(void);
 
 #endif /* ACPI_H */

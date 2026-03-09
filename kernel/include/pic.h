@@ -10,6 +10,5 @@ void pic_remap(uint8_t offset1, uint8_t offset2);
 void pic_eoi(uint8_t irq);
 void pic_mask_irq(uint8_t irq);
 void pic_unmask_irq(uint8_t irq);
-void pic_set_irq_handler(uint8_t irq, void (*handler)(void));
 
 #endif /* PIC_H */

@@ -170,4 +170,22 @@ static inline void invlpg(uint32_t p)
 	__asm__ volatile("INVLPG (%0)"::"r"(p):"memory");
 }
 
+/* CLI */
+static inline void cli(void)
+{
+	__asm__ volatile("CLI");
+}
+
+/* STI */
+static inline void sti(void)
+{
+	__asm__ volatile("STI");
+}
+
+/* HLT */
+static inline void hlt(void)
+{
+	__asm__ volatile("HLT");
+}
+
 #endif /* ASM_H */
