@@ -66,7 +66,7 @@ void process_create(void (*entry)(void))
 	processes[process_count].state = PROC_READY;
 
 	uint32_t phys = (uint32_t)pmm_alloc_page();
-	uint32_t stack = vmm_get_free_virt();
+	uint32_t stack = vmm_get_free_virt_user();
 	vmm_map(phys, stack, PAGE_PRESENT | PAGE_WRITE);
 	uint32_t esp = stack + PAGE_SIZE;
 	processes[process_count].esp = esp;
@@ -192,18 +192,10 @@ void kernel_main(boot_info_t *bi)
 		goto halt;
 	}
 
-	scheduler_init();
-	timer_init(5);
 
-	process_create(proc1);
-	process_create(proc2);
 
-	printf("Ola kernel!\r\n");
-
-	while (1) {
-		printf("0");
-		timer_wait(1000);
-	}
+	while (1)
+		hlt();
 
 halt:
 	printf("Sistema travado. Por favor, reinicie\r\n");
