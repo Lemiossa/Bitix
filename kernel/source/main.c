@@ -45,7 +45,7 @@ void list_dir_rec(uint32_t cluster, int depth)
 			printf("\t");
 		}
 
-		printf("%s\r\n");
+		printf("%s\r\n", filename);
 
 		if (entry.attr & FAT_ATTR_DIR && strcmp(filename, ".") != 0 && strcmp(filename, "..") != 0) {
 			list_dir_rec(entry.cluster_low, depth + 1);

@@ -64,6 +64,7 @@ void pci_enumerate(void)
 				device.subclass = subclass;
 				device.vendor_id = vendor_id;
 				device.device_id = device_id;
+				device.prog_if = (reg2 >> 8) & 0xFF;
 
 				uint32_t reg3 = pci_read(bus, dev, func, 3);
 				uint8_t header_type = (reg3 >> 16) & 0x7F; /* Ignora o bit de multifunção */

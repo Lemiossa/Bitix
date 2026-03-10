@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include <asm.h>
 #include <pci.h>
+#include <stdio.h>
 #include <terminal.h>
 #include <ata.h>
 
@@ -15,10 +16,14 @@
 #define ATA_STATUS 7
 #define ATA_COMMAND 7
 
-#define ATA_STATUS_BSY (1 << 7)
-#define ATA_STATUS_DRDY (1 << 6)
-#define ATA_STATUS_DRQ (1 << 3)
-#define ATA_STATUS_ERR (1 << 0)
+#define ATA_STATUS_ERR   (1 << 0)
+#define ATA_STATUS_IDX   (1 << 1)
+#define ATA_STATUS_CORR  (1 << 2)
+#define ATA_STATUS_DRQ   (1 << 3)
+#define ATA_STATUS_SRV   (1 << 4)
+#define ATA_STATUS_DF    (1 << 5)
+#define ATA_STATUS_RDY   (1 << 6)
+#define ATA_STATUS_BSY   (1 << 7)
 
 ata_disk_t ata_disks[4];
 int ata_disk_count = 0;
@@ -28,8 +33,9 @@ uint16_t ctrl0 = 0;
 uint16_t base1 = 0;
 uint16_t ctrl1 = 0;
 
+
 /* Espera um tempo pro ATA */
-bool ata_wait(uint16_t base)
+static inline bool ata_delay(uint16_t base)
 {
 	uint8_t val = 0;
 	for (int i = 0; i < 15; i++)
@@ -37,12 +43,28 @@ bool ata_wait(uint16_t base)
 	return val & ATA_STATUS_BSY;
 }
 
-/* Retorna a porta ATA de acordo com uma BAR do PCI */
-uint16_t ata_get_port(uint32_t bar, uint16_t legacy)
+/* Espera até o bit BSY ser limpo */
+static inline bool ata_wait_bsy(uint16_t base)
 {
-	if (bar == 0 || bar == 1)
-		return legacy;
-	return (uint16_t)(bar & 0xFFFC);
+	uint8_t status;
+	do {
+		status = inb(base + ATA_STATUS);
+		if (status & (ATA_STATUS_DF | ATA_STATUS_ERR))
+			return false;
+	} while (status & ATA_STATUS_BSY);
+	return true;
+}
+
+/* Espera até o bit DRQ estar ativo */
+static inline bool ata_wait_drq(uint16_t base)
+{
+	uint8_t status;
+	do {
+		status = inb(base + ATA_STATUS);
+		if (status & (ATA_STATUS_DF | ATA_STATUS_ERR))
+			return false;
+	} while (!(status & ATA_STATUS_DRQ));
+	return true;
 }
 
 /* Comando identify do ATA */
@@ -61,17 +83,19 @@ int ata_identify(int disk, uint16_t *disk_info)
 	}
 
 	outb(base + ATA_DRIVE_HEAD, disk == 1 ? 0xB0 : 0xA0);
+	ata_delay(base);
+
 	outb(base + ATA_SECTOR_COUNT, 0);
 	outb(base + ATA_LBA_LOW, 0);
 	outb(base + ATA_LBA_MID, 0);
 	outb(base + ATA_LBA_HIGH, 0);
 	outb(base + ATA_COMMAND, 0xEC);
 
-	uint8_t status = inb(base0 + ATA_STATUS);
+	uint8_t status = inb(base + ATA_STATUS);
 	if (status == 0)
 		return 0;
 
-	if (ata_wait(base))
+	if (ata_delay(base))
 		return false;
 
 	bool atapi = false;
@@ -81,12 +105,15 @@ int ata_identify(int disk, uint16_t *disk_info)
 	if (lba_mid != 0 || lba_high != 0)
 		atapi = true;
 
-	do {
-    	status = inb(base + ATA_STATUS);
-	} while (!(status & ATA_STATUS_DRQ));
+	if (!ata_wait_drq(base))
+		return false;
 
 	uint16_t *info = (uint16_t *)disk_info;
 	for (int i = 0; i < 256; i++) {
+		status = inb(base + ATA_STATUS);
+		if (status & ATA_STATUS_ERR)
+			return 0;
+
 		info[i] = inw(base + ATA_DATA);
 	}
 
@@ -101,12 +128,13 @@ bool ata_read(int id, uint32_t s, uint8_t n, void *dst)
 
 	ata_disk_t *d = &ata_disks[id];
 
-	while (inb(d->base + ATA_STATUS) & ATA_STATUS_BSY);
+	if (!ata_wait_bsy(d->base))
+		return false;
 
 	outb(d->base + ATA_DRIVE_HEAD,
 			0xE0 | (d->slave << 4) | ((s >> 24) & 0x0F));
 
-	if (ata_wait(d->base))
+	if (ata_delay(d->base))
 		return false;
 
 	outb(d->base + ATA_SECTOR_COUNT, n);
@@ -118,15 +146,54 @@ bool ata_read(int id, uint32_t s, uint8_t n, void *dst)
 
 	uint16_t *buf = (uint16_t *)dst;
 	for (uint8_t i = 0; i < n; i++) {
-		uint8_t status;
-		do {
-			status = inb(d->base + ATA_STATUS);
-			if (status & ATA_STATUS_ERR)
-				return false;
-		} while ((status & ATA_STATUS_BSY) || !(status & ATA_STATUS_DRQ));
+		if (!ata_wait_bsy(d->base))
+			return false;
+
+		if (!ata_wait_drq(d->base))
+			return false;
 
 		for (int j = 0; j < 256; j++) {
 			buf[(i * 256) + j] = inw(d->base + ATA_DATA);
+		}
+	}
+
+	return true;
+}
+
+/* Escreve N setores de src a partir de S setor de D disco */
+bool ata_write(int id, uint32_t s, uint8_t n, void *src)
+{
+	if (!src || id > 3)
+		return false;
+
+	ata_disk_t *d = &ata_disks[id];
+
+	if (!ata_wait_bsy(d->base))
+		return false;
+
+	outb(d->base + ATA_DRIVE_HEAD,
+			0xE0 | (d->slave << 4) | ((s >> 24) & 0x0F));
+
+	if (ata_delay(d->base))
+		return false;
+
+	outb(d->base + ATA_SECTOR_COUNT, n);
+	outb(d->base + ATA_LBA_LOW, s & 0xFF);
+	outb(d->base + ATA_LBA_MID, (s >> 8) & 0xFF);
+	outb(d->base + ATA_LBA_HIGH, (s >> 16) & 0xFF);
+
+	outb(d->base + ATA_COMMAND, 0x30);
+
+	uint16_t *buf = (uint16_t *)src;
+	for (uint8_t i = 0; i < n; i++) {
+		if (!ata_wait_bsy(d->base))
+			return false;
+
+		if (!ata_wait_drq(d->base))
+			return false;
+
+		for (int j = 0; j < 256; j++) {
+			outw(d->base + ATA_DATA, buf[(i * 256) + j]);
 		}
 	}
 
@@ -141,11 +208,31 @@ bool ata_detect(void)
 		return false;
 	}
 
-	base0 = ata_get_port(dev->bars[0], 0x1F0);
-	ctrl0 = ata_get_port(dev->bars[1], 0x3F6);
+	if (dev->prog_if & 1) { /* Se o canal principal está em modo PCI */
+		printf("IDE canal principal esta em modo PCI\r\n");
+		base0 = dev->bars[0] & 0xFFFFFFFC;
+		ctrl0 = dev->bars[1] & 0xFFFFFFFC;
 
-	base1 = ata_get_port(dev->bars[2], 0x170);
-	ctrl1 = ata_get_port(dev->bars[3], 0x376);
+		if (!base0) base0 = 0x1F0;
+		if (!ctrl0) ctrl0 = 0x3F6;
+	} else {
+		printf("IDE canal principal esta em modo Compatibilidade\r\n");
+		base0 = 0x1F0;
+		ctrl0 = 0x3F6;
+	}
+
+	if (dev->prog_if & 4) { /* Se o canal secundário está em modo PCI */
+		printf("IDE canal secundario esta em modo PCI\r\n");
+		base1 = dev->bars[2] & 0xFFFFFFFC;
+		ctrl1 = dev->bars[3] & 0xFFFFFFFC;
+		if (!base1) base1 = 0x170;
+		if (!ctrl1) ctrl1 = 0x376;
+
+	} else {
+		printf("IDE canal secundario esta em modo Compatibilidade\r\n");
+		base1 = 0x170;
+		ctrl1 = 0x376;
+	}
 
 	for (int i = 0; i < 4; i++) {
 		uint16_t info[256] = {0};
@@ -173,6 +260,8 @@ bool ata_detect(void)
 				disk.slave = i == 1 ? true : false;
 			}
 
+			disk.model[40] = 0;
+			disk.serial[20] = 0;
 			disk.atapi = type == 2 ? true : false;
 
 			ata_disks[ata_disk_count++] = disk;

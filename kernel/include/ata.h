@@ -22,6 +22,7 @@ extern ata_disk_t ata_disks[4];
 extern int ata_disk_count;
 
 bool ata_read(int id, uint32_t s, uint8_t n, void *dst);
+bool ata_write(int id, uint32_t s, uint8_t n, void *src);
 bool ata_detect(void);
 
 #endif /* ATA_H */

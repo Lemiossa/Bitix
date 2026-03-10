@@ -14,6 +14,7 @@ typedef struct pci_device {
 	uint16_t device_id;
 	uint8_t  class;
 	uint8_t  subclass;
+	uint8_t  prog_if;
 	uint32_t bars[6];
 } pci_device_t;
 
