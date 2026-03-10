@@ -227,25 +227,12 @@ void terminal_clear(uint8_t fg, uint8_t bg)
 	current_bg_color = bg;
 }
 
-#define PORT 0x3f8          // COM1
-
-int is_transmit_empty() {
-	return inb(PORT + 5) & 0x20;
-}
-
-void write_serial(char a) {
-	while (is_transmit_empty() == 0);
-
-	outb(PORT,a);
-}
-
 /* Imprime um caractere na tela */
 void terminal_putchar(char c)
 {
 	static int state = 0; /* 0 = normal, 1 = escape, 2 = csi */
 	static int csi_param_table[TERMINAL_MAX_CSI_PARAMS];
 	static int csi_params = 0; /* Quantidade de parametros */
-	write_serial(c);
 
 	erase_cursor(cursor_x, cursor_y);
 	if (c == '\n') {

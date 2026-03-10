@@ -10,6 +10,7 @@
 #include <cpuid.h>
 #include <asm.h>
 #include <graphics.h>
+#include <string.h>
 #include <vga.h>
 #include <terminal.h>
 #include <boot.h>
@@ -23,8 +24,34 @@
 #include <acpi.h>
 #include <legacy_timer.h>
 #include <timer.h>
+#include <ata.h>
+#include <fat.h>
 
 boot_info_t boot_info = {0};
+
+/* Lista o um diretorio recursivamente directory do FAT  */
+void list_dir_rec(uint32_t cluster, int depth)
+{
+	int index = 0;
+	while (1) {
+		fat_entry_t entry;
+		if (fat_read_dir(cluster, index++, &entry) != 0)
+			break;
+
+		char filename[13] = {0};
+		fat_name_to_filename(entry.name, filename);
+
+		for (int i = 0; i < depth; i++) {
+			printf("\t");
+		}
+
+		printf("%s\r\n");
+
+		if (entry.attr & FAT_ATTR_DIR && strcmp(filename, ".") != 0 && strcmp(filename, "..") != 0) {
+			list_dir_rec(entry.cluster_low, depth + 1);
+		}
+	}
+}
 
 /* Func principal */
 void kernel_main(boot_info_t *bi)
@@ -55,23 +82,29 @@ void kernel_main(boot_info_t *bi)
 
 	printf("Fornecedor de CPU: %s\r\n", (char *)cpu_vendor);
 	if (!acpi_init()) {
-		printf("Falha ao iniciar ACPI\r\n");
+ 		printf("Falha ao iniciar ACPI\r\n");
 		goto halt;
 	}
 
 	timer_init(5);
 	pci_enumerate();
+	ata_detect();
 
-	printf("Procurando dispositivos IDE...\r\n");
-	pci_device_t *dev = pci_find(1, 1);
-	if (!dev) {
-		printf("Nao existe dispositivo IDE\r\n");
-	} else {
-		printf("Encontrado dispositivo IDE em %hhu:%hhu:%hhu\r\n", dev->bus, dev->dev, dev->func);
-		for (int i  = 0; i < 6; i++) {
-			printf("BAR[%d] = %08X\r\n", i, dev->bars[i]);
+	for (int i = 0; i < ata_disk_count; i++) {
+		printf("Disco %d: %s | Serial: %s | %u b\r\n",
+			i,
+			ata_disks[i].model,
+			ata_disks[i].serial,
+			ata_disks[i].total_sectors * 512);
+
+		if (fat_configure(i, 0) != 0) {
+			printf("Falha ao configurar FAT\r\n");
+		} else {
+			printf("Diretorio raiz:\r\n");
+			list_dir_rec(0, 0);
 		}
 	}
+
 
 	while (1)
 		hlt();

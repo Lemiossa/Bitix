@@ -75,19 +75,22 @@ set(QEMU_FLAGS
 )
 
 add_custom_command(
-    OUTPUT ${BOCHSRC_FILE}
-    COMMAND printf \"clock: sync=delay, time0=local\\r\\n\" > ${BOCHSRC_FILE}
-    COMMAND printf \"megs: 16\\r\\n\" >> ${BOCHSRC_FILE}
-    COMMAND printf \"floppya: 1_44=${IMAGE_FILE}, status=inserted\\r\\n\" >> ${BOCHSRC_FILE}
-    COMMAND printf \"boot: floppy\\r\\n\" >> ${BOCHSRC_FILE}
-    COMMAND printf \"display_library: sdl2\\r\\n\" >> ${BOCHSRC_FILE}
-    COMMAND printf \"cpu: ips=1000000, count=1\\r\\n\" >> ${BOCHSRC_FILE}
-    DEPENDS ${IMAGE_FILE}
+	OUTPUT ${BOCHSRC_FILE}
+	COMMAND printf \"clock: sync=delay, time0=local\\r\\n\" > ${BOCHSRC_FILE}
+	COMMAND printf \"megs: 4\\r\\n\" >> ${BOCHSRC_FILE}
+	COMMAND printf \"ata0: enabled=1, ioaddr1=0x1f0, ioaddr2=0x3f0, irq=14\\r\\n\" >> ${BOCHSRC_FILE}
+	COMMAND printf \"ata0-master: type=disk, path=\\\"${IMAGE_FILE}\\\", mode=flat\\r\\n\" >> ${BOCHSRC_FILE}
+	COMMAND printf \"ata0-slave: type=disk, path=\\\"${DISK_FILE}\\\", mode=flat\\r\\n\" >> ${BOCHSRC_FILE}
+	COMMAND printf \"boot: disk\\r\\n\" >> ${BOCHSRC_FILE}
+	COMMAND printf \"display_library: sdl2\\r\\n\" >> ${BOCHSRC_FILE}
+	COMMAND printf \"cpu: ips=1000000, count=1\\r\\n\" >> ${BOCHSRC_FILE}
+	DEPENDS ${IMAGE_FILE} ${DISK_FILE}
 )
 
 if(ARCH STREQUAL "x86")
 	add_custom_target(qemu
-		COMMAND qemu-system-i386 ${QEMU_FLAGS} -drive file=${IMAGE_FILE},format=raw,if=ide
+		COMMAND qemu-system-i386 ${QEMU_FLAGS}
+				-drive file=${IMAGE_FILE},format=raw,if=ide,index=0
 		DEPENDS image
 	)
 
