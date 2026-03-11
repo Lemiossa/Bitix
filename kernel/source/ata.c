@@ -209,27 +209,27 @@ bool ata_detect(void)
 	}
 
 	if (dev->prog_if & 1) { /* Se o canal principal está em modo PCI */
-		printf("IDE canal principal esta em modo PCI\r\n");
+		printf("Canal principal do IDE esta em modo PCI\r\n");
 		base0 = dev->bars[0] & 0xFFFFFFFC;
 		ctrl0 = dev->bars[1] & 0xFFFFFFFC;
 
 		if (!base0) base0 = 0x1F0;
 		if (!ctrl0) ctrl0 = 0x3F6;
 	} else {
-		printf("IDE canal principal esta em modo Compatibilidade\r\n");
+		printf("Canal principal do IDE esta em modo Compatibilidade\r\n");
 		base0 = 0x1F0;
 		ctrl0 = 0x3F6;
 	}
 
 	if (dev->prog_if & 4) { /* Se o canal secundário está em modo PCI */
-		printf("IDE canal secundario esta em modo PCI\r\n");
+		printf("Canal secundario do IDE esta em modo PCI\r\n");
 		base1 = dev->bars[2] & 0xFFFFFFFC;
 		ctrl1 = dev->bars[3] & 0xFFFFFFFC;
 		if (!base1) base1 = 0x170;
 		if (!ctrl1) ctrl1 = 0x376;
 
 	} else {
-		printf("IDE canal secundario esta em modo Compatibilidade\r\n");
+		printf("Canal secundario do IDE esta em modo Compatibilidade\r\n");
 		base1 = 0x170;
 		ctrl1 = 0x376;
 	}

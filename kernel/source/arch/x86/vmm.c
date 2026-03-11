@@ -71,7 +71,7 @@ static inline uint32_t get_pt_index(uint32_t virt)
 }
 
 /* Retorna true se um endereço virtual está presente */
-static inline bool virt_is_present(uint32_t virt)
+bool vmm_virt_is_present(uint32_t virt)
 {
 	uint32_t pd_index = get_pd_index(virt);
 	uint32_t pt_index = get_pt_index(virt);
@@ -219,7 +219,7 @@ uint32_t vmm_get_free_virt(void)
 {
 	uint32_t ptr = 0xC0000000;
 	while (ptr < 0xFFC00000) {
-		if (!virt_is_present(ptr))
+		if (!vmm_virt_is_present(ptr))
 			break;
 		ptr += PAGE_SIZE;
 	}
@@ -234,7 +234,7 @@ uint32_t vmm_get_free_virt_user(void)
 {
 	uint32_t ptr = 0x00400000;
 	while (ptr < 0xC0000000) {
-		if (!virt_is_present(ptr))
+		if (!vmm_virt_is_present(ptr))
 			break;
 		ptr += PAGE_SIZE;
 	}

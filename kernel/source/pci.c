@@ -78,7 +78,7 @@ void pci_enumerate(void)
 
 				pci_devices[pci_device_count++] = device;
 
-				printf("PCI %hu:%hhu:%hhu vendor=0x%04X class=%hhu sub=%hhu\r\n",
+				printf("PCI %hu:%hhu:%hhu fornecedor=0x%04X classe=%hhu subclasse=%hhu\r\n",
 					bus, dev, func,
 					vendor_id, class, subclass);
 			}

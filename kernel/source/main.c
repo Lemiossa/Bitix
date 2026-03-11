@@ -26,32 +26,15 @@
 #include <timer.h>
 #include <ata.h>
 #include <fat.h>
+#include <heap.h>
+
+typedef struct file {
+	uint32_t length;
+	uint32_t offset;
+	void *dev_data;
+} file_t;
 
 boot_info_t boot_info = {0};
-
-/* Lista o um diretorio recursivamente directory do FAT  */
-void list_dir_rec(uint32_t cluster, int depth)
-{
-	int index = 0;
-	while (1) {
-		fat_entry_t entry;
-		if (fat_read_dir(cluster, index++, &entry) != 0)
-			break;
-
-		char filename[13] = {0};
-		fat_name_to_filename(entry.name, filename);
-
-		for (int i = 0; i < depth; i++) {
-			printf("\t");
-		}
-
-		printf("%s\r\n", filename);
-
-		if (entry.attr & FAT_ATTR_DIR && strcmp(filename, ".") != 0 && strcmp(filename, "..") != 0) {
-			list_dir_rec(entry.cluster_low, depth + 1);
-		}
-	}
-}
 
 /* Func principal */
 void kernel_main(boot_info_t *bi)
@@ -66,6 +49,7 @@ void kernel_main(boot_info_t *bi)
 		goto halt_no_msg;
 	if (!vmm_init())
 		goto halt_no_msg;
+	heap_init();
 
 	graphics_init();
 
@@ -96,13 +80,6 @@ void kernel_main(boot_info_t *bi)
 			ata_disks[i].model,
 			ata_disks[i].serial,
 			ata_disks[i].total_sectors * 512);
-
-		if (fat_configure(i, 0) != 0) {
-			printf("Falha ao configurar FAT\r\n");
-		} else {
-			printf("Diretorio raiz:\r\n");
-			list_dir_rec(0, 0);
-		}
 	}
 
 
