@@ -1,0 +1,31 @@
+
+@font-face {
+	font-family: "VGA";
+	src: url("PxPlus_IBM_VGA8.ttf") format("truetype")
+}
+
+body {
+	background-color: black;
+	color: white;
+	font-family: "VGA", monospace;
+}
+
+h1 {
+	color: #00AAAA;
+}
+
+h2 {
+	color: #00AAAA;
+}
+
+.container {
+	display: flex;
+	gap: 16px;
+}
+
+.image {
+	background-color: #5555FF;
+	padding: 2px;
+	display: flex;
+	gap: 16px;
+}

@@ -1,0 +1,12 @@
+CompileFlags:
+  Add:
+    - "-I./include"
+    - "-ffreestanding"
+    - "-target i686-elf"     # ajuste para sua arquitetura alvo
+  Remove:
+    - "-W*"
+
+Diagnostics:
+  Suppress:
+    - "pp_including_mainfile_in_preamble"
+    - "implicit_function_declaration"
