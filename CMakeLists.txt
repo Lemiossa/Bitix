@@ -69,7 +69,7 @@ add_custom_command(
 	COMMAND printf \"clock: sync=delay, time0=local\\r\\n\" > ${BOCHSRC_FILE}
 	COMMAND printf \"megs: 4\\r\\n\" >> ${BOCHSRC_FILE}
 	COMMAND printf \"ata0: enabled=1, ioaddr1=0x1f0, ioaddr2=0x3f0, irq=14\\r\\n\" >> ${BOCHSRC_FILE}
-	COMMAND printf \"ata0-master: type=disk, path=\\\"${DISK_FILE}\\\", mode=flat\\r\\n\" >> ${BOCHSRC_FILE}
+	COMMAND printf \"ata0-master: type=disk, path=\\\"${IMAGE_FILE}\\\", mode=flat\\r\\n\" >> ${BOCHSRC_FILE}
 	COMMAND printf \"boot: disk\\r\\n\" >> ${BOCHSRC_FILE}
 	COMMAND printf \"display_library: sdl2\\r\\n\" >> ${BOCHSRC_FILE}
 	COMMAND printf \"cpu: ips=100000000, count=1\\r\\n\" >> ${BOCHSRC_FILE}
