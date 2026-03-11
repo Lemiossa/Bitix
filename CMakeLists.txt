@@ -22,7 +22,6 @@ set(BOOTLDR_FILE ${CMAKE_CURRENT_BINARY_DIR}/bootldr/bootldr.bin)
 set(IMAGE_FILE ${CMAKE_CURRENT_BINARY_DIR}/image/Bitix.img)
 set(ROOT_DIR ${CMAKE_CURRENT_BINARY_DIR}/image/rootdir)
 set(BOCHSRC_FILE ${CMAKE_CURRENT_BINARY_DIR}/bochsrc)
-set(DISK_FILE ${CMAKE_CURRENT_BINARY_DIR}/disk.img)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -66,26 +65,15 @@ add_custom_target(image_file ALL
 )
 
 add_custom_command(
-	OUTPUT ${DISK_FILE}
-	COMMAND cp ${IMAGE_FILE} ${DISK_FILE}
-	DEPENDS image_file
-)
-
-add_custom_target(disk_file
-	DEPENDS ${DISK_FILE}
-)
-
-add_custom_command(
 	OUTPUT ${BOCHSRC_FILE}
 	COMMAND printf \"clock: sync=delay, time0=local\\r\\n\" > ${BOCHSRC_FILE}
 	COMMAND printf \"megs: 4\\r\\n\" >> ${BOCHSRC_FILE}
 	COMMAND printf \"ata0: enabled=1, ioaddr1=0x1f0, ioaddr2=0x3f0, irq=14\\r\\n\" >> ${BOCHSRC_FILE}
 	COMMAND printf \"ata0-master: type=disk, path=\\\"${DISK_FILE}\\\", mode=flat\\r\\n\" >> ${BOCHSRC_FILE}
-	COMMAND printf \"ata0-slave: type=disk, path=\\\"${IMAGE_FILE}\\\", mode=flat\\r\\n\" >> ${BOCHSRC_FILE}
 	COMMAND printf \"boot: disk\\r\\n\" >> ${BOCHSRC_FILE}
 	COMMAND printf \"display_library: sdl2\\r\\n\" >> ${BOCHSRC_FILE}
 	COMMAND printf \"cpu: ips=100000000, count=1\\r\\n\" >> ${BOCHSRC_FILE}
-	DEPENDS disk_file
+	DEPENDS image_file
 )
 
 if(ARCH STREQUAL "x86")
@@ -101,9 +89,8 @@ if(ARCH STREQUAL "x86")
 
 	add_custom_target(qemu
 		COMMAND qemu-system-i386 ${QEMU_FLAGS}
-				-drive file=${DISK_FILE},format=raw,if=ide,index=0
-				-drive file=${IMAGE_FILE},format=raw,if=ide,index=1
-		DEPENDS disk_file
+				-drive file=${IMAGE_FILE},format=raw,if=ide,index=0
+		DEPENDS image_file
 	)
 
 	add_custom_target(bochs
