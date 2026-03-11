@@ -112,12 +112,6 @@ void free(void *p)
 	if (b->free) /* Double free */
 		return;
 
-	if (b->next && b->next->free) {
-		b->length += b->next->length + sizeof(heap_block_t);
-		if (b->next->next)
-			b->next->next->prev = b;
-	}
-
 	if (b->prev && b->prev->free) {
 		b->prev->length += b->length + sizeof(heap_block_t);
 		if (b->next)
@@ -125,6 +119,12 @@ void free(void *p)
 		b = b->prev;
 	}
 
+	if (b->next && b->next->free) {
+		b->length += b->next->length + sizeof(heap_block_t);
+		b->next = b->next->next;
+		if (b->next->next)
+			b->next->next->prev = b;
+	}
 
 	b->free = true;
 }
