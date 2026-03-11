@@ -1,13 +1,15 @@
-
 @font-face {
 	font-family: "VGA";
 	src: url("PxPlus_IBM_VGA8.ttf") format("truetype")
 }
 
 body {
-	background-color: black;
+	background-color: #222222;
 	color: white;
 	font-family: "VGA", monospace;
+	margin: 0 auto;
+	padding: 0 16px;
+	max-width: 900px;
 }
 
 h1 {
@@ -18,14 +20,12 @@ h2 {
 	color: #00AAAA;
 }
 
-.container {
-	display: flex;
-	gap: 16px;
+.image-box {
+	border: 2px solid #5555FF;
 }
 
 .image {
-	background-color: #5555FF;
-	padding: 2px;
 	display: flex;
-	gap: 16px;
+	justify-content: center;
+	align-items: center;
 }
