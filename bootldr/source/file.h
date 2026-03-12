@@ -4,13 +4,14 @@
  ***********************************/
 #ifndef FILE_H
 #define FILE_H
-#include <stddef.h>
 #include "fat.h"
+#include <stddef.h>
 
 #define MAX_PATH 512
 #define MAX_PATH_PARTS 64
 
-typedef struct file {
+typedef struct file
+{
 	fat_entry_t entry;
 	size_t pos;
 	int disk;

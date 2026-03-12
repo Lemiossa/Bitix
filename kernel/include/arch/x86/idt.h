@@ -8,12 +8,14 @@
 
 #define IDT_ENTRIES 256
 
-typedef struct idtr {
+typedef struct idtr
+{
 	uint16_t limit;
 	void *base;
 } __attribute__((packed)) idtr_t;
 
-typedef struct idt_entry {
+typedef struct idt_entry
+{
 	uint16_t addr_low;
 	uint16_t selector;
 	uint8_t res;
@@ -21,7 +23,8 @@ typedef struct idt_entry {
 	uint16_t addr_high;
 } __attribute__((packed)) idt_entry_t;
 
-typedef struct intr_frame {
+typedef struct intr_frame
+{
 	uint32_t ds, es, fs, gs;
 	uint32_t edi, esi, ebp, original_esp, ebx, edx, ecx, eax;
 	uint32_t int_no, err_code;
@@ -37,4 +40,3 @@ void idt_set_trap(int entry, void (*trap)(void), uint16_t selector);
 void idt_init(void);
 
 #endif /* IDT_H */
-

@@ -2,11 +2,11 @@
  * idt.c                            *
  * Criado por Matheus Leme Da Silva *
  ***********************************/
+#include <asm.h>
+#include <idt.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <terminal.h>
-#include <idt.h>
-#include <asm.h>
 
 #define INTERRUPT_GATE32 0x8E
 #define TRAP_GATE32 0x8F
@@ -55,7 +55,8 @@ void idt_set_trap(int entry, void (*trap)(void), uint16_t selector)
 /* Handler de interrupções */
 void intr_handler(intr_frame_t *f)
 {
-	if (intrs[f->int_no]) {
+	if (intrs[f->int_no])
+	{
 		last_frame = f;
 		intrs[f->int_no]();
 		return;
@@ -82,16 +83,12 @@ void intr_handler(intr_frame_t *f)
 /* Inicializa IDT basica */
 void idt_init(void)
 {
-	for (int i = 0; i < IDT_ENTRIES; i++) {
+	for (int i = 0; i < IDT_ENTRIES; i++)
+	{
 		idt_set_entry(i, (uint32_t)isrs[i], 0x08, TRAP_GATE32);
 	}
 
 	idtr.base = &idt[0];
 	idtr.limit = IDT_ENTRIES * sizeof(idt_entry_t) - 1;
-	__asm__ volatile(
-			"LIDT %0;"
-			:: "m"(idtr)
-	);
+	__asm__ volatile("LIDT %0;" ::"m"(idtr));
 }
-
-

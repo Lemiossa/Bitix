@@ -2,12 +2,12 @@
  * util.c                           *
  * Criado por Matheus Leme Da Silva *
  ***********************************/
-#include <stdint.h>
+#include "real_mode.h"
+#include "vga.h"
 #include <stdarg.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-#include "vga.h"
-#include "real_mode.h"
 
 uint16_t cursor_x = 0, cursor_y = 0;
 uint8_t current_attributes = 0x07;
@@ -23,23 +23,32 @@ void putc(char c)
 	intx(0x14, &r);
 #endif /* DEBUG */
 
-	if (c == '\n') {
+	if (c == '\n')
+	{
 		cursor_y++;
-	} else if (c == '\r') {
+	}
+	else if (c == '\r')
+	{
 		cursor_x = 0;
-	} else if (c == '\t') {
+	}
+	else if (c == '\t')
+	{
 		putc(' ');
 		putc(' ');
-	} else {
+	}
+	else
+	{
 		vga_put_char(cursor_x++, cursor_y, c, current_attributes);
 	}
 
-	if (cursor_x >= vga_bottom_right_corner_x) {
+	if (cursor_x >= vga_bottom_right_corner_x)
+	{
 		cursor_y++;
 		cursor_x = vga_top_left_corner_x;
 	}
 
-	if (cursor_y >= vga_bottom_right_corner_y) {
+	if (cursor_y >= vga_bottom_right_corner_y)
+	{
 		vga_scroll();
 		cursor_x = vga_top_left_corner_x;
 		cursor_y = vga_bottom_right_corner_y - 1;
@@ -51,7 +60,8 @@ void putc(char c)
 /* Imprime uma string na tela */
 void puts(const char *s)
 {
-	while (*s) {
+	while (*s)
+	{
 		putc(*s++);
 	}
 }
@@ -88,7 +98,8 @@ char to_lower(char c)
 /* Converte uma string para maiusculo */
 void str_upper(char *s)
 {
-	while (*s) {
+	while (*s)
+	{
 		*s = to_upper(*s);
 		s++;
 	}
@@ -97,7 +108,8 @@ void str_upper(char *s)
 /* Converte uma string para minusculo */
 void str_lower(char *s)
 {
-	while (*s) {
+	while (*s)
+	{
 		*s = to_lower(*s);
 		s++;
 	}
@@ -112,12 +124,13 @@ int get_path_parts(char *path, char **parts, int max)
 
 	int count = 0;
 	char *part = strtok(path, "/\\");
-	parts[count++] =  part;
+	parts[count++] = part;
 
-	while (part != NULL && count < max) {
+	while (part != NULL && count < max)
+	{
 		part = strtok(NULL, "/\\");
 		if (part)
-			parts[count++] =  part;
+			parts[count++] = part;
 	}
 
 	return count;

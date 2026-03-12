@@ -6,7 +6,8 @@
 #define VESA_H
 #include <stdint.h>
 
-typedef struct vbe_mode_info {
+typedef struct vbe_mode_info
+{
 	uint16_t attributes;
 	uint8_t window_a;
 	uint8_t window_b;
@@ -40,9 +41,10 @@ typedef struct vbe_mode_info {
 	uint32_t off_screen_mem_off;
 	uint16_t off_screen_mem_size;
 	uint8_t reserved1[206];
-} __attribute__ ((packed)) vbe_mode_info_t;
+} __attribute__((packed)) vbe_mode_info_t;
 
-typedef struct vbe_info_block {
+typedef struct vbe_info_block
+{
 	char signature[4];
 	uint16_t vbe_version; /* Byte alto = major, byte baixo = minor */
 	uint16_t oem_seg;

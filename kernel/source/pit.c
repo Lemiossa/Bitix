@@ -2,12 +2,12 @@
  * pit.c                            *
  * Criado por Matheus Leme Da Silva *
  ***********************************/
-#include <stdint.h>
 #include <asm.h>
+#include <pit.h>
+#include <stdint.h>
 
 #define PIT_BASE 0x40
 #define PIT_CMD PIT_BASE + 3
-#define PIT_BASE_FREQ 1193180
 
 /* Modifica um PIT */
 void pit_set(int channel, uint8_t op_mode, uint32_t freq)
@@ -22,6 +22,6 @@ void pit_set(int channel, uint8_t op_mode, uint32_t freq)
 	uint16_t divisor = PIT_BASE_FREQ / freq;
 
 	outb(PIT_CMD, value);
-	outb(PIT_BASE+channel, (divisor & 0xFF));
-	outb(PIT_BASE+channel, ((divisor >> 8) & 0xFF));
+	outb(PIT_BASE + channel, (divisor & 0xFF));
+	outb(PIT_BASE + channel, ((divisor >> 8) & 0xFF));
 }

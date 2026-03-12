@@ -6,7 +6,8 @@
 #define E820_H
 #include <stdint.h>
 
-typedef struct e820_entry {
+typedef struct e820_entry
+{
 	uint64_t base;
 	uint64_t length;
 	uint32_t type;

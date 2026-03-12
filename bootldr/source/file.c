@@ -2,14 +2,14 @@
  * file.c                           *
  * Criado por Matheus Leme Da Silva *
  ***********************************/
-#include <stddef.h>
-#include <stdint.h>
-#include "stdio.h"
-#include "string.h"
 #include "file.h"
-#include "util.h"
 #include "disk.h"
 #include "fat.h"
+#include "stdio.h"
+#include "string.h"
+#include "util.h"
+#include <stddef.h>
+#include <stdint.h>
 
 static int current_disk = -1;
 
@@ -29,10 +29,13 @@ int open(file_t *f, const char *path)
 	char *p = (char *)&str[0];
 
 	char letter = 'C';
-	if (p[1] == ':') {
+	if (p[1] == ':')
+	{
 		letter = to_upper(p[0]);
 		p += 2;
-	} else {
+	}
+	else
+	{
 		letter = disk_get_letter(disk_find_drive(boot_drive));
 	}
 
@@ -50,12 +53,14 @@ int open(file_t *f, const char *path)
 
 	fat_entry_t entry;
 	uint16_t current_cluster = 0;
-	for (int i = 0; i < count; i++) {
+	for (int i = 0; i < count; i++)
+	{
 		char fatname[12] = {0};
 		fat_filename_to_fatname(parts[i], (char *)fatname);
 
 		uint32_t index = 0;
-		while (1) {
+		while (1)
+		{
 			if (fat_read_dir(current_cluster, index++, &entry) != 0)
 				return 1;
 
@@ -89,13 +94,15 @@ size_t read(file_t *f, size_t n, void *dest)
 	if (!f)
 		return 0;
 
-	if (current_disk != f->disk) {
+	if (current_disk != f->disk)
+	{
 		current_disk = f->disk;
 		fat_configure(current_disk, 0);
 	}
 
 #ifdef DEBUG
-	printf("fat_read(%08x, %08x, %lu, %08x);\r\n", (uint32_t)dest, (uint32_t)&f->entry, f->pos, n);
+	printf("fat_read(%08x, %08x, %lu, %08x);\r\n", (uint32_t)dest,
+		   (uint32_t)&f->entry, f->pos, n);
 	printf("f->pos = %lu\r\n", f->pos);
 #endif /* DEBUG */
 	return fat_read(dest, &f->entry, f->pos, n);
@@ -115,4 +122,3 @@ size_t seek(file_t *f, size_t pos)
 
 	return f->pos;
 }
-

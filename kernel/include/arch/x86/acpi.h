@@ -4,12 +4,13 @@
  ***********************************/
 #ifndef ACPI_H
 #define ACPI_H
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 #define MAX_CPUS 256
 
-typedef struct cpu {
+typedef struct cpu
+{
 	uint8_t apic_id;
 	uint8_t processor_id;
 	uint32_t flags;

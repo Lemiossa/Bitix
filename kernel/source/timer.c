@@ -1,52 +1,50 @@
 /************************************
- * timer.c                          *
+ * timer.c                   *
  * Criado por Matheus Leme Da Silva *
  ***********************************/
-#include <stdint.h>
-#include <acpi.h>
-#include <legacy_timer.h>
-#include <idt.h>
 #include <asm.h>
+#include <idt.h>
+#include <pic.h>
+#include <pit.h>
+#include <stdint.h>
 
-uint32_t timer_ms_per_tick = 0;
 uint32_t volatile timer_ticks = 0;
+uint16_t timer_ms_per_tick = 0;
 
-/* Handler do timer */
+/* Handler handler */
 void timer_handler(void)
 {
 	timer_ticks++;
-	acpi_lapic_write(0xB0, 0); /* EOI */
+	pic_eoi(0);
 }
 
-/* Busy wait */
-void timer_wait(uint32_t ms)
+/* Inicia o timer com N ms por tick*/
+void timer_init(uint16_t n)
 {
-	uint32_t ticks = ms / timer_ms_per_tick;
-	if (ticks == 0) ticks = 1;
-	uint32_t end = timer_ticks + ticks;
-	while (timer_ticks < end);
-}
-
-/* Inicializa o APIC timer com n MS por tick */
-void timer_init(uint32_t ms)
-{
-	if (ms < 1)
-		return;
-
-	acpi_lapic_write(0x3E0, 0xB);
-	acpi_lapic_write(0x380, 0xFFFFFFFF);
-
-	legacy_timer_init(1000); /* 1 MS por tick */
-	legacy_timer_wait(ms);
-	legacy_timer_disable();
-	acpi_lapic_write(0x320, 0x10020);
-	uint32_t elapsed = 0xFFFFFFFF - acpi_lapic_read(0x390);
+	cli();
+	uint16_t freq = 1000 / n;
+	timer_ms_per_tick = 1000 / freq;
+	timer_ticks = 0;
+	pit_set(0, PIT_SQUARE_WAVE_GENERATOR, freq);
 	idt_set_trap(0x20, timer_handler, 0x08);
-
-	acpi_lapic_write(0x320, 0x20 | (1 << 17));
-	acpi_lapic_write(0x3E0, 0xB);
-	acpi_lapic_write(0x380, elapsed);
-	timer_ms_per_tick = ms;
+	pic_unmask_irq(0);
 	sti();
 }
 
+/* Desativa o timer */
+void timer_disable(void)
+{
+	pic_mask_irq(0);
+}
+
+/* Espera N milisegundos usando o timer */
+void timer_wait(uint32_t n)
+{
+	uint32_t ticks = n / timer_ms_per_tick;
+	if (!ticks)
+		ticks = 1;
+
+	uint32_t end = timer_ticks + n;
+	while (timer_ticks < end)
+		;
+}

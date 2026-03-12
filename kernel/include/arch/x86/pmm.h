@@ -4,8 +4,8 @@
  ***********************************/
 #ifndef PMM_H
 #define PMM_H
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 #define PAGE_SIZE 4096
 

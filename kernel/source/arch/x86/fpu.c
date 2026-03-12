@@ -2,11 +2,11 @@
  * fpu.c                            *
  * Criado por Matheus Leme Da Silva *
  ***********************************/
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
 
-#include <cpuid.h>
 #include <asm.h>
+#include <cpuid.h>
 
 /* Inicializa FPU */
 /* Retorna false se houver erro */
@@ -36,4 +36,3 @@ bool fpu_init(void)
 
 	return true;
 }
-

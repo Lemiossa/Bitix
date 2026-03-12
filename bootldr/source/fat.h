@@ -4,10 +4,11 @@
  ***********************************/
 #ifndef FAT_H
 #define FAT_H
-#include <stdint.h>
 #include <stddef.h>
+#include <stdint.h>
 
-typedef struct fat_bpb {
+typedef struct fat_bpb
+{
 	uint8_t jmp[3];
 	uint8_t oem_name[8];
 	uint16_t bytes_per_sector;
@@ -24,8 +25,10 @@ typedef struct fat_bpb {
 	uint32_t total_sectors32;
 } __attribute__((packed)) fat_bpb_t;
 
-typedef union fat_ebpb {
-	struct {
+typedef union fat_ebpb
+{
+	struct
+	{
 		uint8_t drive_number;
 		uint8_t nt_flags;
 		uint8_t signature;
@@ -34,7 +37,8 @@ typedef union fat_ebpb {
 		uint8_t system_id[8];
 	} _16;
 
-	struct {
+	struct
+	{
 		uint32_t sectors_per_fat32;
 		uint16_t flags;
 		uint8_t version_major;
@@ -52,14 +56,16 @@ typedef union fat_ebpb {
 	} _32;
 } __attribute__((packed)) fat_ebpb_t;
 
-typedef struct bootsector {
+typedef struct bootsector
+{
 	fat_bpb_t bpb;
 	fat_ebpb_t ebpb;
 	uint8_t boot_code[420];
 	uint16_t boot_signature;
 } __attribute__((packed)) bootsector_t;
 
-typedef struct fat_entry {
+typedef struct fat_entry
+{
 	uint8_t name[11];
 	uint8_t attr;
 	uint16_t res;
@@ -77,7 +83,7 @@ typedef struct fat_entry {
 #define FAT_ATTR_HIDDN 0x02
 #define FAT_ATTR_SYSTM 0x04
 #define FAT_ATTR_VOLID 0x08
-#define FAT_ATTR_DIR   0x10
+#define FAT_ATTR_DIR 0x10
 #define FAT_ATTR_ARCHV 0x20
 
 void fat_name_to_filename(char *fatname, char *out);

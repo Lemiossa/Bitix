@@ -2,39 +2,33 @@
  * main.c                           *
  * Criado por Matheus Leme Da Silva *
  ***********************************/
-#include <stddef.h>
-#include <stdint.h>
-#include <stdbool.h>
-#include <stdio.h>
-#include <fpu.h>
-#include <cpuid.h>
+#include <acpi.h>
 #include <asm.h>
-#include <graphics.h>
-#include <string.h>
-#include <vga.h>
-#include <terminal.h>
+#include <ata.h>
 #include <boot.h>
+#include <cpuid.h>
+#include <fat.h>
+#include <fpu.h>
 #include <gdt.h>
+#include <graphics.h>
+#include <heap.h>
 #include <idt.h>
+#include <pci.h>
 #include <pic.h>
 #include <pit.h>
-#include <pci.h>
 #include <pmm.h>
-#include <vmm.h>
-#include <acpi.h>
-#include <legacy_timer.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <string.h>
+#include <terminal.h>
 #include <timer.h>
-#include <ata.h>
-#include <fat.h>
-#include <heap.h>
-
-typedef struct file {
-	uint32_t length;
-	uint32_t offset;
-	void *dev_data;
-} file_t;
+#include <vga.h>
+#include <vmm.h>
 
 boot_info_t boot_info = {0};
+
 
 /* Func principal */
 void kernel_main(boot_info_t *bi)
@@ -53,35 +47,35 @@ void kernel_main(boot_info_t *bi)
 
 	graphics_init();
 
-	if (!cpuid_is_available()) {
+	if (!cpuid_is_available())
+	{
 		printf("CPUID nao esta disponivel\r\n");
 		goto halt;
 	}
 	cpuid_get_features();
 
-	if (!fpu_init()) {
+	if (!fpu_init())
+	{
 		printf("Falha ao inicializar FPU\r\n");
 		goto halt;
 	}
 
 	printf("Fornecedor de CPU: %s\r\n", (char *)cpu_vendor);
-	if (!acpi_init()) {
- 		printf("Falha ao iniciar ACPI\r\n");
+	if (!acpi_init())
+	{
+		printf("Falha ao iniciar ACPI\r\n");
 		goto halt;
 	}
 
-	timer_init(5);
+	timer_init(4);
 	pci_enumerate();
 	ata_detect();
 
-	for (int i = 0; i < ata_disk_count; i++) {
-		printf("Disco %d: %s | Serial: %s | %u b\r\n",
-			i,
-			ata_disks[i].model,
-			ata_disks[i].serial,
-			ata_disks[i].total_sectors * 512);
+	for (int i = 0; i < ata_disk_count; i++)
+	{
+		printf("Disco %d: %s | Serial: %s | %u b\r\n", i, ata_disks[i].model,
+			   ata_disks[i].serial, ata_disks[i].total_sectors * 512);
 	}
-
 
 	while (1)
 		hlt();

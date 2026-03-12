@@ -2,13 +2,14 @@
  * heap.c                           *
  * Criado por Matheus Leme Da Silva *
  ***********************************/
-#include <stdint.h>
-#include <stddef.h>
-#include <stdbool.h>
 #include <pmm.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
 #include <vmm.h>
 
-typedef struct heap_block {
+typedef struct heap_block
+{
 	uint32_t length;
 	bool free;
 	struct heap_block *prev;
@@ -26,7 +27,8 @@ static heap_block_t *find_free_block(size_t n)
 {
 	heap_block_t *current = start;
 
-	while (current) {
+	while (current)
+	{
 		if (current->free && current->length >= n)
 			return current;
 		current = current->next;
@@ -51,7 +53,8 @@ static heap_block_t *payload_to_block(void *payload)
 void heap_init(void)
 {
 	uint32_t pages = HEAP_START_SIZE / PAGE_SIZE;
-	for (uint32_t i = 0; i < pages; i++) {
+	for (uint32_t i = 0; i < pages; i++)
+	{
 		uint32_t phys = (uint32_t)pmm_alloc_page();
 		if (!phys)
 			break;
@@ -82,9 +85,11 @@ void *alloc(size_t n)
 	if (!free_blk)
 		return NULL;
 
-	if (free_blk->length > n + sizeof(heap_block_t) + 1) {
+	if (free_blk->length > n + sizeof(heap_block_t) + 1)
+	{
 		size_t size = free_blk->length - n - sizeof(heap_block_t);
-		heap_block_t *new_block = (heap_block_t *)((uint8_t *)block_to_payload(free_blk) + n);
+		heap_block_t *new_block =
+			(heap_block_t *)((uint8_t *)block_to_payload(free_blk) + n);
 		new_block->free = true;
 		new_block->length = size;
 		new_block->prev = free_blk;
@@ -112,14 +117,16 @@ void free(void *p)
 	if (b->free) /* Double free */
 		return;
 
-	if (b->prev && b->prev->free) {
+	if (b->prev && b->prev->free)
+	{
 		b->prev->length += b->length + sizeof(heap_block_t);
 		if (b->next)
 			b->next->prev = b->prev;
 		b = b->prev;
 	}
 
-	if (b->next && b->next->free) {
+	if (b->next && b->next->free)
+	{
 		b->length += b->next->length + sizeof(heap_block_t);
 		b->next = b->next->next;
 		if (b->next->next)

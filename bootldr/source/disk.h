@@ -11,7 +11,8 @@
 extern int boot_disk;
 extern uint8_t boot_drive;
 
-uint8_t disk_get_parameters(int disk, uint32_t *cylinders, uint32_t *heads, uint32_t *sectors);
+uint8_t disk_get_parameters(int disk, uint32_t *cylinders, uint32_t *heads,
+							uint32_t *sectors);
 uint8_t disk_reset(int disk);
 uint8_t disk_read_sector(int disk, void *dest, uint32_t lba);
 int disk_find_letter(char letter);

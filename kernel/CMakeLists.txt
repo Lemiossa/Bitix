@@ -14,7 +14,6 @@ add_executable(kernel.elf
 	source/arch/${ARCH}/fpu.c
 	source/arch/${ARCH}/pmm.c
 	source/arch/${ARCH}/vmm.c
-	source/legacy_timer.c
 	source/graphics.c
 	source/terminal.c
 	source/timer.c

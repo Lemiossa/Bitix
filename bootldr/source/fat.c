@@ -2,13 +2,13 @@
  * fat.c                            *
  * Criado por Matheus Leme Da Silva *
  ***********************************/
+#include "fat.h"
+#include "disk.h"
+#include "stdio.h"
+#include "string.h"
+#include "util.h"
 #include <stddef.h>
 #include <stdint.h>
-#include "string.h"
-#include "stdio.h"
-#include "util.h"
-#include "disk.h"
-#include "fat.h"
 
 static uint32_t sectors_per_fat = 0;
 static uint32_t total_sectors = 0;
@@ -29,7 +29,8 @@ static bootsector_t bootsector;
 /* Converte nome em formato fat para filename */
 void fat_name_to_filename(char *fatname, char *out)
 {
-	for (int i = 0; i < 8; i++) {
+	for (int i = 0; i < 8; i++)
+	{
 		char c = fatname[i];
 		if (c == ' ' || !c)
 			break;
@@ -41,7 +42,8 @@ void fat_name_to_filename(char *fatname, char *out)
 
 	*out++ = '.';
 
-	for (int i = 0; i < 3; i++) {
+	for (int i = 0; i < 3; i++)
+	{
 		char c = fatname[i + 8];
 		if (c == ' ' || !c)
 			break;
@@ -56,7 +58,8 @@ void fat_filename_to_fatname(char *filename, char *out)
 	for (int i = 0; i < 11; i++)
 		out[i] = ' ';
 
-	for (int i = 0; i < 8; i++) {
+	for (int i = 0; i < 8; i++)
+	{
 		char c = to_upper(*filename++);
 		if (!c)
 			return;
@@ -67,7 +70,8 @@ void fat_filename_to_fatname(char *filename, char *out)
 		out[i] = c;
 	}
 
-	for (int i = 0; i < 3; i++) {
+	for (int i = 0; i < 3; i++)
+	{
 		char c = to_upper(*filename++);
 		if (!c)
 			return;
@@ -114,22 +118,27 @@ static uint32_t fat_read_cluster(uint32_t cluster)
 	uint32_t entry_offset = offset % SECTOR_SIZE;
 
 	disk_read_sector(current_disk, buf, sector);
-	disk_read_sector(current_disk, &buf[SECTOR_SIZE], sector+1);
+	disk_read_sector(current_disk, &buf[SECTOR_SIZE], sector + 1);
 
 	uint32_t val = 0;
-	if (fat_type == 12) {
-		uint32_t entry_val = *(uint32_t*)&buf[entry_offset];
+	if (fat_type == 12)
+	{
+		uint32_t entry_val = *(uint32_t *)&buf[entry_offset];
 		if (cluster & 1)
 			val = entry_val >> 4;
 		else
 			val = entry_val & 0x0FFF;
 		val &= 0x0FFF;
-	} else if (fat_type == 16) {
-		uint32_t entry_val = *(uint32_t*)&buf[entry_offset];
+	}
+	else if (fat_type == 16)
+	{
+		uint32_t entry_val = *(uint32_t *)&buf[entry_offset];
 		val = entry_val;
 		val &= 0xFFFF;
-	} else if (fat_type == 32) {
-		uint32_t entry_val = *(uint32_t*)&buf[entry_offset];
+	}
+	else if (fat_type == 32)
+	{
+		uint32_t entry_val = *(uint32_t *)&buf[entry_offset];
 		val = entry_val;
 		val &= 0x0FFFFFFF;
 	}
@@ -138,45 +147,65 @@ static uint32_t fat_read_cluster(uint32_t cluster)
 }
 
 /* "Inicializa o sistema" FAT */
-/* Na real só faz os calculos das globais em um disco específico num setor específico */
+/* Na real só faz os calculos das globais em um disco específico num setor
+ * específico */
 /* Retorna um número diferente de 0 se houver erro */
 int fat_configure(int disk, uint32_t lba)
 {
 	uint8_t buf[SECTOR_SIZE];
-	if (disk_read_sector(disk, buf, lba) != 0) {
+	if (disk_read_sector(disk, buf, lba) != 0)
+	{
 		printf("fat_configure(): Falha ao ler disco: %d\r\n", disk);
 		return 1;
 	}
 
 	memcpy(&bootsector, buf, sizeof(bootsector));
 
-	if (bootsector.bpb.bytes_per_sector != SECTOR_SIZE) {/* Raro, porém é bom verificar,
-												 não vou dar suporte a setores com tamanho diferente de 512 bytes */
+	if (bootsector.bpb.bytes_per_sector != SECTOR_SIZE)
+	{ /* Raro, porém é bom verificar, não vou dar suporte a setores com tamanho
+		 diferente de 512 bytes */
 		printf("fat_configure(): o numero de bytes por setor e invalido\r\n");
 		return 1;
 	}
 
-	if (bootsector.bpb.sectors_per_fat16 == 0) {
+	if (bootsector.bpb.sectors_per_fat16 == 0)
+	{
 		fat_type = 32;
 		sectors_per_fat = bootsector.ebpb._32.sectors_per_fat32;
-	} else {
+	}
+	else
+	{
 		sectors_per_fat = bootsector.bpb.sectors_per_fat16;
 	}
 
-	total_sectors = bootsector.bpb.total_sectors16 == 0 ? bootsector.bpb.total_sectors32 : bootsector.bpb.total_sectors16;
-	root_dir_sectors = ((bootsector.bpb.root_dir_entries * 32) + (SECTOR_SIZE - 1)) / SECTOR_SIZE;
-	data_lba = lba + (bootsector.bpb.reserved_sectors + (bootsector.bpb.num_fats * sectors_per_fat) + root_dir_sectors);
+	total_sectors = bootsector.bpb.total_sectors16 == 0
+						? bootsector.bpb.total_sectors32
+						: bootsector.bpb.total_sectors16;
+	root_dir_sectors =
+		((bootsector.bpb.root_dir_entries * 32) + (SECTOR_SIZE - 1)) /
+		SECTOR_SIZE;
+	data_lba =
+		lba + (bootsector.bpb.reserved_sectors +
+			   (bootsector.bpb.num_fats * sectors_per_fat) + root_dir_sectors);
 	fat_lba = lba + bootsector.bpb.reserved_sectors;
-	data_sectors = total_sectors - (bootsector.bpb.reserved_sectors + (bootsector.bpb.num_fats * sectors_per_fat) + root_dir_sectors);
+	data_sectors =
+		total_sectors -
+		(bootsector.bpb.reserved_sectors +
+		 (bootsector.bpb.num_fats * sectors_per_fat) + root_dir_sectors);
 	total_clusters = data_sectors / bootsector.bpb.sectors_per_cluster;
 	current_disk = disk;
 	root_lba = data_lba - root_dir_sectors;
 
-	if (total_clusters < 4085) {
+	if (total_clusters < 4085)
+	{
 		fat_type = 12;
-	} else if (total_clusters < 65525){
+	}
+	else if (total_clusters < 65525)
+	{
 		fat_type = 16;
-	} else {
+	}
+	else
+	{
 		fat_type = 32;
 	}
 
@@ -196,12 +225,14 @@ int fat_read_dir(uint32_t cluster, uint32_t index, fat_entry_t *out)
 	if (cluster == 0 && fat_type == 32)
 		current_cluster = bootsector.ebpb._32.root_dir_cluster;
 
-	while (!fat_is_eof(current_cluster)) {
+	while (!fat_is_eof(current_cluster))
+	{
 		uint32_t sectors = bootsector.bpb.sectors_per_cluster;
 		if (current_cluster == 0)
 			sectors = root_dir_sectors;
 
-		for (uint32_t i = 0; i < sectors; i++) {
+		for (uint32_t i = 0; i < sectors; i++)
+		{
 			uint32_t lba = i;
 			if (current_cluster == 0)
 				lba += root_lba;
@@ -212,14 +243,16 @@ int fat_read_dir(uint32_t cluster, uint32_t index, fat_entry_t *out)
 				return 1;
 
 			fat_entry_t *entries = (fat_entry_t *)buf;
-			for (uint32_t j = 0; j < SECTOR_SIZE / sizeof(fat_entry_t); j++) {
+			for (uint32_t j = 0; j < SECTOR_SIZE / sizeof(fat_entry_t); j++)
+			{
 				if (entries[j].name[0] == 0x00)
 					return 1;
 
 				if (entries[j].name[0] == 0xE5)
 					continue;
 
-				if (current_index == index) {
+				if (current_index == index)
+				{
 					if (out)
 						memcpy(out, &entries[j], sizeof(fat_entry_t));
 					return 0;
@@ -237,12 +270,14 @@ int fat_read_dir(uint32_t cluster, uint32_t index, fat_entry_t *out)
 	return 1;
 }
 
-/* Lê N bytes de um arquivo a partir de sua entrada FAT em um offset específico */
+/* Lê N bytes de um arquivo a partir de sua entrada FAT em um offset específico
+ */
 /* Retorna o número de bytes lidos */
 /* ATENÇÃO: Você DEVE chamar fat_configure() antes disso */
 size_t fat_read(void *dest, fat_entry_t *entry, size_t offset, size_t n)
 {
-	if (!dest || !entry || n == 0 || offset > entry->file_size) {
+	if (!dest || !entry || n == 0 || offset > entry->file_size)
+	{
 		return 0;
 	}
 
@@ -257,19 +292,23 @@ size_t fat_read(void *dest, fat_entry_t *entry, size_t offset, size_t n)
 		current_cluster |= ((entry->cluster_high & 0x0FFF) << 8);
 	uint8_t *d = (uint8_t *)dest;
 
-	while (!fat_is_eof(current_cluster)) {
+	while (!fat_is_eof(current_cluster))
+	{
 		uint8_t buf[SECTOR_SIZE];
 		uint32_t lba = fat_cluster_to_lba(current_cluster);
 
-		for (size_t i = 0; i < bootsector.bpb.sectors_per_cluster; i++) {
-			if (disk_read_sector(current_disk, buf, lba+i) != 0)
+		for (size_t i = 0; i < bootsector.bpb.sectors_per_cluster; i++)
+		{
+			if (disk_read_sector(current_disk, buf, lba + i) != 0)
 				return 0;
 
-			for (size_t j = 0; j < SECTOR_SIZE; j++) {
+			for (size_t j = 0; j < SECTOR_SIZE; j++)
+			{
 				if (remaining == 0)
 					goto end;
 
-				if (current_offset < offset) {
+				if (current_offset < offset)
+				{
 					current_offset++;
 					continue;
 				}

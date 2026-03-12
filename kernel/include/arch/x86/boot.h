@@ -6,14 +6,16 @@
 #define BOOT_H
 #include <stdint.h>
 
-typedef struct e820_entry {
+typedef struct e820_entry
+{
 	uint64_t base;
 	uint64_t length;
 	uint32_t type;
 	uint32_t attr;
 } __attribute__((packed)) e820_entry_t;
 
-typedef struct graphics_info {
+typedef struct graphics_info
+{
 	int mode; /* 1 = modo vesa */
 	int width, height;
 	int pitch;
@@ -24,14 +26,14 @@ typedef struct graphics_info {
 	uint16_t blue_mask, blue_position;
 } graphics_info_t;
 
-typedef struct boot_info {
+typedef struct boot_info
+{
 	e820_entry_t *e820_table;
 	int e820_entry_count;
 	graphics_info_t graphics;
 	uint8_t *vga_font;
 	uint8_t vga_font_type;
 } __attribute__((packed)) boot_info_t;
-
 
 extern boot_info_t boot_info;
 

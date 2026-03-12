@@ -2,9 +2,9 @@
  * pmm.c                            *
  * Criado por Matheus Leme Da Silva *
  ***********************************/
-#include <stdint.h>
-#include <stddef.h>
 #include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
 #include <string.h>
 #include <terminal.h>
 
@@ -95,18 +95,23 @@ bool pmm_init(void)
 {
 	pmm_bitmap = (uint8_t *)&__bss_end;
 
-
 	e820_entry_t *e820_table = boot_info.e820_table;
-	for (int i = 0; i < boot_info.e820_entry_count; i++) {
+	for (int i = 0; i < boot_info.e820_entry_count; i++)
+	{
 		pmm_total_pages += e820_table[i].length / PAGE_SIZE;
 	}
 
 	memset(pmm_bitmap, 0, pmm_total_pages / 8);
-	pmm_mark_page(0); /* IVT e BDA, pode ser que voltemos ao modo real alguma hora */
+	pmm_mark_page(
+		0); /* IVT e BDA, pode ser que voltemos ao modo real alguma hora */
 
-	for (int i = 0; i < boot_info.e820_entry_count; i++) {
-		if (e820_table[i].type != 1) {
-			pmm_mark_area((void *)(uint32_t)e820_table[i].base, (void *)((uint32_t)e820_table[i].base + (uint32_t)e820_table[i].length));
+	for (int i = 0; i < boot_info.e820_entry_count; i++)
+	{
+		if (e820_table[i].type != 1)
+		{
+			pmm_mark_area((void *)(uint32_t)e820_table[i].base,
+						  (void *)((uint32_t)e820_table[i].base +
+								   (uint32_t)e820_table[i].length));
 		}
 	}
 
@@ -118,13 +123,15 @@ bool pmm_init(void)
 /* Aloca uma pagina */
 void *pmm_alloc_page(void)
 {
-	for (uint32_t i = 0; i < pmm_total_pages; i++) {
+	for (uint32_t i = 0; i < pmm_total_pages; i++)
+	{
 		uint32_t pos = i / 8;
 
 		if (pmm_bitmap[pos] == 0xFF)
 			continue;
 
-		if (pmm_test_page(i) == false) {
+		if (pmm_test_page(i) == false)
+		{
 			pmm_mark_page(i);
 			return (void *)(i * PAGE_SIZE);
 		}

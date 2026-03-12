@@ -24,5 +24,4 @@ int kbhit(void);
 unsigned char kbgetchar(void);
 unsigned char kbgetsc(void);
 
-
 #endif /* UTIL_H */

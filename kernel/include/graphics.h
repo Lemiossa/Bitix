@@ -6,12 +6,11 @@
 #define GRAPHICS_H
 #include <stdint.h>
 
-#define RGB(r, g, b) /* Cria um valor uint32_t com 0xRRGGBB */\
-	(uint32_t)( \
-			(((r) & 0xFF) << 16) | /* Vermelho */ \
-			(((g) & 0xFF) << 8) | /* Verde */ \
-			((b & 0xFF)) /* Azul */ \
-			)
+#define RGB(r, g, b) /* Cria um valor uint32_t com 0xRRGGBB */                 \
+	(uint32_t)((((r) & 0xFF) << 16) | /* Vermelho */                           \
+			   (((g) & 0xFF) << 8) |  /* Verde */                              \
+			   ((b & 0xFF))			  /* Azul */                               \
+	)
 
 void graphics_init(void);
 void put_pixel(int x, int y, uint32_t color);

@@ -13,6 +13,8 @@
 #define PIT_SOFTWARE_TRIGGERED_STROBE 4
 #define PIT_HARDWARE_TRIGGERED_STROBE 5
 
+#define PIT_BASE_FREQ 1193180
+
 void pit_set(int channel, uint8_t op_mode, uint32_t freq);
 
 #endif /* PIT_H */

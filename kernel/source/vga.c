@@ -2,12 +2,11 @@
  * vga.c                            *
  * Criado por Matheus Leme Da Silva *
  ***********************************/
-#include <stdint.h>
 #include <asm.h>
+#include <stdint.h>
 #include <vga.h>
 
 uint16_t *vga = (uint16_t *)0xB8000;
-
 
 /* Operações de cursor */
 /* https://wiki.osdev.org/Text_Mode_Cursor */
@@ -35,7 +34,8 @@ uint16_t vga_get_cursor(void)
 }
 
 /* Muda o formato do cursor */
-/* Start é a linha inicial(de cima pra baixo). End a linha final(de cima pra baixo) */
+/* Start é a linha inicial(de cima pra baixo). End a linha final(de cima pra
+ * baixo) */
 void vga_set_cursor_shape(uint8_t start, uint8_t end)
 {
 	outb(0x3D4, 0x0A);
@@ -72,4 +72,3 @@ uint16_t vga_get_char(int x, int y)
 	uint16_t pos = y * VGA_WIDTH + x;
 	return vga[pos];
 }
-

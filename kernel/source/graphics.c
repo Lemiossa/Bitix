@@ -18,13 +18,16 @@ void graphics_init(void)
 {
 	if (!boot_info.graphics.framebuffer)
 		return;
-	uint32_t size = (uint32_t)boot_info.graphics.pitch * (uint32_t)boot_info.graphics.height;
+	uint32_t size = (uint32_t)boot_info.graphics.pitch *
+					(uint32_t)boot_info.graphics.height;
 
 	if (!paging_enabled)
 		return;
 
-	for (uint32_t i = 0; i < size; i += PAGE_SIZE) {
-		vmm_map(boot_info.graphics.framebuffer + i, boot_info.graphics.framebuffer + i, PAGE_PRESENT | PAGE_WRITE);
+	for (uint32_t i = 0; i < size; i += PAGE_SIZE)
+	{
+		vmm_map(boot_info.graphics.framebuffer + i,
+				boot_info.graphics.framebuffer + i, PAGE_PRESENT | PAGE_WRITE);
 	}
 }
 
@@ -32,11 +35,12 @@ void graphics_init(void)
 void put_pixel(int x, int y, uint32_t color)
 {
 	if (x >= boot_info.graphics.width || y >= boot_info.graphics.height ||
-			boot_info.graphics.mode == 0 || x < 0 || y < 0)
+		boot_info.graphics.mode == 0 || x < 0 || y < 0)
 		return;
 
 	uint32_t val;
-	if (boot_info.graphics.bpp > 8) {
+	if (boot_info.graphics.bpp > 8)
+	{
 		uint8_t cr = (color >> 16) & 0xFF;
 		uint8_t cg = (color >> 8) & 0xFF;
 		uint8_t cb = (color >> 0) & 0xFF;
@@ -48,15 +52,18 @@ void put_pixel(int x, int y, uint32_t color)
 		val = r << boot_info.graphics.red_position;
 		val |= g << boot_info.graphics.green_position;
 		val |= b << boot_info.graphics.blue_position;
-	} else {
+	}
+	else
+	{
 		val = color;
 	}
 
-	uint8_t* fb = (uint8_t*)boot_info.graphics.framebuffer;
+	uint8_t *fb = (uint8_t *)boot_info.graphics.framebuffer;
 	uint32_t bytes = boot_info.graphics.bpp / 8;
 	uint32_t offset = y * boot_info.graphics.pitch + x * bytes;
 
-	for (uint32_t i = 0; i < bytes; i++) {
+	for (uint32_t i = 0; i < bytes; i++)
+	{
 		fb[offset + i] = (val >> (i * 8)) & 0xFF;
 	}
 }
@@ -65,22 +72,30 @@ void put_pixel(int x, int y, uint32_t color)
 uint32_t get_pixel(int x, int y)
 {
 	if (x >= boot_info.graphics.width || y >= boot_info.graphics.height ||
-			boot_info.graphics.mode == 0 || x < 0 || y < 0)
+		boot_info.graphics.mode == 0 || x < 0 || y < 0)
 		return 0;
 
-	uint32_t pos = y * boot_info.graphics.pitch + (x * (boot_info.graphics.bpp/8)) + boot_info.graphics.framebuffer;
+	uint32_t pos = y * boot_info.graphics.pitch +
+				   (x * (boot_info.graphics.bpp / 8)) +
+				   boot_info.graphics.framebuffer;
 
 	uint32_t val = *(uint32_t *)pos;
 	uint32_t ret = 0;
-	if (boot_info.graphics.bpp > 8) {
+	if (boot_info.graphics.bpp > 8)
+	{
 		uint8_t r = 0, g = 0, b = 0;
 
-		r = (val >> boot_info.graphics.red_position) & ((1 << boot_info.graphics.red_mask) - 1);
-		g = (val >> boot_info.graphics.green_position) & ((1 << boot_info.graphics.green_mask) - 1);
-		b = (val >> boot_info.graphics.blue_position) & ((1 << boot_info.graphics.blue_mask) - 1);
+		r = (val >> boot_info.graphics.red_position) &
+			((1 << boot_info.graphics.red_mask) - 1);
+		g = (val >> boot_info.graphics.green_position) &
+			((1 << boot_info.graphics.green_mask) - 1);
+		b = (val >> boot_info.graphics.blue_position) &
+			((1 << boot_info.graphics.blue_mask) - 1);
 
 		ret = r | (g << 8) | (b << 16);
-	} else {
+	}
+	else
+	{
 		ret = val;
 	}
 
@@ -96,14 +111,17 @@ void put_line(int x0, int y0, int x1, int y1, uint32_t color)
 	int d = (2 * dy) - dx;
 	int y = y0;
 
-	for (int x = x0; x <= x1; x++) {
+	for (int x = x0; x <= x1; x++)
+	{
 		put_pixel(x, y, color);
-		if (d > 0) {
+		if (d > 0)
+		{
 			y++;
 			d += 2 * (dy - dx);
-		} else {
+		}
+		else
+		{
 			d += 2 * dy;
 		}
 	}
 }
-

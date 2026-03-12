@@ -2,21 +2,21 @@
  * main.c                           *
  * Criado por Matheus Leme Da Silva *
  ***********************************/
-#include <stdint.h>
+#include <boot.h>
+#include <disk.h>
+#include <e820.h>
+#include <fat.h>
+#include <file.h>
 #include <stdarg.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-#include <e820.h>
 #include <util.h>
-#include <disk.h>
-#include <file.h>
-#include <boot.h>
 #include <vesa.h>
-#include <fat.h>
 #include <vga.h>
 
-#define HALT() __asm__ volatile ("cli;hlt");
+#define HALT() __asm__ volatile("cli;hlt");
 
 #include "config.h"
 
@@ -46,7 +46,8 @@ void set_vesa(void)
 {
 	uint16_t vesa_mode = 0x13;
 
-	if (!video_modes[0]) {
+	if (!video_modes[0])
+	{
 		boot_info.graphics.mode = 0;
 		printf("No video modes!\r\n");
 		wait(1);
@@ -54,7 +55,8 @@ void set_vesa(void)
 	}
 
 	/* Tentar entrar nos modos */
-	for (int i = 0; video_modes[i]; i++) {
+	for (int i = 0; video_modes[i]; i++)
+	{
 		uint16_t mode = vesa_find_mode(video_modes[i]);
 		if (mode == 0x13)
 			continue;
@@ -62,19 +64,23 @@ void set_vesa(void)
 		break;
 	}
 
-	if (vesa_set_mode(vesa_mode) != 0) {
+	if (vesa_set_mode(vesa_mode) != 0)
+	{
 		printf("Falha ao entrar no modo grafico!\r\n");
 		boot_info.graphics.mode = 0;
 		return;
-	} else {
-		if (vesa_get_mode_info(vesa_mode, &vbe_mode_info) != 0) {
+	}
+	else
+	{
+		if (vesa_get_mode_info(vesa_mode, &vbe_mode_info) != 0)
+		{
 			printf("Falha ao pegar informações do modo grafico!\r\n");
 			halt();
 		}
 	}
 
 	boot_info.graphics.mode = 1;
-	boot_info.graphics.width =  vbe_mode_info.width;
+	boot_info.graphics.width = vbe_mode_info.width;
 	boot_info.graphics.height = vbe_mode_info.height;
 	boot_info.graphics.pitch = vbe_mode_info.pitch;
 	boot_info.graphics.bpp = vbe_mode_info.bpp;
@@ -93,7 +99,8 @@ void set_font(void)
 #ifdef FONT
 	boot_info.vga_font_type = FONT;
 	boot_info.vga_font = vga_get_font(FONT, NULL);
-	if (!boot_info.vga_font) {
+	if (!boot_info.vga_font)
+	{
 		printf("Falha ao pegar a fonte!\r\n");
 		halt();
 	}
@@ -104,9 +111,11 @@ void set_font(void)
 void set_e820(void)
 {
 	boot_info.e820_table = &e820_table[0];
-	boot_info.e820_entry_count = E820_get_table(boot_info.e820_table, MAX_E820_ENTRIES);
+	boot_info.e820_entry_count =
+		E820_get_table(boot_info.e820_table, MAX_E820_ENTRIES);
 
-	if (boot_info.e820_entry_count == 0) {
+	if (boot_info.e820_entry_count == 0)
+	{
 		printf("Falha ao pegar mapa da memoria!\r\n");
 		halt();
 	}
@@ -117,7 +126,8 @@ void load_kernel(void)
 {
 	printf("Carregando %s...\r\n", KERNEL_FILE);
 	file_t f;
-	if (open(&f, KERNEL_FILE) != 0) {
+	if (open(&f, KERNEL_FILE) != 0)
+	{
 		printf("Falha ao abrir arquivo do kernel: %s\r\n", KERNEL_FILE);
 		halt();
 	}
@@ -125,7 +135,8 @@ void load_kernel(void)
 	size_t file_size = seek(&f, UINT32_MAX);
 	seek(&f, 0);
 	size_t ret = read(&f, file_size, (void *)(KERNEL_ADDR));
-	if (ret != file_size) {
+	if (ret != file_size)
+	{
 		printf("Falha ao ler arquivo do kernel: %s\r\n", KERNEL_FILE);
 		halt();
 	}
@@ -148,12 +159,9 @@ int main()
 	set_font();
 
 	uint32_t boot_info_loc = (uint32_t)&boot_info;
-	__asm__ volatile (
-		"MOV %0, %%EAX;"
-		"JMP *%1"
-		:: "r"(boot_info_loc), "r"(KERNEL_ADDR)
-		: "eax"
-	);
+	__asm__ volatile("MOV %0, %%EAX;"
+					 "JMP *%1" ::"r"(boot_info_loc),
+					 "r"(KERNEL_ADDR)
+					 : "eax");
 	halt();
 }
-

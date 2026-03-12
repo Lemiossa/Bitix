@@ -2,11 +2,11 @@
  * e820.c                           *
  * Criado por Matheus Leme Da Silva *
  ***********************************/
+#include "e820.h"
+#include "real_mode.h"
+#include "util.h"
 #include <stdint.h>
 #include <string.h>
-#include "real_mode.h"
-#include "e820.h"
-#include "util.h"
 
 /* Pega a tabela E820 */
 /* Retorna o número de entradas, 0 se erro */
@@ -16,8 +16,10 @@ int E820_get_table(e820_entry_t *out, int max)
 	Regs r = {0};
 
 	r.d.ebx = 0;
-	do {
-		printf(""); /* Não mecher, sei lá pq, mas só funciona se esse printf existir */
+	do
+	{
+		printf(""); /* Não mecher, sei lá pq, mas só funciona se esse printf
+					   existir */
 		r.d.eax = 0x0000E820;
 		r.d.ecx = 24;
 		r.d.edx = 0x534D4150;
@@ -37,4 +39,3 @@ int E820_get_table(e820_entry_t *out, int max)
 
 	return count;
 }
-

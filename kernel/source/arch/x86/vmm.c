@@ -2,9 +2,9 @@
  * vmm.c                            *
  * Criado por Matheus Leme Da Silva *
  ***********************************/
-#include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -41,7 +41,8 @@ static inline uint32_t get_flags(uint32_t entry)
 /* Pega o PD atual */
 static inline uint32_t *get_pd(void)
 {
-	if (paging_enabled) {
+	if (paging_enabled)
+	{
 		return (uint32_t *)0xFFFFF000;
 	}
 
@@ -51,7 +52,8 @@ static inline uint32_t *get_pd(void)
 /* Pega uma PT específica */
 static inline uint32_t *get_pt(uint32_t pd_index)
 {
-	if (paging_enabled) {
+	if (paging_enabled)
+	{
 		return (uint32_t *)(0xFFC00000 + (pd_index * PAGE_SIZE));
 	}
 
@@ -142,12 +144,14 @@ uint32_t vmm_create_pd(void)
 		return 0;
 
 	uint32_t virt = vmm_get_free_virt();
-	if (!virt) {
+	if (!virt)
+	{
 		pmm_free_page((void *)pd);
 		return 0;
 	}
 
-	if (!vmm_map(pd, virt, PAGE_PRESENT | PAGE_WRITE)) {
+	if (!vmm_map(pd, virt, PAGE_PRESENT | PAGE_WRITE))
+	{
 		pmm_free_page((void *)pd);
 		return 0;
 	}
@@ -166,16 +170,21 @@ bool vmm_map(uint32_t phys, uint32_t virt, uint32_t flags)
 	if (!pd)
 		return false;
 
-	if (!(pd[pd_index] & PAGE_PRESENT)) {
+	if (!(pd[pd_index] & PAGE_PRESENT))
+	{
 		uint32_t *new_pt = pmm_alloc_page();
 		if (!new_pt)
 			return false;
 
-		pd[pd_index] = make_entry((uint32_t)new_pt, PAGE_PRESENT | PAGE_WRITE | (flags & PAGE_USER));
-		if (paging_enabled) {
+		pd[pd_index] = make_entry((uint32_t)new_pt, PAGE_PRESENT | PAGE_WRITE |
+														(flags & PAGE_USER));
+		if (paging_enabled)
+		{
 			invlpg(0xFFC00000 + (pd_index * PAGE_SIZE));
 			memset((void *)(0xFFC00000 + (pd_index * PAGE_SIZE)), 0, PAGE_SIZE);
-		} else {
+		}
+		else
+		{
 			memset(new_pt, 0, PAGE_SIZE);
 		}
 	}
@@ -218,7 +227,8 @@ bool vmm_unmap(uint32_t virt)
 uint32_t vmm_get_free_virt(void)
 {
 	uint32_t ptr = 0xC0000000;
-	while (ptr < 0xFFC00000) {
+	while (ptr < 0xFFC00000)
+	{
 		if (!vmm_virt_is_present(ptr))
 			break;
 		ptr += PAGE_SIZE;
@@ -233,7 +243,8 @@ uint32_t vmm_get_free_virt(void)
 uint32_t vmm_get_free_virt_user(void)
 {
 	uint32_t ptr = 0x00400000;
-	while (ptr < 0xC0000000) {
+	while (ptr < 0xC0000000)
+	{
 		if (!vmm_virt_is_present(ptr))
 			break;
 		ptr += PAGE_SIZE;
@@ -251,10 +262,12 @@ bool vmm_init(void)
 
 	memset(kernel_pd, 0, PAGE_SIZE);
 
-	kernel_pd[1023] = make_entry((uint32_t)kernel_pd, PAGE_PRESENT | PAGE_WRITE);
+	kernel_pd[1023] =
+		make_entry((uint32_t)kernel_pd, PAGE_PRESENT | PAGE_WRITE);
 
 	set_cr3((uint32_t)kernel_pd);
-	for (uint32_t i = 0; i < 0x00400000; i += PAGE_SIZE) {
+	for (uint32_t i = 0; i < 0x00400000; i += PAGE_SIZE)
+	{
 		if (!vmm_map(i, i, PAGE_WRITE | PAGE_PRESENT))
 			continue;
 	}
@@ -264,5 +277,3 @@ bool vmm_init(void)
 	idt_set_trap(14, page_fault_handler, 0x08);
 	return true;
 }
-
-

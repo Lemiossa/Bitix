@@ -2,14 +2,15 @@
  * disk.c                           *
  * Criado por Matheus Leme Da Silva *
  ***********************************/
-#include <stdint.h>
-#include <string.h>
-#include <stdio.h>
-#include "util.h"
 #include "disk.h"
 #include "real_mode.h"
+#include "util.h"
+#include <stdint.h>
+#include <stdio.h>
+#include <string.h>
 
-typedef struct disk {
+typedef struct disk
+{
 	uint32_t cylinders, heads, sectors;
 	uint32_t total_sectors;
 	uint8_t drive;
@@ -26,7 +27,8 @@ int boot_disk = 0; /* Index do disco de boot */
 /* Pega parâmetros de um disco usando o BIOS */
 /* Retorna um número diferente de zero se houver erro */
 /* ATENÇÃO: Você precisa chamar disk_dettect() primeiro! */
-uint8_t disk_get_parameters(int disk, uint32_t *cylinders, uint32_t *heads, uint32_t *sectors)
+uint8_t disk_get_parameters(int disk, uint32_t *cylinders, uint32_t *heads,
+							uint32_t *sectors)
 {
 	if (disk > MAX_DISKS)
 		return 1;
@@ -81,7 +83,8 @@ uint8_t disk_read_sector(int disk, void *dest, uint32_t lba)
 	uint32_t sector = (lba % sectors) + 1;
 
 	uint8_t ret = 0;
-	for (int i = 0; i < 3; i++) {
+	for (int i = 0; i < 3; i++)
+	{
 		Regs r = {0};
 		r.w.ax = 0x0201;
 		r.b.ch = cylinder & 0xFF;
@@ -94,7 +97,8 @@ uint8_t disk_read_sector(int disk, void *dest, uint32_t lba)
 
 		ret = r.b.ah;
 
-		if (ret == 0) {
+		if (ret == 0)
+		{
 			memcpy(dest, disk_buf, SECTOR_SIZE);
 			break;
 		}
@@ -103,7 +107,6 @@ uint8_t disk_read_sector(int disk, void *dest, uint32_t lba)
 			return 1;
 	}
 
-
 	return ret;
 }
 
@@ -111,7 +114,8 @@ uint8_t disk_read_sector(int disk, void *dest, uint32_t lba)
 /* Retorna -1 se houver erro */
 int disk_find_letter(char letter)
 {
-	for (int i = 0; i < MAX_DISKS; i++) {
+	for (int i = 0; i < MAX_DISKS; i++)
+	{
 		if (disks[i].letter == letter)
 			return i;
 	}
@@ -123,7 +127,8 @@ int disk_find_letter(char letter)
 /* Retorna -1 se houver erro */
 int disk_find_drive(uint8_t drive)
 {
-	for (int i = 0; i < MAX_DISKS; i++) {
+	for (int i = 0; i < MAX_DISKS; i++)
+	{
 		if (disks[i].drive == drive)
 			return i;
 	}
@@ -145,13 +150,15 @@ void disk_detect(void)
 {
 	int idx = 0;
 
-	for (int i = 0x00; i < 0x02 && idx < MAX_DISKS; i++) { /* FDs */
+	for (int i = 0x00; i < 0x02 && idx < MAX_DISKS; i++)
+	{ /* FDs */
 		Regs r = {0};
 		r.b.ah = 0x08;
 		r.b.dl = i;
 		intx(0x13, &r);
 
-		if (r.w.flags & FLAG_CF) {
+		if (r.w.flags & FLAG_CF)
+		{
 			disks[idx].letter = 0;
 			continue;
 		}
@@ -161,13 +168,15 @@ void disk_detect(void)
 		disks[idx].cylinders = (r.b.ch | (((r.b.cl & 0xC0) >> 6) << 8)) + 1;
 		disks[idx].heads = r.b.dh + 1;
 		disks[idx].sectors = r.b.cl & 0x3F;
-		disks[idx].total_sectors = disks[idx].cylinders * disks[idx].heads * disks[idx].sectors;
+		disks[idx].total_sectors =
+			disks[idx].cylinders * disks[idx].heads * disks[idx].sectors;
 		disks[idx].drive = i;
 		disks[idx].letter = letter;
 		idx++;
 	}
 
-	for (int i = 0x80; i < (0x80 + (MAX_DISKS - 2)) && idx < MAX_DISKS; i++) { /* HDs */
+	for (int i = 0x80; i < (0x80 + (MAX_DISKS - 2)) && idx < MAX_DISKS; i++)
+	{ /* HDs */
 		Regs r = {0};
 		r.b.ah = 0x08;
 		r.b.dl = i;
@@ -181,41 +190,52 @@ void disk_detect(void)
 		disks[idx].cylinders = (r.b.ch | (((r.b.cl & 0xC0) >> 6) << 8)) + 1;
 		disks[idx].heads = r.b.dh + 1;
 		disks[idx].sectors = r.b.cl & 0x3F;
-		disks[idx].total_sectors = disks[idx].cylinders * disks[idx].heads * disks[idx].sectors;
+		disks[idx].total_sectors =
+			disks[idx].cylinders * disks[idx].heads * disks[idx].sectors;
 		disks[idx].drive = i;
 		disks[idx].letter = letter;
 		idx++;
 	}
 
 	printf("Discos: \r\n");
-	for (int i = 0; i < MAX_DISKS; i++) {
+	for (int i = 0; i < MAX_DISKS; i++)
+	{
 		if (!disks[i].letter)
 			continue;
 
 		if (disks[i].drive == boot_drive)
 			boot_disk = i;
 
-		printf("\tDisco %c: drive: 0x%02hhx, CHS: %hu,%hhu,%hhu, tamanho: ", disks[i].letter,
-				disks[i].drive, disks[i].cylinders,
-				disks[i].heads, disks[i].sectors);
-
+		printf("\tDisco %c: drive: 0x%02hhx, CHS: %hu,%hhu,%hhu, tamanho: ",
+			   disks[i].letter, disks[i].drive, disks[i].cylinders,
+			   disks[i].heads, disks[i].sectors);
 
 		uint32_t bytes = disks[i].total_sectors * SECTOR_SIZE;
 
 		/* vou usar Gb, Mb e Kb ao invez de Gib, Mib e Kib */
-		if (bytes > 1000 * 1000 * 1000) {
+		if (bytes > 1000 * 1000 * 1000)
+		{
 			uint32_t gb_int = bytes / (1000 * 1000 * 1000);
-			uint32_t gb_dec = (bytes % (1000 * 1000 * 1000)) / 100000; /* / 100000 para ter só 2 casas */
+			uint32_t gb_dec = (bytes % (1000 * 1000 * 1000)) /
+							  100000; /* / 100000 para ter só 2 casas */
 			printf("%u.%02u Gb", gb_int, gb_dec);
-		} else if (bytes > 1000 * 1000) {
+		}
+		else if (bytes > 1000 * 1000)
+		{
 			uint32_t mb_int = bytes / (1000 * 1000);
-			uint32_t mb_dec = (bytes % (1000 * 1000)) / 10000; /* / 10000 para ter só 2 casas */
+			uint32_t mb_dec = (bytes % (1000 * 1000)) /
+							  10000; /* / 10000 para ter só 2 casas */
 			printf("%u.%02u Mb", mb_int, mb_dec);
-		} else if (bytes > 1000) {
+		}
+		else if (bytes > 1000)
+		{
 			uint32_t kb_int = bytes / 1000;
-			uint32_t kb_dec = (bytes % 1000) / 1000; /* / 1000 para ter só 2 casas */
+			uint32_t kb_dec =
+				(bytes % 1000) / 1000; /* / 1000 para ter só 2 casas */
 			printf("%u.%02u Kb", kb_int, kb_dec);
-		} else {
+		}
+		else
+		{
 			printf("%u bytes", bytes);
 		}
 		printf("\r\n");

@@ -4,10 +4,11 @@
  ***********************************/
 #ifndef BOOT_H
 #define BOOT_H
-#include <stdint.h>
 #include <e820.h>
+#include <stdint.h>
 
-typedef struct graphics_info {
+typedef struct graphics_info
+{
 	int mode; /* 1 = modo vesa */
 	int width, height;
 	int pitch;
@@ -18,7 +19,8 @@ typedef struct graphics_info {
 	uint16_t blue_mask, blue_position;
 } graphics_info_t;
 
-typedef struct boot_info {
+typedef struct boot_info
+{
 	e820_entry_t *e820_table;
 	int e820_entry_count;
 	graphics_info_t graphics;

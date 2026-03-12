@@ -4,10 +4,11 @@
  ***********************************/
 #ifndef ATA_H
 #define ATA_H
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
 
-typedef struct ata_disk {
+typedef struct ata_disk
+{
 	char model[41];
 	char serial[21];
 	uint32_t total_sectors;

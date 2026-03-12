@@ -2,12 +2,12 @@
  * vesa.c                           *
  * Criado por Matheus Leme Da Silva *
  ***********************************/
+#include "vesa.h"
+#include "real_mode.h"
+#include "util.h"
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-#include "real_mode.h"
-#include "util.h"
-#include "vesa.h"
 
 /* Pega a estrutura de informações de um modo VESA */
 /* Retorna um número diferente de zero caso haja erro */
@@ -40,8 +40,8 @@ int vesa_set_mode(uint16_t mode)
 	return 0;
 }
 
-
-/* Procura um modo VESA EXATAMENTE igual ao passado pela string no formato "WIDTHxHEIGHTxBPP" */
+/* Procura um modo VESA EXATAMENTE igual ao passado pela string no formato
+ * "WIDTHxHEIGHTxBPP" */
 uint16_t vesa_find_mode(const char *mode)
 {
 	Regs r = {0};
@@ -59,12 +59,16 @@ uint16_t vesa_find_mode(const char *mode)
 	r.w.es = MK_SEG(&info_block);
 	r.w.di = MK_OFF(&info_block);
 	intx(0x10, &r);
-	if (r.w.ax != 0x004F) {
+	if (r.w.ax != 0x004F)
+	{
 		return 0x13;
 	}
 
-	uint16_t *modes = (uint16_t *)MK_PTR(info_block.video_mode_seg, info_block.video_mode_off);
-	for (int i = 0; modes[i] != 0xFFFF; i++) {
+	uint16_t *modes = (uint16_t *)MK_PTR(info_block.video_mode_seg,
+										 info_block.video_mode_off);
+	for (int i = 0; modes[i] != 0xFFFF; i++)
+	{
+
 		uint16_t mode = modes[i];
 		if (mode == 0)
 			continue;
@@ -77,8 +81,8 @@ uint16_t vesa_find_mode(const char *mode)
 			continue;
 
 		if (mode_info.width == expected_width &&
-				mode_info.height == expected_height &&
-				mode_info.bpp == expected_bpp)
+			mode_info.height == expected_height &&
+			mode_info.bpp == expected_bpp)
 			return modes[i];
 	}
 

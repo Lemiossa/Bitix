@@ -10,15 +10,18 @@
 #define MK_OFF(ptr) ((uint32_t)(ptr) & 0x0F)
 #define MK_PTR(seg, off) (((uint32_t)(seg) << 4) + (uint32_t)(off))
 
-typedef union Regs {
-	struct {
+typedef union Regs
+{
+	struct
+	{
 		uint8_t al, ah, __al, __ah;
 		uint8_t bl, bh, __bl, __bh;
 		uint8_t cl, ch, __cl, __ch;
 		uint8_t dl, dh, __dl, __dh;
 	} b;
 
-	struct {
+	struct
+	{
 		uint16_t ax, __ax;
 		uint16_t bx, __bx;
 		uint16_t cx, __cx;
@@ -31,7 +34,8 @@ typedef union Regs {
 		uint16_t flags;
 	} w;
 
-	struct {
+	struct
+	{
 		uint32_t eax;
 		uint32_t ebx;
 		uint32_t ecx;

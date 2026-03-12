@@ -2,8 +2,8 @@
  * string.c                         *
  * Criado por Matheus Leme Da Silva *
  ***********************************/
-#include <stdint.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <string.h>
 
 /* Copia N bytes de SRC para DEST */
@@ -13,7 +13,8 @@ void *memcpy(void *dest, const void *src, size_t n)
 	uint8_t *d = (uint8_t *)dest;
 	uint8_t *s = (uint8_t *)src;
 
-	for (size_t i = 0; i < n; i++) {
+	for (size_t i = 0; i < n; i++)
+	{
 		d[i] = s[i];
 	}
 
@@ -25,7 +26,8 @@ void memset(void *dest, int b, size_t n)
 {
 	uint8_t *d = (uint8_t *)dest;
 
-	for (size_t i = 0; i < n; i++) {
+	for (size_t i = 0; i < n; i++)
+	{
 		d[i] = (uint8_t)b;
 	}
 }
@@ -33,7 +35,8 @@ void memset(void *dest, int b, size_t n)
 /* Compara 2 strings e retorna a diferença entre elas */
 size_t strcmp(const char *s1, const char *s2)
 {
-	while (*s1 && (*s1 == *s2)) {
+	while (*s1 && (*s1 == *s2))
+	{
 		s1++;
 		s2++;
 	}
@@ -44,7 +47,8 @@ size_t strcmp(const char *s1, const char *s2)
 /* Compara N caracteres de 2 strings e retorna a diferença entre elas */
 size_t strncmp(const char *s1, const char *s2, size_t n)
 {
-	for (size_t i = 0; i < n && (*s1 == *s2); i++) {
+	for (size_t i = 0; i < n && (*s1 == *s2); i++)
+	{
 		s1++;
 		s2++;
 	}
@@ -56,7 +60,8 @@ size_t strncmp(const char *s1, const char *s2, size_t n)
 size_t strlen(const char *s)
 {
 	size_t i = 0;
-	while (*s) {
+	while (*s)
+	{
 		s++;
 		i++;
 	}
@@ -67,7 +72,8 @@ size_t strlen(const char *s)
 /* Copia de src para dest até encontrar \0 no src */
 void strcpy(char *d, const char *s)
 {
-	while (*s) {
+	while (*s)
+	{
 		*d++ = *s++;
 	}
 }
@@ -75,19 +81,23 @@ void strcpy(char *d, const char *s)
 /* Copia n bytes de src para dest até encontrar */
 void strncpy(char *d, const char *s, size_t n)
 {
-	while (n > 0 && *s) {
+	while (n > 0 && *s)
+	{
 		*d++ = *s++;
 		n--;
 	}
 }
 
-/* Retorna um ponteiro para a primeira ocorrencia de um caractere em uma string */
+/* Retorna um ponteiro para a primeira ocorrencia de um caractere em uma string
+ */
 /* Retorna nulo quando não encontra nada */
 char *strchr(const char *s, char ch)
 {
 	char *p = (char *)s;
-	while (*p) {
-		if (*p == ch) {
+	while (*p)
+	{
+		if (*p == ch)
+		{
 			return p;
 		}
 		p++;
@@ -112,10 +122,13 @@ char *strtok(char *str, const char *delim)
 	while (*p && !strchr(delim, *p))
 		p++;
 
-	if (*p) {
+	if (*p)
+	{
 		*p = 0;
 		saved = p + 1;
-	} else {
+	}
+	else
+	{
 		saved = NULL;
 	}
 
