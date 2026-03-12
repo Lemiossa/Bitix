@@ -9,12 +9,24 @@
 		<h1>Bitix</h1>
 		<p>Bitix é um sistema operacional feito do zero para fins educativos.</p>
 
-		<div>
+		<div class="image">
 			<img class="image-box" src="https://raw.githubusercontent.com/Lemiossa/Bitix/main/current.png">
 			<p>Essa é uma imagem do estado atual do Bitix</p>
 		</div>
 
-		<p>No kernel, atualmente foi implementado:</p>
+
+		<h2>Bootloader</h2>
+		<p>Atualmente, implementa:</p>
+		<ol>
+			<li>Acesso a serviços do BIOS usando intx</li>
+			<li>"Driver" de disco</li>
+			<li>Driver de FAT12, FAT16 e FAT32</li>
+			<li>Capacidade de pegar a fonte VGA usando o BIOS</li>
+			<li>Capacidade de entrar no modo grafico</li>
+		</ol>
+
+		<h2>Kernel</h2>
+		<p>Atualmente, implementa:</p>
 		<ol>
 			<li>GDT</li>
 			<li>IDT</li>

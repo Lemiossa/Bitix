@@ -4,28 +4,42 @@
 }
 
 body {
-	background-color: #222222;
+	background-color: rgb(0, 0, 0);
 	color: white;
 	font-family: "VGA", monospace;
+
 	margin: 0 auto;
-	padding: 0 16px;
+	padding: 16px 16px;
 	max-width: 900px;
 }
 
+@keyframes blink {
+	0% { opacity: 0; }
+	100% { opacity: 1; }
+}
+
 h1 {
-	color: #00AAAA;
+	color: rgb(0, 170, 170);
+	animation: blink 1s infinite;
+	text-align: center;
 }
 
 h2 {
-	color: #00AAAA;
+	color: rgb(0, 170, 170);
 }
 
 .image-box {
-	border: 2px solid #5555FF;
+	border: 2px solid rgb(85, 85, 255);
+	border-radius: 4px;
 }
 
 .image {
 	display: flex;
+	background-color: rgb(85, 85, 85);
+	flex-direction: column;
 	justify-content: center;
 	align-items: center;
+	padding: 16px;
+	border-radius: 4px;
 }
+
