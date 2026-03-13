@@ -8,9 +8,16 @@ body {
 	color: white;
 	font-family: "VGA", monospace;
 
-	margin: 0 auto;
+	margin: 40px auto;
 	padding: 16px 16px;
 	max-width: 900px;
+
+	font-size: 16px;
+	line-height: 16px;
+
+	-webkit-font-smoothing: none;
+	-moz-osx-font-smoothing: grayscale;
+	font-smooth: never;
 }
 
 @keyframes blink {
@@ -19,14 +26,23 @@ body {
 	100% { opacity: 0; }
 }
 
+hr {
+	border: none;
+	border-top: 2px solid rgb(0,170,170);
+	margin: 24px 0;
+}
+
 h1 {
 	color: rgb(0, 170, 170);
-	animation: blink 1s infinite;
 	text-align: center;
 }
 
 h2 {
 	color: rgb(0, 170, 170);
+}
+
+.blink {
+	animation: blink 1s steps(1) infinite;
 }
 
 .image-box {
