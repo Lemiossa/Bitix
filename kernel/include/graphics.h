@@ -13,8 +13,8 @@
 	)
 
 void graphics_init(void);
-void put_pixel(int x, int y, uint32_t color);
-uint32_t get_pixel(int x, int y);
-void put_line(int x0, int y0, int x1, int y1, uint32_t color);
+void graphics_put_pixel(int x, int y, uint32_t color);
+uint32_t graphics_get_pixel(int x, int y);
+void graphics_put_line(int x0, int y0, int x1, int y1, uint32_t color);
 
 #endif /* GRAPHICS_H */

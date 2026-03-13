@@ -239,4 +239,16 @@ static inline void ltr(uint16_t selector)
 	__asm__ volatile("LTR %w0" ::"r"(selector));
 }
 
+/* FNSAVE */
+static inline void fnsave(void *f)
+{
+	__asm__ volatile("fnsave %0" : : "m"(f));
+}
+
+/* FRSTOR */
+static inline void frstor(void *f)
+{
+	__asm__ volatile("frstor %0" : : "m"(f));
+}
+
 #endif /* ASM_H */

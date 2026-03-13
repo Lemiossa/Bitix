@@ -6,6 +6,6 @@
 #define FPU_H
 #include <stdbool.h>
 
-bool fpu_init(void);
+void fpu_init(void);
 
 #endif /* FPU_H */

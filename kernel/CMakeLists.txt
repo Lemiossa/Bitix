@@ -17,6 +17,8 @@ add_executable(kernel.elf
 	source/graphics.c
 	source/terminal.c
 	source/timer.c
+	source/sched.c
+	source/panic.c
 	source/heap.c
 	source/main.c
 	source/pic.c

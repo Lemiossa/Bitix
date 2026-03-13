@@ -7,9 +7,8 @@
 #include <stdint.h>
 #include <string.h>
 #include <terminal.h>
-
+#include <panic.h>
 #include <boot.h>
-
 #include <pmm.h>
 
 uint8_t *pmm_bitmap = NULL;
@@ -91,8 +90,11 @@ void pmm_unmark_area(void *start_addr, void *end_addr)
 }
 
 /* Inicializa pmm */
-bool pmm_init(void)
+void pmm_init(void)
 {
+	if (!boot_info.e820_table)
+		panic("PMM: Bootloader nao passou e820_table\r\n");
+
 	pmm_bitmap = (uint8_t *)&__bss_end;
 
 	e820_entry_t *e820_table = boot_info.e820_table;
@@ -102,8 +104,7 @@ bool pmm_init(void)
 	}
 
 	memset(pmm_bitmap, 0, pmm_total_pages / 8);
-	pmm_mark_page(
-		0); /* IVT e BDA, pode ser que voltemos ao modo real alguma hora */
+	pmm_mark_page(0); /* IVT e BDA, pode ser que voltemos ao modo real alguma hora */
 
 	for (int i = 0; i < boot_info.e820_entry_count; i++)
 	{
@@ -117,7 +118,6 @@ bool pmm_init(void)
 
 	pmm_mark_area(&__start, &__end);
 	pmm_mark_area(&pmm_bitmap[0], &pmm_bitmap[pmm_total_pages]);
-	return true;
 }
 
 /* Aloca uma pagina */
@@ -130,7 +130,7 @@ void *pmm_alloc_page(void)
 		if (pmm_bitmap[pos] == 0xFF)
 			continue;
 
-		if (pmm_test_page(i) == false)
+		if (!pmm_test_page(i))
 		{
 			pmm_mark_page(i);
 			return (void *)(i * PAGE_SIZE);

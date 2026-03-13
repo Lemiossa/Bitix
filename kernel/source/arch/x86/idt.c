@@ -7,6 +7,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <terminal.h>
+#include <panic.h>
 
 #define INTERRUPT_GATE32 0x8E
 #define TRAP_GATE32 0x8F
@@ -14,8 +15,7 @@
 idtr_t idtr;
 idt_entry_t idt[IDT_ENTRIES];
 
-void (*intrs[IDT_ENTRIES])(void) = {0};
-intr_frame_t *last_frame = 0;
+void (*intrs[IDT_ENTRIES])(intr_frame_t *f) = {0};
 
 extern void (*isrs[256])(void);
 
@@ -33,7 +33,7 @@ void idt_set_entry(int entry, uint32_t addr, uint16_t selector, uint8_t attr)
 }
 
 /* Seta uma interrupt gate na IDT */
-void idt_set_intr(int entry, void (*intr)(void), uint16_t selector)
+void idt_set_intr(int entry, void (*intr)(intr_frame_t *f), uint16_t selector)
 {
 	if (entry >= IDT_ENTRIES)
 		return;
@@ -43,7 +43,7 @@ void idt_set_intr(int entry, void (*intr)(void), uint16_t selector)
 }
 
 /* Seta uma trap gate na IDT */
-void idt_set_trap(int entry, void (*trap)(void), uint16_t selector)
+void idt_set_trap(int entry, void (*trap)(intr_frame_t *f), uint16_t selector)
 {
 	if (entry >= IDT_ENTRIES)
 		return;
@@ -57,12 +57,11 @@ void intr_handler(intr_frame_t *f)
 {
 	if (intrs[f->int_no])
 	{
-		last_frame = f;
-		intrs[f->int_no]();
+		intrs[f->int_no](f);
 		return;
 	}
 
-	printf("Int %u\r\n", f->int_no);
+	printf("Interrupcao %u\r\n", f->int_no);
 	printf("EAX: 0x%08X ", f->eax);
 	printf("EBX: 0x%08X\r\n", f->ebx);
 	printf("ECX: 0x%08X ", f->ecx);
@@ -76,6 +75,7 @@ void intr_handler(intr_frame_t *f)
 	printf("ES:  0x%08X ", f->es);
 	printf("FS:  0x%08X\r\n", f->fs);
 	printf("GS:  0x%08X\r\n", f->gs);
+	panic("Interrupcoes sem handler definido sao tratadas como excecao\r\n");
 	cli();
 	hlt();
 }
@@ -83,7 +83,12 @@ void intr_handler(intr_frame_t *f)
 /* Inicializa IDT basica */
 void idt_init(void)
 {
-	for (int i = 0; i < IDT_ENTRIES; i++)
+	for (int i = 0; i < 32; i++)
+	{
+		idt_set_entry(i, (uint32_t)isrs[i], 0x08, INTERRUPT_GATE32);
+	}
+
+	for (int i = 32; i < 256; i++)
 	{
 		idt_set_entry(i, (uint32_t)isrs[i], 0x08, TRAP_GATE32);
 	}

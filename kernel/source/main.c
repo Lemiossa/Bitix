@@ -26,8 +26,59 @@
 #include <timer.h>
 #include <vga.h>
 #include <vmm.h>
+#include <panic.h>
+#include <sched.h>
 
 boot_info_t boot_info = {0};
+
+void prog3(void)
+{
+	while (1)
+	{
+
+	}
+}
+
+void prog2(void)
+{
+	spawn(prog3, "prog3");
+	while (1)
+	{
+
+	}
+}
+
+void prog1(void)
+{
+	uint32_t prog2_pid = spawn(prog2, "prog2");
+	while (1)
+	{
+		terminal_clear(15, 0);
+		printf("%8s %8s %8s %8s %8s %s\r\n\r\n", "pid", "ppid", "state", "priority", "uptime", "name");
+		process_t *p = current;
+		do
+		{
+			char *str = "unknown";
+
+			if (p->state == READY)
+				str = "ready";
+			else if (p->state == RUNNING)
+				str = "running";
+			else if (p->state == BLOCKED)
+				str = "blocked";
+			else if (p->state == DEAD)
+				str = "dead";
+
+			printf("%8u %8u %8s %8u %8u %s\r\n", p->pid, p->ppid, str, p->priority, p->uptime_ticks, p->name);
+			p = p->next;
+
+		}
+		while (p != current);
+
+		timer_wait(1000);
+	}
+	exit();
+}
 
 
 /* Func principal */
@@ -39,50 +90,22 @@ void kernel_main(boot_info_t *bi)
 	pic_remap(0x20, 0x28);
 	terminal_init();
 	terminal_clear(TERMINAL_DEFAULT_FG_COLOR, TERMINAL_DEFAULT_BG_COLOR);
-	if (!pmm_init())
-		goto halt_no_msg;
-	if (!vmm_init())
-		goto halt_no_msg;
+	pmm_init();
+	vmm_init();
 	heap_init();
-
 	graphics_init();
-
-	if (!cpuid_is_available())
-	{
-		printf("CPUID nao esta disponivel\r\n");
-		goto halt;
-	}
-	cpuid_get_features();
-
-	if (!fpu_init())
-	{
-		printf("Falha ao inicializar FPU\r\n");
-		goto halt;
-	}
-
-	printf("Fornecedor de CPU: %s\r\n", (char *)cpu_vendor);
-	if (!acpi_init())
-	{
-		printf("Falha ao iniciar ACPI\r\n");
-		goto halt;
-	}
-
-	timer_init(4);
+	cpuid_init();
+	fpu_init();
+	acpi_init();
 	pci_enumerate();
 	ata_detect();
+	timer_init(100);
+	sched_init();
 
-	for (int i = 0; i < ata_disk_count; i++)
-	{
-		printf("Disco %d: %s | Serial: %s | %u b\r\n", i, ata_disks[i].model,
-			   ata_disks[i].serial, ata_disks[i].total_sectors * 512);
-	}
+	uint32_t init_pid = spawn(prog1, "prog1");
+	set_priority(init_pid, 2);
 
 	while (1)
-		hlt();
-
-halt:
-	printf("Sistema travado. Por favor, reinicie\r\n");
-halt_no_msg:
-	cli();
-	hlt();
+	{
+	}
 }

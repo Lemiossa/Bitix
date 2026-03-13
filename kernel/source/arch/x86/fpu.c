@@ -4,23 +4,23 @@
  ***********************************/
 #include <stdbool.h>
 #include <stdint.h>
-
+#include <panic.h>
 #include <asm.h>
 #include <cpuid.h>
 
 /* Inicializa FPU */
 /* Retorna false se houver erro */
-bool fpu_init(void)
+void fpu_init(void)
 {
 	if (!cpu_features_edx)
 		cpuid_get_features();
 
-	if (!(cpu_features_edx & CPUID_FEAT_EDX_FPU))
-		return false;
+	if (!(cpu_features_edx & CPUID_FPU))
+		panic("FPU: A maquina nao possui FPU\r\n");
 
 	uint32_t cr0 = get_cr0();
 	if (!(cr0 & CR0_ET))
-		return false;
+		panic("FPU: BIT ET em CR0 nao esta ativo\r\n");
 
 	cr0 &= ~(CR0_EM | CR0_TS); /* Desativar emulação */
 	cr0 |= CR0_MP | CR0_NE;
@@ -33,6 +33,4 @@ bool fpu_init(void)
 	cw &= ~(1 << 2);
 
 	fldcw(cw); /* Ativar a exceção de divide by zero */
-
-	return true;
 }

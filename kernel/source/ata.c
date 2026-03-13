@@ -289,8 +289,9 @@ bool ata_detect(void)
 			disk.atapi = type == 2 ? true : false;
 
 			ata_disks[ata_disk_count++] = disk;
+			printf("Disco %d: %s | Serial: %s | %u b\r\n", i, ata_disks[i].model,
+								   ata_disks[i].serial, ata_disks[i].total_sectors * 512);
 		}
 	}
-
 	return true;
 }

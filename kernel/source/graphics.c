@@ -3,14 +3,21 @@
  * Criado por Matheus Leme Da Silva *
  ***********************************/
 #include <stdint.h>
-
 #include <graphics.h>
+#include <string.h>
 #include <terminal.h>
-
 #include <boot.h>
-
+#include <panic.h>
 #include <pmm.h>
 #include <vmm.h>
+
+/* Retorna o ponteiro no framebuffer usando x e y */
+static inline uint32_t get_ptr(int x, int y)
+{
+	return y * boot_info.graphics.pitch +
+			(x * (boot_info.graphics.bpp / 8)) +
+			boot_info.graphics.framebuffer;
+}
 
 /* Inicializa graficos */
 /* Mapeia framebuffer */
@@ -26,16 +33,17 @@ void graphics_init(void)
 
 	for (uint32_t i = 0; i < size; i += PAGE_SIZE)
 	{
-		vmm_map(boot_info.graphics.framebuffer + i,
-				boot_info.graphics.framebuffer + i, PAGE_PRESENT | PAGE_WRITE);
+		if (!vmm_map(boot_info.graphics.framebuffer + i,
+				boot_info.graphics.framebuffer + i, PAGE_PRESENT | PAGE_WRITE))
+			panic("Graficos: Falha ao mapear framebuffer de video\r\n");
 	}
 }
 
 /* Desenha um PIXEL no modo grafico */
-void put_pixel(int x, int y, uint32_t color)
+void graphics_put_pixel(int x, int y, uint32_t color)
 {
 	if (x >= boot_info.graphics.width || y >= boot_info.graphics.height ||
-		boot_info.graphics.mode == 0 || x < 0 || y < 0)
+		!boot_info.graphics.mode || x < 0 || y < 0)
 		return;
 
 	uint32_t val;
@@ -58,21 +66,16 @@ void put_pixel(int x, int y, uint32_t color)
 		val = color;
 	}
 
-	uint8_t *fb = (uint8_t *)boot_info.graphics.framebuffer;
-	uint32_t bytes = boot_info.graphics.bpp / 8;
-	uint32_t offset = y * boot_info.graphics.pitch + x * bytes;
+	uint32_t pos = get_ptr(x, y);
 
-	for (uint32_t i = 0; i < bytes; i++)
-	{
-		fb[offset + i] = (val >> (i * 8)) & 0xFF;
-	}
+	*(uint32_t *)pos = val;
 }
 
 /* Retorna um pixel no modo grafico */
-uint32_t get_pixel(int x, int y)
+uint32_t graphics_get_pixel(int x, int y)
 {
 	if (x >= boot_info.graphics.width || y >= boot_info.graphics.height ||
-		boot_info.graphics.mode == 0 || x < 0 || y < 0)
+		!boot_info.graphics.mode || x < 0 || y < 0)
 		return 0;
 
 	uint32_t pos = y * boot_info.graphics.pitch +
@@ -104,8 +107,11 @@ uint32_t get_pixel(int x, int y)
 
 /* Desenha uma reta no modo grafico */
 /* Metodo Bresenham simplificado */
-void put_line(int x0, int y0, int x1, int y1, uint32_t color)
+void graphics_put_line(int x0, int y0, int x1, int y1, uint32_t color)
 {
+	if (!boot_info.graphics.mode)
+				return;
+
 	int dx = x1 - x0;
 	int dy = y1 - y0;
 	int d = (2 * dy) - dx;
@@ -113,7 +119,7 @@ void put_line(int x0, int y0, int x1, int y1, uint32_t color)
 
 	for (int x = x0; x <= x1; x++)
 	{
-		put_pixel(x, y, color);
+		graphics_put_pixel(x, y, color);
 		if (d > 0)
 		{
 			y++;
@@ -124,4 +130,16 @@ void put_line(int x0, int y0, int x1, int y1, uint32_t color)
 			d += 2 * dy;
 		}
 	}
+}
+
+/* Faz um scroll no framebuffer gráfico */
+void graphics_scroll(int topx, int topy, int bottomx, int bottomy, int pixels)
+{
+	if (!boot_info.graphics.mode)
+		return;
+
+	uint32_t dest_pos = get_ptr(topx, topy);
+	uint32_t src_pos = get_ptr(topx, topy + pixels);
+	uint32_t length = (bottomy - topy - pixels) * boot_info.graphics.pitch;
+	memcpy((void *)dest_pos, (void *)src_pos, length);
 }

@@ -29,14 +29,14 @@ typedef struct intr_frame
 	uint32_t edi, esi, ebp, original_esp, ebx, edx, ecx, eax;
 	uint32_t int_no, err_code;
 	uint32_t eip, cs, eflags;
-	uint32_t user_esp, user_ss;
+	uint32_t esp, ss;
 } __attribute__((packed)) intr_frame_t;
 
 extern intr_frame_t *last_frame;
 
 void switch_context(intr_frame_t *f);
-void idt_set_intr(int entry, void (*intr)(void), uint16_t selector);
-void idt_set_trap(int entry, void (*trap)(void), uint16_t selector);
+void idt_set_intr(int entry, void (*intr)(intr_frame_t *f), uint16_t selector);
+void idt_set_trap(int entry, void (*trap)(intr_frame_t *f), uint16_t selector);
 void idt_init(void);
 
 #endif /* IDT_H */

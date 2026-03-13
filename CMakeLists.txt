@@ -85,6 +85,7 @@ if(ARCH STREQUAL "x86")
 		-m 4M
 		-smp 4
 		-no-shutdown -no-reboot
+		-enable-kvm
 	)
 
 	add_custom_target(qemu

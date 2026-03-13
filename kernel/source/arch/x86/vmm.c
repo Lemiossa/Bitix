@@ -7,15 +7,12 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-
 #include <terminal.h>
-
 #include <asm.h>
-
 #include <idt.h>
-
 #include <pmm.h>
 #include <vmm.h>
+#include <panic.h>
 
 uint32_t *kernel_pd = NULL;
 bool paging_enabled = false;
@@ -92,26 +89,25 @@ bool vmm_virt_is_present(uint32_t virt)
 }
 
 /* Handler de page fault */
-void page_fault_handler(void)
+void page_fault_handler(intr_frame_t *f)
 {
-	intr_frame_t f = *last_frame;
 	printf("Falha de pagina!\r\n");
 
 	printf("CR2: 0x%08X\r\n", get_cr2());
 
-	printf("EAX: 0x%08X ", f.eax);
-	printf("EBX: 0x%08X\r\n", f.ebx);
-	printf("ECX: 0x%08X ", f.ecx);
-	printf("EDX: 0x%08X\r\n", f.edx);
-	printf("EBP: 0x%08X ", f.ebp);
-	printf("ESI: 0x%08X\r\n", f.esi);
-	printf("EDI: 0x%08X\r\n\r\n", f.edi);
-	printf("EIP: 0x%08X\r\n", f.eip);
-	printf("CS:  0x%08X ", f.cs);
-	printf("DS:  0x%08X\r\n", f.ds);
-	printf("ES:  0x%08X ", f.es);
-	printf("FS:  0x%08X\r\n", f.fs);
-	printf("GS:  0x%08X\r\n", f.gs);
+	printf("EAX: 0x%08X ", f->eax);
+	printf("EBX: 0x%08X\r\n", f->ebx);
+	printf("ECX: 0x%08X ", f->ecx);
+	printf("EDX: 0x%08X\r\n", f->edx);
+	printf("EBP: 0x%08X ", f->ebp);
+	printf("ESI: 0x%08X\r\n", f->esi);
+	printf("EDI: 0x%08X\r\n\r\n", f->edi);
+	printf("EIP: 0x%08X\r\n", f->eip);
+	printf("CS:  0x%08X ", f->cs);
+	printf("DS:  0x%08X\r\n", f->ds);
+	printf("ES:  0x%08X ", f->es);
+	printf("FS:  0x%08X\r\n", f->fs);
+	printf("GS:  0x%08X\r\n", f->gs);
 }
 
 /* Retorna o endereço fisico de um virtual atualmente */
@@ -254,11 +250,11 @@ uint32_t vmm_get_free_virt_user(void)
 }
 
 /* Inicializa o virtual memory manager */
-bool vmm_init(void)
+void vmm_init(void)
 {
 	kernel_pd = pmm_alloc_page();
 	if (!kernel_pd)
-		return false;
+		panic("VMM: Falha ao alocar memoria para o diretorio de paginas do kernel\r\n");
 
 	memset(kernel_pd, 0, PAGE_SIZE);
 
@@ -275,5 +271,4 @@ bool vmm_init(void)
 	set_cr0(get_cr0() | CR0_PG);
 	paging_enabled = true;
 	idt_set_trap(14, page_fault_handler, 0x08);
-	return true;
 }

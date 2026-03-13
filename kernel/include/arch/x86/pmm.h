@@ -12,7 +12,7 @@
 extern uint8_t *pmm_bitmap;
 extern uint32_t pmm_total_pages;
 
-bool pmm_init(void);
+void pmm_init(void);
 void pmm_mark_area(void *start_addr, void *end_addr);
 void pmm_unmark_area(void *start_addr, void *end_addr);
 void *pmm_alloc_page(void);

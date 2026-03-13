@@ -12,6 +12,8 @@
 #include <string.h>
 #include <terminal.h>
 #include <vga.h>
+#include <panic.h>
+#include <stdbool.h>
 
 #define CELLS 180 * 80
 
@@ -23,6 +25,7 @@ static int bottom_corner_x = 80, bottom_corner_y = 25;
 static int cursor_x = 0, cursor_y = 0;
 static uint8_t current_fg_color = 7;
 static uint8_t current_bg_color = 0;
+static bool initialized = false;
 
 typedef struct char_cell
 {
@@ -82,11 +85,11 @@ static void draw_char(int x, int y, char c, uint32_t fg, uint32_t bg)
 		{
 			if (line & (0x80 >> cx))
 			{
-				put_pixel(cx + dx, cy + dy, fg);
+				graphics_put_pixel(cx + dx, cy + dy, fg);
 			}
 			else
 			{
-				put_pixel(cx + dx, cy + dy, bg);
+				graphics_put_pixel(cx + dx, cy + dy, bg);
 			}
 		}
 	}
@@ -100,9 +103,6 @@ static void put_char_at(int x, int y, char_cell_t cell)
 
 	uint16_t pos = y * width + x;
 	buffer[pos] = cell;
-
-	draw_char(x, y, cell.ch, terminal_palette[cell.fg],
-			  terminal_palette[cell.bg]);
 }
 
 /* pega um caractere numa posição específica do terminal */
@@ -222,6 +222,8 @@ void terminal_init(void)
 
 	current_bg_color = TERMINAL_DEFAULT_BG_COLOR;
 	current_fg_color = TERMINAL_DEFAULT_FG_COLOR;
+	initialized = true;
+	printf("Terminal iniciado!\r\n");
 }
 
 /* Muda a posição do cursor */
@@ -259,6 +261,9 @@ void terminal_clear(uint8_t fg, uint8_t bg)
 /* Imprime um caractere na tela */
 void terminal_putchar(char c)
 {
+	if (!initialized)
+		return;
+
 	static int state = 0; /* 0 = normal, 1 = escape, 2 = csi */
 	static int csi_param_table[TERMINAL_MAX_CSI_PARAMS];
 	static int csi_params = 0; /* Quantidade de parametros */
@@ -360,6 +365,8 @@ void terminal_putchar(char c)
 		cell->bg = current_bg_color;
 		cell->fg = current_fg_color;
 		cell->ch = c;
+		draw_char(cursor_x, cursor_y, cell->ch, terminal_palette[cell->fg],
+				terminal_palette[cell->bg]);
 		put_char_at(cursor_x++, cursor_y, *cell);
 	}
 

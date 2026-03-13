@@ -5,12 +5,10 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-
+#include <panic.h>
 #include <pmm.h>
 #include <vmm.h>
-
 #include <acpi.h>
-
 #include <terminal.h>
 
 typedef struct rsdp
@@ -181,13 +179,13 @@ uint32_t acpi_ioapic_read(uint32_t reg)
 }
 
 /* Inicializa ACPI */
-bool acpi_init(void)
+void acpi_init(void)
 {
 	rsdp_t *rsdp = acpi_find_rsdp((void *)0xE0000, (void *)0xFFFFF);
 	if (!rsdp)
 	{
 	failed_to_find_rsdp:
-		return false;
+		panic("ACPI: Falha ao procurar RSDP\r\n");
 	}
 
 check_rsdp:
@@ -204,10 +202,10 @@ check_rsdp:
 
 	uint32_t madt_virt = vmm_get_free_virt();
 	if (!madt_virt)
-		return false;
+		panic("ACPI: Falha ao conseguir um endereco virtual para MADT\r\n");
 
 	if (!vmm_map(madt_phys, madt_virt, PAGE_WRITE | PAGE_PRESENT))
-		return false;
+		panic("ACPI: Falha ao mapear MADT\r\n");
 
 	madt_t *madt = (madt_t *)(madt_virt + (madt_phys & 0xFFF));
 
@@ -218,10 +216,10 @@ check_rsdp:
 
 	lapic = vmm_get_free_virt();
 	if (!lapic)
-		return false;
+		panic("ACPI: Falha ao conseguir um endereco virtual para LAPIC\r\n");
 
 	if (!vmm_map(madt->local_apic_address, lapic, PAGE_PRESENT | PAGE_WRITE))
-		return false;
+		panic("ACPI: Falha ao mapear LAPIC\r\n");
 
 	uint8_t *ptr = (uint8_t *)madt + sizeof(madt_t);
 	uint8_t *end = (uint8_t *)madt + madt_size;
@@ -260,10 +258,10 @@ check_rsdp:
 
 	uint32_t ioapic_virt = vmm_get_free_virt();
 	if (!ioapic_virt)
-		return false;
+		panic("ACPI: Falha ao conseguir um endereco virtual para IOAPIC\r\n");
 
-	vmm_map(ioapic, ioapic_virt, PAGE_PRESENT | PAGE_WRITE);
+	if (!vmm_map(ioapic, ioapic_virt, PAGE_PRESENT | PAGE_WRITE))
+		panic("ACPI: Falha ao mapear IOAPIC\r\n");
+
 	ioapic = ioapic_virt;
-
-	return true;
 }
