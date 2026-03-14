@@ -16,5 +16,6 @@ void graphics_init(void);
 void graphics_put_pixel(int x, int y, uint32_t color);
 uint32_t graphics_get_pixel(int x, int y);
 void graphics_put_line(int x0, int y0, int x1, int y1, uint32_t color);
+void graphics_scroll(int topx, int topy, int bottomy, int pixels);
 
 #endif /* GRAPHICS_H */
