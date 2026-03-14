@@ -18,6 +18,7 @@ endif()
 project(Bitix C ASM_NASM)
 
 set(KERNEL_FILE ${CMAKE_CURRENT_BINARY_DIR}/kernel/kernel.bin)
+set(KERNEL_MAP_FILE ${CMAKE_CURRENT_BINARY_DIR}/kernel/kernel.map)
 set(BOOTLDR_FILE ${CMAKE_CURRENT_BINARY_DIR}/bootldr/bootldr.bin)
 set(IMAGE_FILE ${CMAKE_CURRENT_BINARY_DIR}/image/Bitix.img)
 set(ROOT_DIR ${CMAKE_CURRENT_BINARY_DIR}/image/rootdir)
