@@ -7,14 +7,13 @@
 #include <panic.h>
 #include <asm.h>
 #include <cpuid.h>
+#include <debug.h>
 
 /* Inicializa FPU */
 /* Retorna false se houver erro */
 void fpu_init(void)
 {
-	if (!cpu_features_edx)
-		cpuid_get_features();
-
+	debugf("FPU: Inicializando...\r\n");
 	if (!(cpu_features_edx & CPUID_FPU))
 		panic("FPU: A maquina nao possui FPU\r\n");
 

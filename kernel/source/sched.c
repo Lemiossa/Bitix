@@ -11,6 +11,7 @@
 #include <asm.h>
 #include <panic.h>
 #include <sched.h>
+#include <debug.h>
 
 #define PROCESS_STACK_SIZE 16384
 #define PROCESS_MAX_NAME 256
@@ -102,6 +103,7 @@ void sched(intr_frame_t *f)
 void sched_init(void)
 {
 	cli();
+	debugf("escalonador: Inicializando...\r\n");
 	process_t *idle = alloc(sizeof(process_t));
 	if (!idle)
 		panic("escalonador: Falha ao alocar memoria para o processo idle\r\n");

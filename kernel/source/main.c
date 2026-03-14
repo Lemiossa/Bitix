@@ -20,8 +20,6 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <stdio.h>
-#include <string.h>
 #include <terminal.h>
 #include <timer.h>
 #include <vga.h>
@@ -41,15 +39,15 @@ void kernel_main(boot_info_t *bi)
 	terminal_init();
 	pmm_init();
 	vmm_init();
-	heap_init();
 	graphics_init();
 	terminal_clear(TERMINAL_DEFAULT_FG_COLOR, TERMINAL_DEFAULT_BG_COLOR);
+	heap_init();
 	cpuid_init();
 	fpu_init();
 	acpi_init();
+	timer_init(100);
 	pci_enumerate();
 	ata_detect();
-	timer_init(100);
 	sched_init();
 
 	while (1)

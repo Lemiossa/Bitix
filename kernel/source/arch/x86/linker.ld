@@ -17,6 +17,13 @@ SECTIONS
 	}
 	__data_end = .;
 
+
+	__rodata_start = .;
+	.rodata : {
+		*(.rodata*)
+	}
+	__rodata_end = .;
+
 	__bss_start = .;
 	.bss : {
 		*(.COMMON*)

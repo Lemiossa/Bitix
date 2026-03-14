@@ -12,6 +12,7 @@
 #include <panic.h>
 #include <pmm.h>
 #include <vmm.h>
+#include <debug.h>
 
 static uint32_t bytes_per_pixel = 0;
 static bool initialized = false;
@@ -45,8 +46,13 @@ void graphics_init(void)
 	uint32_t size = (uint32_t)boot_info.graphics.pitch *
 					(uint32_t)boot_info.graphics.height;
 
+	bytes_per_pixel = boot_info.graphics.bpp / 8;
+
 	if (!paging_enabled)
+	{
+		initialized = true;
 		return;
+	}
 
 	for (uint32_t i = 0; i < size; i += PAGE_SIZE)
 	{
@@ -55,9 +61,8 @@ void graphics_init(void)
 			panic("Graficos: Falha ao mapear framebuffer de video\r\n");
 	}
 
-	bytes_per_pixel = boot_info.graphics.bpp / 8;
-
 	initialized = true;
+
 }
 
 /* Desenha um PIXEL no modo grafico */

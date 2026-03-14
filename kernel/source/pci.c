@@ -7,6 +7,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <terminal.h>
+#include <debug.h>
 
 pci_device_t pci_devices[MAX_PCI_DEVICES];
 uint32_t pci_device_count = 0;
@@ -81,7 +82,7 @@ void pci_enumerate(void)
 
 				pci_devices[pci_device_count++] = device;
 
-				printf("PCI %hu:%hhu:%hhu fornecedor=0x%04X classe=%hhu "
+				debugf("PCI: %hu:%hhu:%hhu fornecedor=0x%04X classe=%hhu "
 					   "subclasse=%hhu\r\n",
 					   bus, dev, func, vendor_id, class, subclass);
 			}

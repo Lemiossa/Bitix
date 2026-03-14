@@ -8,6 +8,7 @@
 #include <stdint.h>
 #include <panic.h>
 #include <terminal.h>
+#include <debug.h>
 
 char cpu_vendor[13] = {0};
 uint32_t cpu_features_ebx = 0;
@@ -34,10 +35,11 @@ void cpuid_get_features(void)
 /* Basicamente, usa CPUID para pegar infos */
 void cpuid_init(void)
 {
+	debugf("CPUID: Inicializando...\r\n");
 	if (!cpuid_is_available())
 		panic("CPUID nao esta disponivel\r\n");
 
 	cpuid_get_features();
 
-	printf("Fornecedor de CPU: %s\r\n", (char *)cpu_vendor);
+	debugf("CPUID: Fornecedor de CPU: %s\r\n", (char *)cpu_vendor);
 }

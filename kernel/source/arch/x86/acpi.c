@@ -10,6 +10,7 @@
 #include <vmm.h>
 #include <acpi.h>
 #include <terminal.h>
+#include <debug.h>
 
 typedef struct rsdp
 {
@@ -38,42 +39,6 @@ typedef struct rsdt
 	sdt_header_t header;
 	uint32_t ptrs[];
 } __attribute__((packed)) rsdt_t;
-
-typedef struct madt_entry
-{
-	uint8_t type;
-	uint8_t length;
-} __attribute__((packed)) madt_entry_t;
-
-typedef struct madt_local_apic
-{
-	madt_entry_t entry;
-	uint8_t processor_id;
-	uint8_t apic_id;
-	uint32_t flags;
-} __attribute__((packed)) madt_local_apic_t;
-
-typedef struct madt_io_apic
-{
-	madt_entry_t entry;
-	uint8_t io_apic_id;
-	uint8_t res;
-	uint32_t io_apic_address;
-	uint32_t gsi_base;
-} __attribute__((packed)) madt_io_apic_t;
-
-typedef struct madt
-{
-	sdt_header_t header;
-	uint32_t local_apic_address;
-	uint32_t flags;
-} __attribute__((packed)) madt_t;
-
-cpu_t cpus[MAX_CPUS];
-int cpu_count = 0;
-
-uint32_t lapic = 0;	 /* Endereço virtual */
-uint32_t ioapic = 0; /* Endereço virtual */
 
 /* Procura RSDP */
 rsdp_t *acpi_find_rsdp(void *start, void *end)
@@ -152,35 +117,11 @@ bool acpi_check_rsdp(rsdp_t *rsdp)
 	return sum == 0;
 }
 
-/* Lê um dword no LAPIC */
-uint32_t acpi_lapic_read(uint32_t offset)
-{
-	return *(uint32_t volatile *)(lapic + offset);
-}
-
-/* Escreve um dword no LAPIC */
-void acpi_lapic_write(uint32_t offset, uint32_t value)
-{
-	*(uint32_t volatile *)(lapic + offset) = value;
-}
-
-/* Escreve em um reg no IOAPIC */
-void acpi_ioapic_write(uint32_t reg, uint32_t val)
-{
-	*(uint32_t volatile *)(ioapic) = reg;
-	*(uint32_t volatile *)(ioapic + 0x10) = val;
-}
-
-/* Lê em um reg no IOAPIC */
-uint32_t acpi_ioapic_read(uint32_t reg)
-{
-	*(uint32_t volatile *)(ioapic) = reg;
-	return *(uint32_t volatile *)(ioapic + 0x10);
-}
-
 /* Inicializa ACPI */
 void acpi_init(void)
 {
+	debugf("ACPI: Inicializando...\r\n");
+	debugf("ACPI: Procurando RSDP...\r\n");
 	rsdp_t *rsdp = acpi_find_rsdp((void *)0xE0000, (void *)0xFFFFF);
 	if (!rsdp)
 	{
@@ -198,70 +139,5 @@ check_rsdp:
 		goto check_rsdp;
 	}
 
-	uint32_t madt_phys = acpi_find_rsdt_entry(rsdp->rsdt, "APIC");
-
-	uint32_t madt_virt = vmm_get_free_virt();
-	if (!madt_virt)
-		panic("ACPI: Falha ao conseguir um endereco virtual para MADT\r\n");
-
-	if (!vmm_map(madt_phys, madt_virt, PAGE_WRITE | PAGE_PRESENT))
-		panic("ACPI: Falha ao mapear MADT\r\n");
-
-	madt_t *madt = (madt_t *)(madt_virt + (madt_phys & 0xFFF));
-
-	/* Mapear todas as paginas necessarias */
-	uint32_t madt_size = madt->header.length;
-	for (uint32_t i = 0; i < madt_size; i += PAGE_SIZE)
-		vmm_map(madt_phys + i, madt_virt + i, PAGE_WRITE | PAGE_PRESENT);
-
-	lapic = vmm_get_free_virt();
-	if (!lapic)
-		panic("ACPI: Falha ao conseguir um endereco virtual para LAPIC\r\n");
-
-	if (!vmm_map(madt->local_apic_address, lapic, PAGE_PRESENT | PAGE_WRITE))
-		panic("ACPI: Falha ao mapear LAPIC\r\n");
-
-	uint8_t *ptr = (uint8_t *)madt + sizeof(madt_t);
-	uint8_t *end = (uint8_t *)madt + madt_size;
-
-	while (ptr < end)
-	{
-		madt_entry_t *entry = (madt_entry_t *)ptr;
-
-		switch (entry->type)
-		{
-		case 0:
-		{
-			madt_local_apic_t *local_apic = (madt_local_apic_t *)entry;
-			cpus[cpu_count].apic_id = local_apic->apic_id;
-			cpus[cpu_count].processor_id = local_apic->processor_id;
-			cpus[cpu_count].flags = local_apic->flags;
-
-			cpu_count++;
-		}
-		break;
-		case 1:
-		{
-			madt_io_apic_t *io_apic = (madt_io_apic_t *)entry;
-			ioapic = io_apic->io_apic_address;
-		}
-		break;
-		}
-
-		ptr += entry->length;
-	}
-
-	for (uint32_t i = 0; i < madt_size; i += PAGE_SIZE)
-		vmm_unmap(madt_virt + i);
-
-	vmm_unmap(madt_virt);
-
-	uint32_t ioapic_virt = vmm_get_free_virt();
-	if (!ioapic_virt)
-		panic("ACPI: Falha ao conseguir um endereco virtual para IOAPIC\r\n");
-
-	if (!vmm_map(ioapic, ioapic_virt, PAGE_PRESENT | PAGE_WRITE))
-		panic("ACPI: Falha ao mapear IOAPIC\r\n");
-
-	ioapic = ioapic_virt;
+	debugf("ACPI: Encontrado RSDP em 0x%08X\r\n", (uint32_t)rsdp);
 }

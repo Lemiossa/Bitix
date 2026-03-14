@@ -2,11 +2,12 @@
  * heap.c                           *
  * Criado por Matheus Leme Da Silva *
  ***********************************/
-#include <pmm.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <pmm.h>
 #include <vmm.h>
+#include <debug.h>
 
 typedef struct heap_block
 {
@@ -52,6 +53,7 @@ static heap_block_t *payload_to_block(void *payload)
 /* Inicializa HEAP */
 void heap_init(void)
 {
+	debugf("heap: Inicializando...\r\n");
 	uint32_t pages = HEAP_START_SIZE / PAGE_SIZE;
 	for (uint32_t i = 0; i < pages; i++)
 	{
@@ -69,6 +71,8 @@ void heap_init(void)
 
 		heap_size += PAGE_SIZE;
 	}
+
+	debugf("heap: Heap do kernel possui %8u bytes\r\n", heap_size);
 
 	start = (heap_block_t *)HEAP_START;
 
@@ -115,7 +119,10 @@ void free(void *p)
 	heap_block_t *b = payload_to_block(p);
 
 	if (b->free) /* Double free */
+	{
+		debugf("heap: double free em 0x%08X\r\n", (uint32_t)p);
 		return;
+	}
 
 	if (b->prev && b->prev->free)
 	{

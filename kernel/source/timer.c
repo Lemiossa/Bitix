@@ -14,6 +14,28 @@ uint16_t timer_freq = 0;
 
 extern void sched(intr_frame_t *f);
 
+/* Converte n milisegundos para ticks */
+uint32_t timer_ms_to_ticks(uint32_t n)
+{
+	if (n == 0)
+		return 0;
+	return (n * timer_freq) / 1000;
+}
+
+/* Converte n ticks para milisegundos */
+uint32_t timer_ticks_to_ms(uint32_t n)
+{
+	if (n == 0)
+		return 0;
+	return (n * 1000) / timer_freq;
+}
+
+/* Retorna a quantidade atual de ticks */
+uint32_t timer_get_ticks(void)
+{
+	return timer_ticks;
+}
+
 /* Handler handler */
 void timer_handler(intr_frame_t *f)
 {
@@ -43,7 +65,7 @@ void timer_disable(void)
 /* Espera N milisegundos usando o timer */
 void timer_wait(uint32_t n)
 {
-	uint32_t ticks = (n * timer_freq) / 1000;
+	uint32_t ticks = timer_ms_to_ticks(n);
 	if (!ticks)
 		ticks = 1;
 

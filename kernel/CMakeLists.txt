@@ -17,6 +17,7 @@ add_executable(kernel.elf
 	source/graphics.c
 	source/terminal.c
 	source/timer.c
+	source/debug.c
 	source/sched.c
 	source/panic.c
 	source/heap.c
@@ -50,6 +51,7 @@ if(ARCH STREQUAL "x86")
 		-nostdlib
 		-T${CMAKE_CURRENT_SOURCE_DIR}/source/arch/${ARCH}/linker.ld
 		-Wl,-melf_i386
+		-Wl,-Map=${KERNEL_MAP_FILE}
 		-Wl,--gc-sections
 		)
 endif()
