@@ -365,9 +365,10 @@ void terminal_putchar(char c)
 		cell->bg = current_bg_color;
 		cell->fg = current_fg_color;
 		cell->ch = c;
+		put_char_at(cursor_x, cursor_y, *cell);
 		draw_char(cursor_x, cursor_y, cell->ch, terminal_palette[cell->fg],
-				terminal_palette[cell->bg]);
-		put_char_at(cursor_x++, cursor_y, *cell);
+			terminal_palette[cell->bg]);
+		cursor_x++;
 	}
 
 	if (cursor_x >= bottom_corner_x)

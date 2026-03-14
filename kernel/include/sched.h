@@ -26,13 +26,14 @@ typedef struct process
 	uint32_t uptime_ticks;
 	struct process *next;
 	uint8_t state;
+	uint8_t exit_code;
 } process_t;
 
 extern process_t *current;
 
 void sched_init(void);
 void yield(void);
-void exit(void);
+void exit(int code);
 uint32_t spawn(void (*entry)(void), char *name);
 void set_priority(uint32_t pid, uint32_t priority);
 

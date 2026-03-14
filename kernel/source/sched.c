@@ -131,10 +131,11 @@ void yield(void)
 }
 
 /* Sai do processo atual */
-void exit(void)
+void exit(int code)
 {
 	current->state = DEAD;
 	current->quantum = 1;
+	current->exit_code = (uint8_t)code;
 	yield();
 	while (1); /* Não deve executar por muito tempo */
 }

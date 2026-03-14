@@ -52,6 +52,19 @@ void idt_set_trap(int entry, void (*trap)(intr_frame_t *f), uint16_t selector)
 	intrs[entry] = trap;
 }
 
+/* Seta o DPL de uma entrada na IDT */
+void idt_set_dpl(int entry, uint32_t dpl)
+{
+	if (entry >= IDT_ENTRIES)
+		return;
+
+	if (dpl > 3)
+		dpl = 0;
+
+	idt[entry].attr &= ~(3 << 5);
+	idt[entry].attr |= (dpl << 5);
+}
+
 /* Handler de interrupções */
 void intr_handler(intr_frame_t *f)
 {

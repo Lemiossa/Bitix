@@ -37,6 +37,7 @@ extern intr_frame_t *last_frame;
 void switch_context(intr_frame_t *f);
 void idt_set_intr(int entry, void (*intr)(intr_frame_t *f), uint16_t selector);
 void idt_set_trap(int entry, void (*trap)(intr_frame_t *f), uint16_t selector);
+void idt_set_dpl(int entry, uint32_t dpl);
 void idt_init(void);
 
 #endif /* IDT_H */
