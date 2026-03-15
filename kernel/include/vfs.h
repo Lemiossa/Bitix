@@ -11,6 +11,9 @@
 
 typedef struct vfs_fs
 {
+	/* Arquivos e pastas */
+	bool      (*exists)(void *data, const char *path);
+
 	/* Arquivos */
 	void     *(*open)(void *data, const char *path, uint32_t *length);
 	uint32_t  (*read)(void *data, void *internal, uint32_t offset, uint32_t n, void *d);

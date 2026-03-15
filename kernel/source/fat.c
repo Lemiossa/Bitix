@@ -71,19 +71,27 @@ void fat_filename_to_fatname(char *filename, char *out)
 	out[12] = 0;
 }
 
+/* Retorna o EOF val do FAT  */
+static uint32_t fat_eof_val(fat_data_t *data)
+{
+	if (!data)
+		panic("FAT: fat_eof_val(): Tentativa de chamar com data nula\r\n");
+
+	if (data->fat_type == 12)
+		return 0x00000FF8;
+	else if (data->fat_type == 16)
+		return 0x0000FFF8;
+	else
+		return 0x0FFFFFF8;
+}
+
 /* Retorna 1 se o cluster é o fim */
 static int fat_is_eof(fat_data_t *data, uint32_t cluster)
 {
 	if (!data)
 		panic("FAT: fat_is_eof(): Tentativa de chamar com data nula\r\n");
 
-	if (data->fat_type == 12)
-		return cluster >= 0x00000FF8;
-	else if (data->fat_type == 16)
-		return cluster >= 0x0000FFF8;
-	else if (data->fat_type == 32)
-		return cluster >= 0x0FFFFFF8;
-	return 1;
+	return cluster >= fat_eof_val(data);
 }
 
 /* Retorna o cluster */
@@ -110,22 +118,22 @@ static uint32_t fat_cluster_to_lba(fat_data_t *data, uint32_t cluster)
 	return ((cluster - 2) * data->bootsector.bpb.sectors_per_cluster) + data->data_lba;
 }
 
-/* Lê um cluster */
+/* Lê um valor na FAT */
 /* ATENÇÃO: Você DEVE chamar fat_configure() antes disso */
-static uint32_t fat_read_cluster(fat_data_t *data, uint32_t cluster)
+static uint32_t fat_read_fat(fat_data_t *data, uint32_t i)
 {
 	if (!data)
-		panic("FAT: fat_read_cluster(): Tentativa de chamar com data nula\r\n");
+		panic("FAT: fat_read_fat(): Tentativa de chamar com data nula\r\n");
 
 	uint8_t buf[SECTOR_SIZE * 2];
 	uint32_t offset = 0;
 
 	if (data->fat_type == 12)
-		offset = cluster + (cluster / 2);
+		offset = i + (i / 2);
 	else if (data->fat_type == 16)
-		offset = cluster * 2;
+		offset = i * 2;
 	else if (data->fat_type == 32)
-		offset = cluster * 4;
+		offset = i * 4;
 
 	uint32_t sector = data->fat_lba + (offset / SECTOR_SIZE);
 	uint32_t entry_offset = offset % SECTOR_SIZE;
@@ -137,7 +145,7 @@ static uint32_t fat_read_cluster(fat_data_t *data, uint32_t cluster)
 	if (data->fat_type == 12)
 	{
 		uint32_t entry_val = *(uint32_t *)&buf[entry_offset];
-		if (cluster & 1)
+		if (i & 1)
 			val = entry_val >> 4;
 		else
 			val = entry_val & 0x0FFF;
@@ -285,13 +293,12 @@ static int fat_read_dir(fat_data_t *data, uint32_t cluster, uint32_t index, fat_
 		if (current_cluster == 0)
 			return 1;
 
-		current_cluster = fat_read_cluster(data, current_cluster);
+		current_cluster = fat_read_fat(data, current_cluster);
 	}
 	return 1;
 }
 
-/* Lê N bytes de um arquivo a partir de sua entrada FAT em um offset específico
- */
+/* Lê N bytes de um arquivo a partir de sua entrada FAT em um offset específico */
 /* Retorna o número de bytes lidos */
 /* ATENÇÃO: Você DEVE chamar fat_configure() antes disso */
 static size_t fat_read(fat_data_t *data, void *dest, fat_entry_t *entry, size_t offset, size_t n)
@@ -344,7 +351,7 @@ static size_t fat_read(fat_data_t *data, void *dest, fat_entry_t *entry, size_t 
 			}
 		}
 
-		current_cluster = fat_read_cluster(data, current_cluster);
+		current_cluster = fat_read_fat(data, current_cluster);
 	}
 end:
 	return total;
@@ -408,6 +415,21 @@ static fat_entry_t *fat_find(fat_data_t *data, const char *path)
 	memcpy(e, &entry, sizeof(entry));
 
 	return e;
+}
+
+/* Verifica se um arquivo existe em FAT */
+static bool exists(void *data, const char *path)
+{
+	if (!data || !path)
+		return false;
+
+	fat_entry_t *entry = fat_find(data, path);
+	if (!entry)
+		return false;
+
+	free(entry);
+
+	return true;
 }
 
 /* Abre um arquivo em FAT */

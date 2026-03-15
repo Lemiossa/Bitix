@@ -22,6 +22,30 @@ void vfs_register_fs(char drive, vfs_fs_t fs)
 	filesystems[drive - 'A'] = fs;
 }
 
+/* Retorna true se um arquivo existe */
+bool vfs_exists(const char *path)
+{
+	if (!path)
+		return false;
+
+	char drive = 'C'; /* Padrão é C */
+	if (path[1] == ':')
+	{
+		drive = path[0];
+		path += 2;
+	}
+
+	if (path[0] == '/')
+		path++;
+
+	int idx = drive - 'A';
+	vfs_fs_t *fs = &filesystems[idx];
+	if (!fs->exists)
+		return false;
+
+	return fs->exists(fs->data, path);
+}
+
 /* Abre um arquivo no VFS */
 vfs_file_t *vfs_open(const char *path)
 {
