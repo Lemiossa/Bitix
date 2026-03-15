@@ -13,6 +13,7 @@ size_t strncmp(const char *s1, const char *s2, size_t n);
 size_t strlen(const char *s);
 void strcpy(char *d, const char *s);
 void strncpy(char *d, const char *s, size_t n);
+void strcat(char *d, char *s);
 char *strchr(const char *s, char ch);
 char *strtok(char *str, const char *delim);
 

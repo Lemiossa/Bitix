@@ -88,6 +88,17 @@ void strncpy(char *d, const char *s, size_t n)
 	}
 }
 
+/* Concatena uma string */
+void strcat(char *d, char *s)
+{
+	while (*d)
+		d++;
+
+	while (*s)
+		*d++ = *s++;
+	*d = 0;
+}
+
 /* Retorna um ponteiro para a primeira ocorrencia de um caractere em uma string
  */
 /* Retorna nulo quando não encontra nada */
