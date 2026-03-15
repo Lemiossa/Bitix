@@ -553,6 +553,7 @@ bool fat_registry(int disk)
 	fat_configure(data, disk, 0);
 
 	vfs_fs_t fs = {
+		.exists = exists,
 		.open = open,
 		.read = read,
 		.write = NULL,
