@@ -386,6 +386,9 @@ static fat_entry_t *fat_find(fat_data_t *data, const char *path)
 				return NULL;
 			}
 
+			if (entry.attr & FAT_ATTR_VOLID)
+				continue;
+
 			char name[12] = {0};
 			memcpy(name, &entry.name, 11);
 			if (strcmp(fatname, name) == 0)

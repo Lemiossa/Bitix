@@ -2,7 +2,6 @@
  * main.c                           *
  * Criado por Matheus Leme Da Silva *
  ***********************************/
-#include "vfs.h"
 #include <acpi.h>
 #include <asm.h>
 #include <ata.h>
@@ -30,6 +29,7 @@
 #include <sched.h>
 #include <debug.h>
 #include <string.h>
+#include <vfs.h>
 
 boot_info_t boot_info = {0};
 
