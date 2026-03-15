@@ -8,6 +8,7 @@
 #include <asm.h>
 #include <cpuid.h>
 #include <debug.h>
+#include <util.h>
 
 /* Inicializa FPU */
 /* Retorna false se houver erro */
@@ -25,11 +26,16 @@ void fpu_init(void)
 	cr0 |= CR0_MP | CR0_NE;
 	set_cr0(cr0);
 	fninit();
-	fnclex();
+}
 
-	uint16_t cw = fnstcw();
-
-	cw &= ~(1 << 2);
-
-	fldcw(cw); /* Ativar a exceção de divide by zero */
+/* Cria um novo contexto de FPU */
+void fpu_create_new_context(void *out)
+{
+	debugf("FPU: context addr = 0x%08X\r\n", (uint32_t)out);
+	uint8_t old_ctx[124] = {0};
+	uint8_t *aligned = (uint8_t *)ALIGN_UP((uint32_t)old_ctx, 16);
+	fnsave(aligned);
+	fninit();
+	fnsave(out);
+	frstor(aligned);
 }

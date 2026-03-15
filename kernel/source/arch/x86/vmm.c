@@ -13,6 +13,7 @@
 #include <pmm.h>
 #include <vmm.h>
 #include <panic.h>
+#include <sched.h>
 
 uint32_t *kernel_pd = NULL;
 bool paging_enabled = false;
@@ -91,6 +92,8 @@ bool vmm_virt_is_present(uint32_t virt)
 /* Handler de page fault */
 void page_fault_handler(intr_frame_t *f)
 {
+	exit(-1);
+	cli();
 	printf("Falha de pagina!\r\n");
 
 	printf("CR2: 0x%08X\r\n", get_cr2());

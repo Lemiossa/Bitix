@@ -2,6 +2,7 @@
  * terminal.c                       *
  * Criado por Matheus Leme Da Silva *
  ***********************************/
+#include "sched.h"
 #include <asm.h>
 #include <boot.h>
 #include <graphics.h>
@@ -14,8 +15,7 @@
 #include <vga.h>
 #include <panic.h>
 #include <stdbool.h>
-
-#define CELLS 180 * 80
+#include <heap.h>
 
 static int char_height = 8;
 static int width = 80, height = 25;
@@ -33,7 +33,7 @@ typedef struct char_cell
 	uint8_t fg, bg;
 } char_cell_t;
 
-static char_cell_t buffer[CELLS];
+static char_cell_t *buffer = NULL;
 
 static uint32_t terminal_palette[16] = {
 	RGB(0, 0, 0),		/* Preto */
@@ -98,7 +98,7 @@ static void draw_char(int x, int y, char c, uint32_t fg, uint32_t bg)
 /* Desenha um caractere numa posição específica */
 static void put_char_at(int x, int y, char_cell_t cell)
 {
-	if (x < 0 || y < 0 || x >= width || y >= height)
+	if (x < 0 || y < 0 || x >= width || y >= height || !buffer)
 		return;
 
 	uint16_t pos = y * width + x;
@@ -108,7 +108,7 @@ static void put_char_at(int x, int y, char_cell_t cell)
 /* pega um caractere numa posição específica do terminal */
 static char_cell_t *get_char_at(int x, int y)
 {
-	if (x < 0 || y < 0 || x >= width || y >= height)
+	if (x < 0 || y < 0 || x >= width || y >= height || !buffer)
 		return NULL;
 
 	uint16_t pos = y * width + x;
@@ -118,20 +118,17 @@ static char_cell_t *get_char_at(int x, int y)
 /* Desenha o cursor */
 static void draw_cursor(int x, int y)
 {
-	char_cell_t cell = *get_char_at(x, y);
-	uint8_t bg = cell.bg;
-	cell.bg = cell.fg;
-	cell.fg = bg;
-	draw_char(x, y, cell.ch, terminal_palette[cell.fg],
-			  terminal_palette[cell.bg]);
+	char_cell_t *cell = get_char_at(x, y);
+	draw_char(x, y, cell->ch, terminal_palette[cell->bg],
+			  terminal_palette[cell->fg]);
 }
 
 /* "Limpa" o cursor */
 static void erase_cursor(int x, int y)
 {
-	char_cell_t cell = *get_char_at(x, y);
-	draw_char(x, y, cell.ch, terminal_palette[cell.fg],
-			  terminal_palette[cell.bg]);
+	char_cell_t *cell = get_char_at(x, y);
+	draw_char(x, y, cell->ch, terminal_palette[cell->fg],
+			  terminal_palette[cell->bg]);
 }
 
 /* Redesenha todo o terminal */
@@ -155,6 +152,7 @@ static void redraw(void)
 			}
 		}
 	}
+	draw_cursor(cursor_x, cursor_y);
 }
 
 /* Faz scroll de 1 linha */
@@ -167,6 +165,9 @@ static void scroll(void)
 		{
 			char_cell_t *cell = get_char_at(x, y);
 			char_cell_t *cell0 = get_char_at(x, y - 1);
+			if (!cell || !cell0)
+				continue;
+
 			*cell0 = *cell;
 		}
 	}
@@ -174,7 +175,12 @@ static void scroll(void)
 	for (int x = top_corner_x; x < bottom_corner_x; x++)
 	{
 		char_cell_t *cell = get_char_at(x, bottom_corner_y - 1);
+		if (!cell)
+			continue;
+
 		cell->ch = ' ';
+		cell->bg = current_bg_color;
+		cell->fg = current_fg_color;
 	}
 }
 
@@ -198,6 +204,10 @@ void terminal_init(void)
 		vga_disable_cursor(); /* Desabilitar o cursor porque desenharemos nosso
 								 proprio */
 	}
+
+	buffer = alloc(width * height * sizeof(char_cell_t));
+	if (!buffer)
+		panic("Terminal: Falha ao alocar memoria para o buffer\r\n");
 
 	if (boot_info.graphics.bpp <= 8)
 	{
@@ -223,7 +233,6 @@ void terminal_init(void)
 	current_bg_color = TERMINAL_DEFAULT_BG_COLOR;
 	current_fg_color = TERMINAL_DEFAULT_FG_COLOR;
 	initialized = true;
-	printf("Terminal iniciado!\r\n");
 }
 
 /* Muda a posição do cursor */
@@ -362,12 +371,17 @@ void terminal_putchar(char c)
 	{
 		state = 0;
 		char_cell_t *cell = get_char_at(cursor_x, cursor_y);
+		if (!cell)
+			return;
 		cell->bg = current_bg_color;
 		cell->fg = current_fg_color;
 		cell->ch = c;
+
 		put_char_at(cursor_x, cursor_y, *cell);
+
 		draw_char(cursor_x, cursor_y, cell->ch, terminal_palette[cell->fg],
 			terminal_palette[cell->bg]);
+
 		cursor_x++;
 	}
 

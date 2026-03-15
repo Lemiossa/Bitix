@@ -7,5 +7,6 @@
 #include <stdbool.h>
 
 void fpu_init(void);
+void fpu_create_new_context(void *out);
 
 #endif /* FPU_H */

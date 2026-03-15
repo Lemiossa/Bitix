@@ -2,30 +2,19 @@
  * fat.c                            *
  * Criado por Matheus Leme Da Silva *
  ***********************************/
+#include <stdio.h>
+#include <vfs.h>
 #include <ctype.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
-
+#include <heap.h>
+#include <panic.h>
 #include <ata.h>
 #include <fat.h>
 #include <terminal.h>
-
-static uint32_t sectors_per_fat = 0;
-static uint32_t total_sectors = 0;
-static uint32_t root_dir_sectors = 0;
-static uint32_t data_sectors = 0;
-
-static uint32_t root_lba = 0;
-static uint32_t data_lba = 0;
-static uint32_t fat_lba = 0;
-
-static uint32_t total_clusters = 0;
-
-static uint8_t fat_type = 0;
-static uint8_t current_disk = 0;
-
-static bootsector_t bootsector;
+#include <debug.h>
+#include <util.h>
 
 /* Converte nome em formato fat para filename */
 void fat_name_to_filename(char *fatname, char *out)
@@ -83,46 +72,69 @@ void fat_filename_to_fatname(char *filename, char *out)
 }
 
 /* Retorna 1 se o cluster é o fim */
-static int fat_is_eof(uint32_t cluster)
+static int fat_is_eof(fat_data_t *data, uint32_t cluster)
 {
-	if (fat_type == 12)
+	if (!data)
+		panic("FAT: fat_is_eof(): Tentativa de chamar com data nula\r\n");
+
+	if (data->fat_type == 12)
 		return cluster >= 0x00000FF8;
-	else if (fat_type == 16)
+	else if (data->fat_type == 16)
 		return cluster >= 0x0000FFF8;
-	else if (fat_type == 32)
+	else if (data->fat_type == 32)
 		return cluster >= 0x0FFFFFF8;
 	return 1;
 }
 
+/* Retorna o cluster */
+static uint32_t fat_cluster(fat_data_t *data, fat_entry_t e)
+{
+	if (!data)
+		panic("FAT: fat_cluster(): Tentativa de chamar com data nula\r\n");
+
+	if (data->fat_type == 32)
+		return ((e.cluster_high & 0xFFF) << 8) | e.cluster_low;
+	else if (data->fat_type == 16)
+		return e.cluster_low;
+	else
+		return e.cluster_low & 0xFFF;
+}
+
 /* Converte um cluster em LBA */
 /* ATENÇÃO: Você DEVE chamar fat_configure() antes disso */
-static uint32_t fat_cluster_to_lba(uint32_t cluster)
+static uint32_t fat_cluster_to_lba(fat_data_t *data, uint32_t cluster)
 {
-	return ((cluster - 2) * bootsector.bpb.sectors_per_cluster) + data_lba;
+	if (!data)
+		panic("FAT: fat_cluster_to_lba(): Tentativa de chamar com data nula\r\n");
+
+	return ((cluster - 2) * data->bootsector.bpb.sectors_per_cluster) + data->data_lba;
 }
 
 /* Lê um cluster */
 /* ATENÇÃO: Você DEVE chamar fat_configure() antes disso */
-static uint32_t fat_read_cluster(uint32_t cluster)
+static uint32_t fat_read_cluster(fat_data_t *data, uint32_t cluster)
 {
+	if (!data)
+		panic("FAT: fat_read_cluster(): Tentativa de chamar com data nula\r\n");
+
 	uint8_t buf[SECTOR_SIZE * 2];
 	uint32_t offset = 0;
 
-	if (fat_type == 12)
+	if (data->fat_type == 12)
 		offset = cluster + (cluster / 2);
-	else if (fat_type == 16)
+	else if (data->fat_type == 16)
 		offset = cluster * 2;
-	else if (fat_type == 32)
+	else if (data->fat_type == 32)
 		offset = cluster * 4;
 
-	uint32_t sector = fat_lba + (offset / SECTOR_SIZE);
+	uint32_t sector = data->fat_lba + (offset / SECTOR_SIZE);
 	uint32_t entry_offset = offset % SECTOR_SIZE;
 
-	ata_read(current_disk, sector, 1, buf);
-	ata_read(current_disk, sector + 1, 1, &buf[SECTOR_SIZE]);
+	ata_read(data->current_disk, sector, 1, buf);
+	ata_read(data->current_disk, sector + 1, 1, &buf[SECTOR_SIZE]);
 
 	uint32_t val = 0;
-	if (fat_type == 12)
+	if (data->fat_type == 12)
 	{
 		uint32_t entry_val = *(uint32_t *)&buf[entry_offset];
 		if (cluster & 1)
@@ -131,13 +143,13 @@ static uint32_t fat_read_cluster(uint32_t cluster)
 			val = entry_val & 0x0FFF;
 		val &= 0x0FFF;
 	}
-	else if (fat_type == 16)
+	else if (data->fat_type == 16)
 	{
 		uint32_t entry_val = *(uint32_t *)&buf[entry_offset];
 		val = entry_val;
 		val &= 0xFFFF;
 	}
-	else if (fat_type == 32)
+	else if (data->fat_type == 32)
 	{
 		uint32_t entry_val = *(uint32_t *)&buf[entry_offset];
 		val = entry_val;
@@ -151,18 +163,21 @@ static uint32_t fat_read_cluster(uint32_t cluster)
 /* Na real só faz os calculos das globais em um disco específico num setor
  * específico */
 /* Retorna um número diferente de 0 se houver erro */
-int fat_configure(int disk, uint32_t lba)
+static int fat_configure(fat_data_t *data, int disk, uint32_t lba)
 {
+	if (!data)
+		panic("FAT: fat_configure(): Tentativa de chamar com data nula\r\n");
+
 	uint8_t buf[SECTOR_SIZE];
 	if (!ata_read(disk, lba, 1, buf))
 	{
-		printf("fat_configure(): Falha ao ler disco: %d\r\n", disk);
+		debugf("FAT: fat_configure(): Falha ao ler disco: %d\r\n", disk);
 		return 1;
 	}
 
-	memcpy(&bootsector, buf, sizeof(bootsector));
+	memcpy(&data->bootsector, buf, sizeof(data->bootsector));
 
-	if (bootsector.bpb.bytes_per_sector != SECTOR_SIZE)
+	if (data->bootsector.bpb.bytes_per_sector != SECTOR_SIZE)
 	{ /* Raro, porém é bom verificar,
 										  não vou dar suporte a setores com
 		 tamanho diferente de 512 bytes */
@@ -170,45 +185,45 @@ int fat_configure(int disk, uint32_t lba)
 		return 1;
 	}
 
-	if (bootsector.bpb.sectors_per_fat16 == 0)
+	if (data->bootsector.bpb.sectors_per_fat16 == 0)
 	{
-		fat_type = 32;
-		sectors_per_fat = bootsector.ebpb._32.sectors_per_fat32;
+		data->fat_type = 32;
+		data->sectors_per_fat = data->bootsector.ebpb._32.sectors_per_fat32;
 	}
 	else
 	{
-		sectors_per_fat = bootsector.bpb.sectors_per_fat16;
+		data->sectors_per_fat = data->bootsector.bpb.sectors_per_fat16;
 	}
 
-	total_sectors = bootsector.bpb.total_sectors16 == 0
-						? bootsector.bpb.total_sectors32
-						: bootsector.bpb.total_sectors16;
-	root_dir_sectors =
-		((bootsector.bpb.root_dir_entries * 32) + (SECTOR_SIZE - 1)) /
+	data->total_sectors = data->bootsector.bpb.total_sectors16 == 0
+						? data->bootsector.bpb.total_sectors32
+						: data->bootsector.bpb.total_sectors16;
+	data->root_dir_sectors =
+		((data->bootsector.bpb.root_dir_entries * 32) + (SECTOR_SIZE - 1)) /
 		SECTOR_SIZE;
-	data_lba =
-		lba + (bootsector.bpb.reserved_sectors +
-			   (bootsector.bpb.num_fats * sectors_per_fat) + root_dir_sectors);
-	fat_lba = lba + bootsector.bpb.reserved_sectors;
-	data_sectors =
-		total_sectors -
-		(bootsector.bpb.reserved_sectors +
-		 (bootsector.bpb.num_fats * sectors_per_fat) + root_dir_sectors);
-	total_clusters = data_sectors / bootsector.bpb.sectors_per_cluster;
-	current_disk = disk;
-	root_lba = data_lba - root_dir_sectors;
+	data->data_lba =
+		lba + (data->bootsector.bpb.reserved_sectors +
+			   (data->bootsector.bpb.num_fats * data->sectors_per_fat) + data->root_dir_sectors);
+	data->fat_lba = lba + data->bootsector.bpb.reserved_sectors;
+	data->data_sectors =
+		data->total_sectors -
+		(data->bootsector.bpb.reserved_sectors +
+		 (data->bootsector.bpb.num_fats * data->sectors_per_fat) + data->root_dir_sectors);
+	data->total_clusters = data->data_sectors / data->bootsector.bpb.sectors_per_cluster;
+	data->current_disk = disk;
+	data->root_lba = data->data_lba - data->root_dir_sectors;
 
-	if (total_clusters < 4085)
+	if (data->total_clusters < 4085)
 	{
-		fat_type = 12;
+		data->fat_type = 12;
 	}
-	else if (total_clusters < 65525)
+	else if (data->total_clusters < 65525)
 	{
-		fat_type = 16;
+		data->fat_type = 16;
 	}
 	else
 	{
-		fat_type = 32;
+		data->fat_type = 32;
 	}
 
 	return 0;
@@ -218,30 +233,33 @@ int fat_configure(int disk, uint32_t lba)
 /* Retorna um número diferente de 0 se houver erro */
 /* Se o cluster for zero, lê no root dir */
 /* ATENÇÃO: Você DEVE chamar fat_configure() antes disso */
-int fat_read_dir(uint32_t cluster, uint32_t index, fat_entry_t *out)
+static int fat_read_dir(fat_data_t *data, uint32_t cluster, uint32_t index, fat_entry_t *out)
 {
+	if (!data)
+		panic("FAT: fat_read_dir(): Tentativa de chamar com data nula\r\n");
+
 	uint32_t current_cluster = cluster;
 	uint32_t current_index = 0;
 	uint8_t buf[SECTOR_SIZE];
 
-	if (cluster == 0 && fat_type == 32)
-		current_cluster = bootsector.ebpb._32.root_dir_cluster;
+	if (cluster == 0 && data->fat_type == 32)
+		current_cluster = data->bootsector.ebpb._32.root_dir_cluster;
 
-	while (!fat_is_eof(current_cluster))
+	while (!fat_is_eof(data, current_cluster))
 	{
-		uint32_t sectors = bootsector.bpb.sectors_per_cluster;
+		uint32_t sectors = data->bootsector.bpb.sectors_per_cluster;
 		if (current_cluster == 0)
-			sectors = root_dir_sectors;
+			sectors = data->root_dir_sectors;
 
 		for (uint32_t i = 0; i < sectors; i++)
 		{
 			uint32_t lba = i;
 			if (current_cluster == 0)
-				lba += root_lba;
+				lba += data->root_lba;
 			else
-				lba += fat_cluster_to_lba(current_cluster);
+				lba += fat_cluster_to_lba(data, current_cluster);
 
-			if (!ata_read(current_disk, lba, 1, buf))
+			if (!ata_read(data->current_disk, lba, 1, buf))
 				return 1;
 
 			fat_entry_t *entries = (fat_entry_t *)buf;
@@ -267,7 +285,7 @@ int fat_read_dir(uint32_t cluster, uint32_t index, fat_entry_t *out)
 		if (current_cluster == 0)
 			return 1;
 
-		current_cluster = fat_read_cluster(current_cluster);
+		current_cluster = fat_read_cluster(data, current_cluster);
 	}
 	return 1;
 }
@@ -276,8 +294,11 @@ int fat_read_dir(uint32_t cluster, uint32_t index, fat_entry_t *out)
  */
 /* Retorna o número de bytes lidos */
 /* ATENÇÃO: Você DEVE chamar fat_configure() antes disso */
-size_t fat_read(void *dest, fat_entry_t *entry, size_t offset, size_t n)
+static size_t fat_read(fat_data_t *data, void *dest, fat_entry_t *entry, size_t offset, size_t n)
 {
+	if (!data)
+		panic("FAT: fat_read(): Tentativa de chamar com data nula\r\n");
+
 	if (!dest || !entry || n == 0 || offset > entry->file_size)
 	{
 		return 0;
@@ -290,18 +311,18 @@ size_t fat_read(void *dest, fat_entry_t *entry, size_t offset, size_t n)
 	size_t current_offset = 0;
 	size_t remaining = n;
 	uint32_t current_cluster = entry->cluster_low;
-	if (fat_type == 32)
+	if (data->fat_type == 32)
 		current_cluster |= ((entry->cluster_high & 0x0FFF) << 8);
 	uint8_t *d = (uint8_t *)dest;
 
-	while (!fat_is_eof(current_cluster))
+	while (!fat_is_eof(data, current_cluster))
 	{
 		uint8_t buf[SECTOR_SIZE];
-		uint32_t lba = fat_cluster_to_lba(current_cluster);
+		uint32_t lba = fat_cluster_to_lba(data, current_cluster);
 
-		for (size_t i = 0; i < bootsector.bpb.sectors_per_cluster; i++)
+		for (size_t i = 0; i < data->bootsector.bpb.sectors_per_cluster; i++)
 		{
-			if (!ata_read(current_disk, lba + i, 1, buf))
+			if (!ata_read(data->current_disk, lba + i, 1, buf))
 				return 0;
 
 			for (size_t j = 0; j < SECTOR_SIZE; j++)
@@ -323,8 +344,201 @@ size_t fat_read(void *dest, fat_entry_t *entry, size_t offset, size_t n)
 			}
 		}
 
-		current_cluster = fat_read_cluster(current_cluster);
+		current_cluster = fat_read_cluster(data, current_cluster);
 	}
 end:
 	return total;
+}
+
+/* Procura uma entrada a partir de uma path */
+/* Retorna a entrada alocada */
+static fat_entry_t *fat_find(fat_data_t *data, const char *path)
+{
+	if (!data || !path)
+		return NULL;
+
+	fat_entry_t entry;
+
+	char *tmp_path = alloc(1024);
+	if (!tmp_path)
+		return NULL;
+	strncpy(tmp_path, path, 1024);
+
+	char *parts[64];
+	int count = get_path_parts(tmp_path, parts, 64);
+	if (count == 0)
+	{
+		free(tmp_path);
+		return NULL;
+	}
+
+	uint32_t current_cluster = 0; /* Começa do root dir */
+	for (int i = 0; i < count; i++)
+	{
+		char fatname[12] = {0};
+		fat_filename_to_fatname(parts[i], (char *)fatname);
+
+		uint32_t index = 0;
+		while (1)
+		{
+			if (fat_read_dir(data, current_cluster, index++, &entry) != 0)
+			{
+				return NULL;
+			}
+
+			char name[12] = {0};
+			memcpy(name, &entry.name, 11);
+			if (strcmp(fatname, name) == 0)
+				break;
+		}
+
+		if (i < (count - 1) && !(entry.attr & FAT_ATTR_DIR))
+			return NULL;
+
+		current_cluster = fat_cluster(data, entry);
+	}
+
+	fat_entry_t *e = alloc(sizeof(fat_entry_t));
+	if (!e)
+		return NULL;
+	memset(e, 0, sizeof(*e));
+	memcpy(e, &entry, sizeof(entry));
+
+	return e;
+}
+
+/* Abre um arquivo em FAT */
+static void *open(void *data, const char *path, uint32_t *length)
+{
+	if (!data || !path)
+		return NULL;
+
+	fat_entry_t *entry = fat_find(data, path);
+	if (!entry)
+		return NULL;
+
+	if (entry->attr & FAT_ATTR_DIR)
+	{
+		free(entry);
+		return NULL;
+	}
+
+	if (length)
+		*length = entry->file_size;
+
+	return entry;
+}
+
+/* Lê um arquivo em FAT */
+static uint32_t read(void *data, void *internal, uint32_t offset, uint32_t n, void *d)
+{
+	if (!data || !internal || !d)
+		return 0;
+
+	fat_entry_t *entry = internal;
+
+	return fat_read(data, d, entry, offset, n);
+}
+
+/* Fecha um arquivo em FAT */
+static void close(void *data, void *internal)
+{
+	if (!internal)
+		return;
+
+	(void)data;
+
+	free(internal);
+}
+
+/* Abre um diretório em FAT */
+static void *opendir(void *data, const char *path)
+{
+	if (!data || !path)
+		return NULL;
+
+	if (strcmp(path, "/") == 0 || path[0] == 0) /* Root dir */
+	{
+		fat_entry_t *entry = alloc(sizeof(fat_entry_t));
+		if (!entry)
+			return NULL;
+
+		memset(entry, 0, sizeof(*entry));
+		strcpy(entry->name, "/          ");
+		entry->attr |= FAT_ATTR_DIR;
+		return entry;
+	}
+
+	fat_entry_t *entry = fat_find(data, path);
+	if (!entry)
+		return NULL;
+
+	if (entry->attr & FAT_ATTR_ARCHV)
+	{
+		free(entry);
+		return NULL;
+	}
+
+	return entry;
+}
+
+/* Lê um diretório em FAT */
+static bool readdir(void *data, void *internal, uint32_t index, void *out)
+{
+	if (!data || !internal || !out)
+		return false;
+
+	vfs_dirent_t dirent = {0};
+	fat_entry_t e = {0};
+
+	fat_entry_t *entry = internal;
+
+	if (fat_read_dir(data, fat_cluster(data, *entry), index, &e) != 0)
+		return false;
+
+	if (e.attr & FAT_ATTR_ARCHV)
+		dirent.length = e.file_size;
+
+	fat_name_to_filename(e.name, (char *)dirent.name);
+	memcpy(out, &dirent, sizeof(dirent));
+
+	return true;
+}
+
+/* Fecha um diretório em FAT */
+static void closedir(void *data, void *internal)
+{
+	if (!internal)
+		return;
+
+	(void)data;
+
+	free(internal);
+}
+
+/* Registra FAT em um disco */
+/* Por enquanto, somente floppy */
+/* Retorna TRUE se feito, FALSE se erro */
+bool fat_registry(int disk)
+{
+	fat_data_t *data = alloc(sizeof(fat_data_t));
+	if (!data)
+		return false;
+
+	fat_configure(data, disk, 0);
+
+	vfs_fs_t fs = {
+		.open = open,
+		.read = read,
+		.write = NULL,
+		.close = close,
+		.opendir = opendir,
+		.readdir = readdir,
+		.closedir = closedir,
+		.data = data
+	};
+
+	vfs_register_fs('C', fs);
+
+	return true;
 }

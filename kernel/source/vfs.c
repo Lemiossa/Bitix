@@ -35,6 +35,9 @@ vfs_file_t *vfs_open(const char *path)
 		path += 2;
 	}
 
+	if (path[0] == '/')
+		path++;
+
 	drive = toupper(drive);
 	int idx = drive - 'A';
 

@@ -3,13 +3,14 @@
 # Criado por Matheus Leme Da Silva #
 ####################################
 
-set(BOOTSECT_ASM ${CMAKE_CURRENT_SOURCE_DIR}/source/bootsect.asm)
-set(BOOTSECT_BIN ${CMAKE_CURRENT_BINARY_DIR}/bootsect.bin)
+SET(BOOTSECT_ASM ${CMAKE_CURRENT_SOURCE_DIR}/source/bootsect.asm)
+SET(BOOTSECT_BIN ${CMAKE_CURRENT_BINARY_DIR}/bootsect.bin)
 
-set(LOADER_ELF loader.elf)
-set(LOADER_BIN ${CMAKE_CURRENT_BINARY_DIR}/loader.bin)
+SET(LOADER_ELF loader.elf)
+SET(LOADER_BIN ${CMAKE_CURRENT_BINARY_DIR}/loader.bin)
 
-add_executable(${LOADER_ELF}
+ADD_EXECUTABLE(
+	${LOADER_ELF}
 	source/entry.asm
 	source/main.c
 	source/disk.c
@@ -18,44 +19,41 @@ add_executable(${LOADER_ELF}
 	source/file.c
 	source/util.c
 	source/vga.c
-	source/fat.c
-)
+	source/fat.c)
 
-target_link_libraries(${LOADER_ELF} PRIVATE libc)
+TARGET_LINK_LIBRARIES(${LOADER_ELF} PRIVATE libc)
 
-target_include_directories(${LOADER_ELF} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/source)
+TARGET_INCLUDE_DIRECTORIES(${LOADER_ELF}
+						   PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/source)
 
-if(ARCH STREQUAL "x86")
-	target_compile_options(
-		loader.elf PRIVATE
-		$<$<COMPILE_LANGUAGE:C>:-m32 -march=i686 ${BASE_CFLAGS}>
-		$<$<COMPILE_LANGUAGE:ASM_NASM>:-f elf32>
-	)
+IF(ARCH STREQUAL "x86")
+	TARGET_COMPILE_OPTIONS(
+		loader.elf
+		PRIVATE $<$<COMPILE_LANGUAGE:C>:-m32 -march=i686 ${BASE_CFLAGS}>
+				$<$<COMPILE_LANGUAGE:ASM_NASM>:-f elf32>)
 
-	target_link_options(
-		loader.elf PRIVATE
+	TARGET_LINK_OPTIONS(
+		loader.elf
+		PRIVATE
 		-m32
 		-nostdlib
 		-static
 		-T${CMAKE_CURRENT_SOURCE_DIR}/source/linker.ld
 		-Wl,-melf_i386
-		-Wl,--gc-sections
-		)
-endif()
+		-Wl,--gc-sections)
+ENDIF()
 
-add_custom_command(
+ADD_CUSTOM_COMMAND(
 	OUTPUT ${BOOTSECT_BIN}
 	COMMAND ${CMAKE_ASM_NASM_COMPILER} -f bin ${BOOTSECT_ASM} -o ${BOOTSECT_BIN}
-	DEPENDS ${BOOTSECT_ASM}
-)
+	DEPENDS ${BOOTSECT_ASM})
 
-add_custom_command(
+ADD_CUSTOM_COMMAND(
 	OUTPUT ${LOADER_BIN}
 	COMMAND ${CMAKE_OBJCOPY} -O binary ${LOADER_ELF} ${LOADER_BIN}
-	DEPENDS ${LOADER_ELF}
-)
+	DEPENDS ${LOADER_ELF})
 
-add_custom_target(bootldr-bin
+ADD_CUSTOM_TARGET(
+	bootldr-bin
 	COMMAND cat ${BOOTSECT_BIN} ${LOADER_BIN} > ${BOOTLDR_FILE}
-	DEPENDS ${BOOTSECT_BIN} ${LOADER_BIN}
-)
+	DEPENDS ${BOOTSECT_BIN} ${LOADER_BIN})

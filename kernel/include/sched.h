@@ -6,7 +6,7 @@
 #define SCHED_H
 #include <stdint.h>
 
-#define PROCESS_STACK_SIZE 16384
+#define PROCESS_STACK_SIZE 32768
 #define PROCESS_MAX_NAME 256
 
 #define READY 0
@@ -17,10 +17,12 @@
 typedef struct process
 {
 	char name[PROCESS_MAX_NAME];
+	uint8_t fpu_context[124];
 	uint32_t pid;
 	uint32_t ppid;
 	uint32_t cr3;
 	uint32_t esp;
+	uint32_t esp0;
 	uint32_t priority;
 	uint32_t quantum;
 	uint32_t uptime_ticks;

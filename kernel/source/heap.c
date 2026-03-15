@@ -8,6 +8,7 @@
 #include <pmm.h>
 #include <vmm.h>
 #include <debug.h>
+#include <util.h>
 
 typedef struct heap_block
 {
@@ -85,6 +86,8 @@ void heap_init(void)
 /* Aloca n bytes de memoria no heap */
 void *alloc(size_t n)
 {
+	n = ALIGN_UP(n, 16);
+
 	heap_block_t *free_blk = find_free_block(n);
 	if (!free_blk)
 		return NULL;

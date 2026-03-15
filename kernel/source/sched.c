@@ -12,9 +12,9 @@
 #include <panic.h>
 #include <sched.h>
 #include <debug.h>
+#include <sched.h>
+#include <fpu.h>
 
-#define PROCESS_STACK_SIZE 16384
-#define PROCESS_MAX_NAME 256
 uint32_t process_priorities[] =
 {
 	1,  /* Prioridade 0 */
@@ -77,23 +77,26 @@ void sched(intr_frame_t *f)
 	if (!current)
 		return;
 
+	current->uptime_ticks++;
+
 	if (current->next == current)
 		return;
-
-	current->uptime_ticks++;
 
 	if (--current->quantum > 0)
 		return;
 
-	process_t *p = sched_get_next_ready(current);
-	if (!p)
-		return;
-
+	/* Processo atual */
 	current->quantum = get_quantums(current->priority);
 	current->esp = (uint32_t)f;
 	current->state = READY;
 
+	process_t *p = sched_get_next_ready(current);
+	if (!p)
+		return;
 	current = p;
+
+	/* Novo processo */
+	current->quantum = get_quantums(current->priority);
 	current->state = RUNNING;
 
 	switch_context((intr_frame_t *)current->esp);
@@ -112,13 +115,13 @@ void sched_init(void)
 
 	strncpy(idle->name, "idle", PROCESS_MAX_NAME);
 	idle->pid = 0;
+	idle->ppid = 0;
 	idle->cr3 = (uint32_t)kernel_pd;
 	idle->esp = 0;
 	idle->state = RUNNING;
 	idle->next = idle;
-	idle->ppid = 0;
 	idle->priority = 0;
-	idle->quantum = get_quantums(0);
+	idle->quantum = 0;
 	idt_set_trap(48, sched, 0x08);
 
 	current = idle;
@@ -129,7 +132,7 @@ void sched_init(void)
 void yield(void)
 {
 	__asm__ volatile ("INT $48");
-		while (1); /* Não deve chegar aqui */
+	while (1); /* Não deve chegar aqui */
 }
 
 /* Sai do processo atual */
@@ -148,6 +151,7 @@ uint32_t spawn(void (*entry)(void), char *name)
 {
 	if (!current)
 		return 0;
+
 	process_t *proc = alloc(sizeof(process_t));
 	if (!proc)
 		return 0;

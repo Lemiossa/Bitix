@@ -3,7 +3,8 @@
 # Criado por Matheus Leme Da Silva #
 ####################################
 
-add_executable(kernel.elf
+ADD_EXECUTABLE(
+	kernel.elf
 	source/arch/${ARCH}/entry.asm
 	source/arch/${ARCH}/intr.asm
 	source/arch/${ARCH}/cpuid.asm
@@ -22,42 +23,48 @@ add_executable(kernel.elf
 	source/panic.c
 	source/heap.c
 	source/main.c
+	source/util.c
 	source/pic.c
 	source/pit.c
 	source/pci.c
 	source/ata.c
 	source/fat.c
 	source/vga.c
+	source/vfs.c
 )
 
-target_link_libraries(kernel.elf PRIVATE libc)
+TARGET_LINK_LIBRARIES(kernel.elf PRIVATE libc)
 
-target_include_directories(kernel.elf PRIVATE
-	${CMAKE_CURRENT_SOURCE_DIR}/include/arch/${ARCH}
-	${CMAKE_CURRENT_SOURCE_DIR}/include
-)
+TARGET_INCLUDE_DIRECTORIES(
+	kernel.elf PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include/arch/${ARCH}
+					   ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
-if(ARCH STREQUAL "x86")
-	target_compile_options(
-		kernel.elf PRIVATE
-		$<$<COMPILE_LANGUAGE:C>:-m32 -march=i686 -O2 ${BASE_CFLAGS} -mno-sse -mno-sse2 -mfpmath=387>
-		$<$<COMPILE_LANGUAGE:ASM_NASM>:-f elf32>
-	)
+IF(ARCH STREQUAL "x86")
+	TARGET_COMPILE_OPTIONS(
+		kernel.elf
+		PRIVATE $<$<COMPILE_LANGUAGE:C>:-m32
+				-march=i686
+				-O2
+				${BASE_CFLAGS}
+				-mno-sse
+				-mno-sse2
+				-mfpmath=387>
+				$<$<COMPILE_LANGUAGE:ASM_NASM>:-f
+				elf32>)
 
-	target_link_options(
-		kernel.elf PRIVATE
+	TARGET_LINK_OPTIONS(
+		kernel.elf
+		PRIVATE
 		-m32
 		-static
 		-nostdlib
 		-T${CMAKE_CURRENT_SOURCE_DIR}/source/arch/${ARCH}/linker.ld
 		-Wl,-melf_i386
 		-Wl,-Map=${KERNEL_MAP_FILE}
-		-Wl,--gc-sections
-		)
-endif()
+		-Wl,--gc-sections)
+ENDIF()
 
-add_custom_target(kernel-bin
+ADD_CUSTOM_TARGET(
+	kernel-bin
 	COMMAND ${CMAKE_OBJCOPY} -O binary kernel.elf ${KERNEL_FILE}
-
-	DEPENDS kernel.elf
-)
+	DEPENDS kernel.elf)

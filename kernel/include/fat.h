@@ -79,6 +79,21 @@ typedef struct fat_entry
 	uint32_t file_size; /* Em bytes */
 } __attribute__((packed)) fat_entry_t;
 
+typedef struct fat_data
+{
+	uint32_t sectors_per_fat;
+	uint32_t total_sectors;
+	uint32_t root_dir_sectors;
+	uint32_t data_sectors;
+	uint32_t root_lba;
+	uint32_t data_lba;
+	uint32_t fat_lba;
+	uint32_t total_clusters;
+	uint8_t fat_type;
+	uint8_t current_disk;
+	bootsector_t bootsector;
+} fat_data_t;
+
 #define FAT_ATTR_RDOLY 0x01
 #define FAT_ATTR_HIDDN 0x02
 #define FAT_ATTR_SYSTM 0x04
@@ -86,10 +101,6 @@ typedef struct fat_entry
 #define FAT_ATTR_DIR 0x10
 #define FAT_ATTR_ARCHV 0x20
 
-void fat_name_to_filename(char *fatname, char *out);
-void fat_filename_to_fatname(char *filename, char *out);
-int fat_configure(int disk, uint32_t lba);
-int fat_read_dir(uint32_t cluster, uint32_t index, fat_entry_t *out);
-size_t fat_read(void *dest, fat_entry_t *entry, size_t offset, size_t n);
+bool fat_registry(int disk);
 
 #endif /* FAT_H */

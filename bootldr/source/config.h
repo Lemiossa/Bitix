@@ -6,7 +6,7 @@
 #define CONFIG_H
 #include <stddef.h>
 
-#define KERNEL_FILE "/system/boot/kernel.sys"
+#define KERNEL_FILE "/sistema/boot/kernel.sys"
 #define KERNEL_ADDR 0x100000
 
 /* Lista de modos */
