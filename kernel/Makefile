@@ -5,7 +5,7 @@
 
 # BUILDDIR é passado pelo makefile principal
 BUILDDIR ?= $(CURDIR)/build
-BUILDDIR := $(addsuffix /bootldr,$(BUILDDIR))
+BUILDDIR := $(addsuffix /kernel,$(BUILDDIR))
 BINDIR := $(BUILDDIR)/bin
 OBJDIR := $(BUILDDIR)/obj
 DEPDIR := $(BUILDDIR)/dep
@@ -15,19 +15,18 @@ ARCH ?= x86
 
 CC ?= gcc
 NASM ?= nasm
-OBJCOPY ?= objcopy
 
 LIBC ?= $(LIBDIR)/libc.a
 
-LINKER_FILE := $(CURDIR)/source/linker.ld
+LINKER_FILE := $(CURDIR)/source/arch/$(ARCH)/linker.ld
 
 INCLUDES ?=
-
-INCLUDES += $(CURDIR)/source
+INCLUDES += $(CURDIR)/include \
+			$(CURDIR)/include/arch/$(ARCH)
 LIBS := $(LIBC)
 
 CFLAGS := \
-	-std=c99 \
+	-std=c99 -O2 \
 	-Wall \
 	-Wextra \
 	-fno-PIC \
@@ -36,21 +35,48 @@ CFLAGS := \
 	-ffreestanding \
 	-fno-builtin \
 	-ffunction-sections -fdata-sections \
-	-m32 -march=i386 \
 	$(addprefix -I,$(INCLUDES))
+
+ifeq ($(ARCH),x86)
+	CFLAGS += -m32 -march=i386
+	NASMFLAGS := -f elf32
+	LDFLAGS := \
+			   -m32 -nostdlib -static \
+			   -T$(LINKER_FILE) \
+			   -Wl,-melf_i386 \
+			   -Wl,--gc-sections
+else
+	$(error Arquitetura não suportada: $(ARCH))
+endif
 
 TARGET ?= $(BINDIR)/bootldr.bin
 
 SOURCE := \
-	entry.asm \
-	main.c \
-	disk.c \
-	vesa.c \
-	e820.c \
-	file.c \
-	util.c \
-	vga.c \
-	fat.c
+		  arch/$(ARCH)/entry.asm \
+		  arch/$(ARCH)/intr.asm \
+		  arch/$(ARCH)/cpuid.asm \
+		  arch/$(ARCH)/cpuid.c \
+		  arch/$(ARCH)/acpi.c \
+		  arch/$(ARCH)/gdt.c \
+		  arch/$(ARCH)/idt.c \
+		  arch/$(ARCH)/fpu.c \
+		  arch/$(ARCH)/pmm.c \
+		  arch/$(ARCH)/vmm.c \
+		  graphics.c \
+		  terminal.c \
+		  debug.c \
+		  sched.c \
+		  panic.c \
+		  heap.c \
+		  main.c \
+		  util.c \
+		  pic.c \
+		  pit.c \
+		  pci.c \
+		  ata.c \
+		  fat.c \
+		  vga.c \
+		  vfs.c
 
 SOURCE := $(addprefix $(CURDIR)/source/,$(SOURCE))
 
@@ -71,28 +97,16 @@ clean:
 	@echo "  RM          $(TARGET) $(OBJ) $(DEP)"
 	@rm -f $(TARGET) $(OBJ) $(DEP)
 
-$(BINDIR)/stage1.bin: $(CURDIR)/source/bootsect.asm
-	@mkdir -p $(dir $@)
-	@echo "  NASM        $@"
-	@$(NASM) -f bin $< -o $@
 
-$(BINDIR)/stage2.elf: $(OBJ) $(LIBS)
+$(BINDIR)/kernel.elf: $(OBJ) $(LIBS)
 	@mkdir -p $(dir $@)
 	@echo "  LINK        $@"
-	@$(CC) -m32 -nostdlib -static \
-		-T$(LINKER_FILE) \
-		-Wl,-melf_i386 \
-		-Wl,--gc-sections \
-		-o $@ $^
+	@$(CC) $(LDFLAGS) -o $@ $^
 
-$(BINDIR)/stage2.bin: $(BINDIR)/stage2.elf
+$(TARGET): $(BINDIR)/kernel.elf
 	@mkdir -p $(dir $@)
 	@echo "  OBJCOPY     $@"
 	@$(OBJCOPY) -O binary $< $@
-
-$(TARGET): $(BINDIR)/stage1.bin $(BINDIR)/stage2.bin
-	@mkdir -p $(dir $@)
-	@cat $^ > $@
 
 $(OBJDIR)/c/%.o: $(CURDIR)/source/%.c
 	@echo "  CC          $@"
@@ -102,6 +116,6 @@ $(OBJDIR)/c/%.o: $(CURDIR)/source/%.c
 $(OBJDIR)/asm/%.o: $(CURDIR)/source/%.asm
 	@echo "  NASM        $@"
 	@mkdir -p $(dir $@) $(dir $(DEPDIR)/asm/$*)
-	@$(NASM) -f elf32 $< -o $@ -MD $(DEPDIR)/asm/$*.d
+	@$(NASM) $(NASMFLAGS) $< -o $@ -MD $(DEPDIR)/asm/$*.d
 
 -include $(DEP)

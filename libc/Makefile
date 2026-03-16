@@ -5,26 +5,20 @@
 
 # BUILDDIR é passado pelo makefile principal
 BUILDDIR ?= $(CURDIR)/build
-BUILDDIR := $(addsuffix /bootldr,$(BUILDDIR))
-BINDIR := $(BUILDDIR)/bin
-OBJDIR := $(BUILDDIR)/obj
-DEPDIR := $(BUILDDIR)/dep
-LIBDIR := $(BUILDDIR)/lib
+BINDIR := $(BUILDDIR)/bootldr/bin
+OBJDIR := $(BUILDDIR)/bootldr/obj
+DEPDIR := $(BUILDDIR)/bootldr/dep
+LIBDIR := $(BUILDDIR)/bootldr/lib
 
 ARCH ?= x86
 
 CC ?= gcc
 NASM ?= nasm
-OBJCOPY ?= objcopy
-
-LIBC ?= $(LIBDIR)/libc.a
-
-LINKER_FILE := $(CURDIR)/source/linker.ld
+AR ?= ar
 
 INCLUDES ?=
 
 INCLUDES += $(CURDIR)/source
-LIBS := $(LIBC)
 
 CFLAGS := \
 	-std=c99 \
@@ -36,21 +30,21 @@ CFLAGS := \
 	-ffreestanding \
 	-fno-builtin \
 	-ffunction-sections -fdata-sections \
-	-m32 -march=i386 \
 	$(addprefix -I,$(INCLUDES))
+
+ifeq ($(ARCH),x86)
+	CFLAGS += -m32 -march=i386
+	NASMFLAGS := -f elf32
+else
+	$(error Arquitetura não suportada: $(ARCH))
+endif
 
 TARGET ?= $(BINDIR)/bootldr.bin
 
 SOURCE := \
-	entry.asm \
-	main.c \
-	disk.c \
-	vesa.c \
-	e820.c \
-	file.c \
-	util.c \
-	vga.c \
-	fat.c
+		  string.c \
+		  stdio.c \
+		  stdlib.c
 
 SOURCE := $(addprefix $(CURDIR)/source/,$(SOURCE))
 
@@ -71,28 +65,10 @@ clean:
 	@echo "  RM          $(TARGET) $(OBJ) $(DEP)"
 	@rm -f $(TARGET) $(OBJ) $(DEP)
 
-$(BINDIR)/stage1.bin: $(CURDIR)/source/bootsect.asm
+$(TARGET): $(OBJ)
 	@mkdir -p $(dir $@)
-	@echo "  NASM        $@"
-	@$(NASM) -f bin $< -o $@
-
-$(BINDIR)/stage2.elf: $(OBJ) $(LIBS)
-	@mkdir -p $(dir $@)
-	@echo "  LINK        $@"
-	@$(CC) -m32 -nostdlib -static \
-		-T$(LINKER_FILE) \
-		-Wl,-melf_i386 \
-		-Wl,--gc-sections \
-		-o $@ $^
-
-$(BINDIR)/stage2.bin: $(BINDIR)/stage2.elf
-	@mkdir -p $(dir $@)
-	@echo "  OBJCOPY     $@"
-	@$(OBJCOPY) -O binary $< $@
-
-$(TARGET): $(BINDIR)/stage1.bin $(BINDIR)/stage2.bin
-	@mkdir -p $(dir $@)
-	@cat $^ > $@
+	@echo "  AR          $@"
+	@$(AR) rcs $@ $^
 
 $(OBJDIR)/c/%.o: $(CURDIR)/source/%.c
 	@echo "  CC          $@"
@@ -102,6 +78,7 @@ $(OBJDIR)/c/%.o: $(CURDIR)/source/%.c
 $(OBJDIR)/asm/%.o: $(CURDIR)/source/%.asm
 	@echo "  NASM        $@"
 	@mkdir -p $(dir $@) $(dir $(DEPDIR)/asm/$*)
-	@$(NASM) -f elf32 $< -o $@ -MD $(DEPDIR)/asm/$*.d
+	@$(NASM) $(NASMFLAGS) $< -o $@ -MD $(DEPDIR)/asm/$*.d
 
 -include $(DEP)
+
