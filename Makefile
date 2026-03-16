@@ -86,8 +86,10 @@ QEMUFLAGS := -drive file=$(IMAGE),format=raw,if=ide,media=disk \
 			 -audiodev alsa,id=audio0 \
 			 -machine pc,pcspk-audiodev=audio0 \
 			 -serial stdio -m 4M -vga std
+
+BOCHS := bochs
 else
-	$(error Arquitetura não suportada: $(ARCH))
+$(error Arquitetura não suportada: $(ARCH))
 endif
 
 .PHONY: qemu
@@ -95,4 +97,14 @@ qemu: image
 	@echo "  QEMU        $(QEMUFLAGS)"
 	@$(QEMU) $(QEMUFLAGS)
 
-
+.PHONY: bochs
+bochs: image
+	@echo "  BOCHS"
+	@printf "clock: sync=delay, time0=local\r\n" > $(BUILDDIR)/bochsrc
+	@printf "megs: 4\r\n" >> $(BUILDDIR)/bochsrc
+	@printf "ata0: enabled=1, ioaddr1=0x1f0, ioaddr2=0x3f0, irq=14\r\n" >> $(BUILDDIR)/bochsrc
+	@printf "ata0-master: type=disk, path=\"$(IMAGE)\", mode=flat\r\n" >> $(BUILDDIR)/bochsrc
+	@printf "boot: disk\r\n" >> $(BUILDDIR)/bochsrc
+	@printf "display_library: sdl2\r\n" >> $(BUILDDIR)/bochsrc
+	@printf "cpu: ips=100000000, count=1\r\n" >> $(BUILDDIR)/bochsrc
+	@echo c | $(BOCHS) -q -f $(BUILDDIR)/bochsrc
