@@ -101,6 +101,6 @@ typedef struct fat_data
 #define FAT_ATTR_DIR 0x10
 #define FAT_ATTR_ARCHV 0x20
 
-bool fat_registry(int disk);
+bool fat_registry(int disk, uint32_t start_lba, char letter);
 
 #endif /* FAT_H */

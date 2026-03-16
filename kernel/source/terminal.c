@@ -159,16 +159,16 @@ static void redraw(void)
 /* Apenas altera o buffer */
 static void scroll(void)
 {
-	for (int y = top_corner_y + 1; y < bottom_corner_y; y++)
+	for (int y = top_corner_y; y < bottom_corner_y; y++)
 	{
 		for (int x = top_corner_x; x < bottom_corner_x; x++)
 		{
-			char_cell_t *cell = get_char_at(x, y);
-			char_cell_t *cell0 = get_char_at(x, y - 1);
-			if (!cell || !cell0)
+			char_cell_t *current_cell = get_char_at(x, y);
+			char_cell_t *next_cell = get_char_at(x, y + 1);
+			if (!current_cell || !next_cell)
 				continue;
 
-			*cell0 = *cell;
+			*current_cell = *next_cell;
 		}
 	}
 

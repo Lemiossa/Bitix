@@ -22,66 +22,53 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <terminal.h>
-#include <timer.h>
 #include <vga.h>
 #include <vmm.h>
 #include <panic.h>
 #include <sched.h>
 #include <debug.h>
-#include <string.h>
 #include <vfs.h>
 
 boot_info_t boot_info = {0};
 
-/* Lista um diretório */
-void list_dir(const char *path)
+void other_prog(void)
 {
-	vfs_dir_t *d = vfs_opendir(path);
-	if (!d)
-		return;
-
-	vfs_dirent_t dirent = {0};
 	while (1)
 	{
-		if (!vfs_readdir(d, &dirent))
-			break;
-
-		printf("%s\r\n", dirent.name);
+		printf(".");
+		sleep(100);
 	}
-
-	vfs_closedir(d);
 }
 
-/* Lista um diretório recursivamente */
-void list_dir_rec(const char *path, int depth)
+void prog1(void)
 {
-	vfs_dir_t *d = vfs_opendir(path);
-	if (!d)
-		return;
-
-	vfs_dirent_t dirent = {0};
+	spawn(other_prog, "Outro programa");
 	while (1)
 	{
-		if (!vfs_readdir(d, &dirent))
-			break;
+		terminal_clear(15, 0);
+		printf("%8s %8s %8s %8s %8s %s\r\n\r\n", "pid", "ppid", "state", "priority", "uptime", "name");
+		process_t *p = current;
+		do
+		{
+			char *str = "unknown";
 
-		for (int i = 0; i < depth; i++)
-			printf("\t");
+			if (p->state == READY)
+				str = "ready";
+			else if (p->state == RUNNING)
+				str = "running";
+			else if (p->state == BLOCKED)
+				str = "blocked";
+			else if (p->state == DEAD)
+				str = "dead";
 
-		printf("%s\r\n", dirent.name);
+			printf("%8u %8u %8s %8u %8u %s\r\n", p->pid, p->ppid, str, p->priority, ticks_to_ms(p->uptime_ticks), p->name);
+			p = p->next;
 
-		if (strcmp(dirent.name, ".") == 0 || strcmp(dirent.name, "..") == 0)
-			continue;
-
-		char *new_path = alloc(1024);
-		if (!new_path)
-			continue;
-		strncpy(new_path, path, 1024);
-		strcat(new_path, dirent.name);
-		list_dir_rec(new_path, depth + 1);
+		}
+		while (p != current);
+		sleep(1000);
 	}
-
-	vfs_closedir(d);
+	exit(0);
 }
 
 /* Func principal */
@@ -91,11 +78,11 @@ void kernel_main(boot_info_t *bi)
 	gdt_init();
 	idt_init();
 	pic_remap(0x20, 0x28);
-	timer_init(100);
 	pmm_init();
 	vmm_init();
 	graphics_init();
 	heap_init();
+	sched_init(100);
 	terminal_init();
 	terminal_clear(TERMINAL_DEFAULT_FG_COLOR, TERMINAL_DEFAULT_BG_COLOR);
 	cpuid_init();
@@ -103,10 +90,10 @@ void kernel_main(boot_info_t *bi)
 	acpi_init();
 	pci_enumerate();
 	ata_detect();
-	sched_init();
-	fat_registry(0);
 
-	list_dir_rec("C:/", 0);
+	printf("Spawnando o prog!\r\n");
+
+	spawn(prog1, "prog1");
 
 	while (1)
 	{

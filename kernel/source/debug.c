@@ -5,7 +5,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <terminal.h>
-#include <timer.h>
+#include <sched.h>
 
 /* Imprime uma mensagem de debug */
 int debugf(const char *fmt, ...)
@@ -16,7 +16,7 @@ int debugf(const char *fmt, ...)
 	va_start(args, fmt);
 	count = vsnprintf(buffer, sizeof(buffer), fmt, args);
 
-	uint32_t ms = timer_ticks_to_ms(timer_get_ticks());
+	uint32_t ms = ticks_to_ms(get_ticks());
 	uint32_t sec = ms / 1000;
 	uint32_t frac = ms % 1000;
 

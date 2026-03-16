@@ -146,14 +146,9 @@ void load_kernel(void)
 int main()
 {
 	vga_clear(0x07);
-	current_attributes = 0x70;
-	printf("Bem vindo ao Bitix!\r\n");
-	current_attributes = 0x07;
-
 	disk_detect();
 
 	load_kernel();
-	wait(1);
 	set_e820();
 	set_vesa();
 	set_font();

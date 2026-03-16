@@ -7,9 +7,15 @@
 #include <asm.h>
 
 /* Imprime uma mensagem de panico e trava */
-void panic(const char *msg)
+void panic(const char *fmt, ...)
 {
-	printf("Panico: %s\r\n", msg);
+	va_list args;
+	char buffer[256];
+	va_start(args, fmt);
+	vsnprintf(buffer, sizeof(buffer), fmt, args);
+	printf("Panico: ");
+	terminal_putstring(buffer);
+	va_end(args);
 	cli();
 	hlt();
 }

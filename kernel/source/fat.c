@@ -544,13 +544,13 @@ static void closedir(void *data, void *internal)
 /* Registra FAT em um disco */
 /* Por enquanto, somente floppy */
 /* Retorna TRUE se feito, FALSE se erro */
-bool fat_registry(int disk)
+bool fat_registry(int disk, uint32_t start_lba, char letter)
 {
 	fat_data_t *data = alloc(sizeof(fat_data_t));
 	if (!data)
 		return false;
 
-	fat_configure(data, disk, 0);
+	fat_configure(data, disk, start_lba);
 
 	vfs_fs_t fs = {
 		.exists = exists,
@@ -564,7 +564,7 @@ bool fat_registry(int disk)
 		.data = data
 	};
 
-	vfs_register_fs('C', fs);
+	vfs_register_fs(letter, fs);
 
 	return true;
 }

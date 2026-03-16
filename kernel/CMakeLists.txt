@@ -17,7 +17,6 @@ ADD_EXECUTABLE(
 	source/arch/${ARCH}/vmm.c
 	source/graphics.c
 	source/terminal.c
-	source/timer.c
 	source/debug.c
 	source/sched.c
 	source/panic.c

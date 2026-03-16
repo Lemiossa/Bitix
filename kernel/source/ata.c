@@ -223,7 +223,6 @@ bool ata_detect(void)
 
 	if (dev->prog_if & 1)
 	{ /* Se o canal principal está em modo PCI */
-		debugf("ATA: Canal principal do IDE esta em modo PCI\r\n");
 		base0 = dev->bars[0] & 0xFFFFFFFC;
 		ctrl0 = dev->bars[1] & 0xFFFFFFFC;
 
@@ -234,14 +233,12 @@ bool ata_detect(void)
 	}
 	else
 	{
-		debugf("ATA: Canal principal do IDE esta em modo Compatibilidade\r\n");
 		base0 = 0x1F0;
 		ctrl0 = 0x3F6;
 	}
 
 	if (dev->prog_if & 4)
 	{ /* Se o canal secundário está em modo PCI */
-		debugf("ATA: Canal secundario do IDE esta em modo PCI\r\n");
 		base1 = dev->bars[2] & 0xFFFFFFFC;
 		ctrl1 = dev->bars[3] & 0xFFFFFFFC;
 		if (!base1)
@@ -251,7 +248,6 @@ bool ata_detect(void)
 	}
 	else
 	{
-		debugf("ATA: Canal secundario do IDE esta em modo Compatibilidade\r\n");
 		base1 = 0x170;
 		ctrl1 = 0x376;
 	}
@@ -294,8 +290,10 @@ bool ata_detect(void)
 			disk.atapi = type == 2 ? true : false;
 
 			ata_disks[ata_disk_count++] = disk;
-			debugf("ATA%d: %s | %s | %u b\r\n", i, ata_disks[i].model,
-								   ata_disks[i].serial, ata_disks[i].total_sectors * 512);
+			debugf("ATA%d:\r\n", i);
+			debugf("\tModelo: %s\r\n", ata_disks[i].model);
+			debugf("\tSerial: %s\r\n", ata_disks[i].serial);
+			debugf("\tTamanho: %u b\r\n", ata_disks[i].total_sectors * 512);
 		}
 	}
 	return true;
