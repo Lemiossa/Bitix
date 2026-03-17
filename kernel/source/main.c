@@ -35,7 +35,7 @@ void prog1(void)
 {
 	while (1)
 	{
-		printf("%8s %8s %8s %8s %8s %s\r\n\r\n", "pid", "ppid", "state", "priority", "uptime", "name");
+		printf("%8s %8s %8s %8s %s\r\n\r\n", "pid", "ppid", "state", "uptime", "name");
 		process_t *p = current;
 		do
 		{
@@ -50,7 +50,7 @@ void prog1(void)
 			else if (p->state == DEAD)
 				str = "dead";
 
-			printf("%8u %8u %8s %8u %8u %s\r\n", p->pid, p->ppid, str, p->priority, ticks_to_ms(p->uptime_ticks), p->name);
+			printf("%8u %8u %8s %8u %8u %s\r\n", p->pid, p->ppid, str, ticks_to_ms(p->uptime_ticks), p->name);
 			p = p->next;
 
 		}

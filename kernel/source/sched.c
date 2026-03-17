@@ -132,26 +132,17 @@ void sched(intr_frame_t *f)
 
 	current->uptime_ticks++;
 
-	if (current->state == RUNNING && current->quantum > 0)
-	{
-		current->quantum--;
-		return;
-	}
-
 	process_t *p = sched_get_next_ready(current);
 	if (!p)
 		return;
 
 	/* Processo atual */
 	current->esp0 = (uint32_t)f;
-	current->quantum = get_quantums(current->priority);
-	if (current->state == RUNNING)
-		current->state = READY;
+	current->state = READY;
 
 	current = p;
 
 	/* Novo processo */
-	current->quantum = get_quantums(current->priority);
 	current->state = RUNNING;
 
 	switch_context((intr_frame_t *)current->esp0);
@@ -184,8 +175,6 @@ void sched_init(uint32_t n)
 	idle->esp0 = 0;
 	idle->state = RUNNING;
 	idle->next = idle;
-	idle->priority = 3;
-	idle->quantum = get_quantums(idle->priority);
 	idt_set_intr(50, sched, 0x08);
 
 	freq = n;
@@ -225,14 +214,6 @@ void sleep(uint32_t n)
 		panic("escalonador: Tentativa de esperar no idle\r\n");
 
 	uint32_t end = ticks + ms_to_ticks(n);
-
-	disable();
-	current->wake_tick = end;
-	current->state = BLOCKED;
-	enable();
-
-	yield();
-
 	while ((ticks - end) > 0);
 }
 
@@ -247,8 +228,8 @@ uint32_t spawn(void (*entry)(void), char *name)
 	if (!proc)
 		return 0;
 
+	disable();
 	memset(proc, 0, sizeof(process_t));
-	cli();
 	strncpy(proc->name, name, PROCESS_MAX_NAME);
 	proc->pid = current_id++;
 	proc->ppid = current->pid;
@@ -266,8 +247,6 @@ uint32_t spawn(void (*entry)(void), char *name)
 	memset((void *)proc->esp0, 0, PROCESS_STACK_SIZE);
 	proc->esp0 += PROCESS_STACK_SIZE - sizeof(intr_frame_t);
 
-	proc->priority = 2;
-	proc->quantum = get_quantums(proc->priority);
 	proc->state = READY;
 
 	intr_frame_t *frame = (intr_frame_t *)proc->esp0;
@@ -283,21 +262,7 @@ uint32_t spawn(void (*entry)(void), char *name)
 
 	proc->next = current->next;
 	current->next = proc;
-	sti();
+	enable();
 
 	return proc->pid;
 }
-
-/* Muda a prioridade de um processo */
-void set_priority(uint32_t pid, uint32_t priority)
-{
-	if (priority >= TOTAL_PRIORITIES)
-		return;
-
-	process_t *p = sched_get_process(pid);
-	if (!p)
-		return;
-
-	p->priority = priority;
-}
-
