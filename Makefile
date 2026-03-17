@@ -63,7 +63,8 @@ prepare_cpl_cmds:
 
 .PHONY: finish_cpl_cmds
 finish_cpl_cmds:
-	@echo "    {}" >> $(COMPILE_COMMANDS)
+	@sed -i '$$d' $(COMPILE_COMMANDS)
+	@echo "    }" >> $(COMPILE_COMMANDS)
 	@echo "]" >> $(COMPILE_COMMANDS)
 
 .PHONY: bootldr

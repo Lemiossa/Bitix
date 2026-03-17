@@ -116,14 +116,9 @@ $(OBJDIR)/c/%.o: $(CURDIR)/source/%.c
 	@$(CC) $(CFLAGS) -c $< -o $@ -MMD -MF $(DEPDIR)/c/$*.d
 	@echo "    {" >> $(COMPILE_COMMANDS)
 	@echo "        \"directory\": \"$(CURDIR)\"," >> $(COMPILE_COMMANDS)
-	@echo "        \"arguments\": [" >> $(COMPILE_COMMANDS)
-	@echo "            \"$(CC)\"" >> $(COMPILE_COMMANDS)
-	@for flag in $(CFLAGS) -c "$<" -o "$@"; do \
-		printf ",\n            \"$$flag\"" >> $(COMPILE_COMMANDS); \
-		done
-	@echo "" >> $(COMPILE_COMMANDS)
-	@echo "        ]," >> $(COMPILE_COMMANDS)
-	@echo "        \"file\": \"$<\"" >> $(COMPILE_COMMANDS)
+	@echo "        \"command\": \"$(CC) $(CFLAGS) -c $< -o $@\"," >> $(COMPILE_COMMANDS)
+	@echo "        \"file\": \"$<\"," >> $(COMPILE_COMMANDS)
+	@echo "        \"output\": \"$@\"" >> $(COMPILE_COMMANDS)
 	@echo "    }," >> $(COMPILE_COMMANDS)
 
 $(OBJDIR)/asm/%.o: $(CURDIR)/source/%.asm
