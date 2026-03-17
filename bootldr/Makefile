@@ -17,7 +17,7 @@ CC ?= gcc
 NASM ?= nasm
 OBJCOPY ?= objcopy
 
-COMPILE_COMMANDS ?= $(CURDIR)/compile_commands.json
+TMP_COMPILE_COMMANDS ?= $(CURDIR)/compile_commands.json
 
 LIBC ?= $(LIBDIR)/libc.a
 
@@ -100,12 +100,12 @@ $(OBJDIR)/c/%.o: $(CURDIR)/source/%.c
 	@echo "  CC          $@"
 	@mkdir -p $(dir $@) $(dir $(DEPDIR)/c/$*)
 	@$(CC) $(CFLAGS) -c $< -o $@ -MMD -MF $(DEPDIR)/c/$*.d
-	@echo "    {" >> $(COMPILE_COMMANDS)
-	@echo "        \"directory\": \"$(CURDIR)\"," >> $(COMPILE_COMMANDS)
-	@echo "        \"command\": \"$(CC) $(CFLAGS) -c $< -o $@\"," >> $(COMPILE_COMMANDS)
-	@echo "        \"file\": \"$<\"," >> $(COMPILE_COMMANDS)
-	@echo "        \"output\": \"$@\"" >> $(COMPILE_COMMANDS)
-	@echo "    }," >> $(COMPILE_COMMANDS)
+	@echo "    {" >> $(TMP_COMPILE_COMMANDS)
+	@echo "        \"directory\": \"$(CURDIR)\"," >> $(TMP_COMPILE_COMMANDS)
+	@echo "        \"command\": \"$(CC) $(CFLAGS) -c $< -o $@\"," >> $(TMP_COMPILE_COMMANDS)
+	@echo "        \"file\": \"$<\"," >> $(TMP_COMPILE_COMMANDS)
+	@echo "        \"output\": \"$@\"" >> $(TMP_COMPILE_COMMANDS)
+	@echo "    }," >> $(TMP_COMPILE_COMMANDS)
 
 $(OBJDIR)/asm/%.o: $(CURDIR)/source/%.asm
 	@echo "  NASM        $@"

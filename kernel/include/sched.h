@@ -23,8 +23,6 @@ typedef struct process
 	uint32_t cr3;
 	uint32_t esp;
 	uint32_t esp0;
-	uint32_t priority;
-	uint32_t quantum;
 	uint32_t uptime_ticks;
 	uint32_t wake_tick;
 	struct process *next;
@@ -42,6 +40,5 @@ void yield(void);
 void exit(int code);
 void sleep(uint32_t n);
 uint32_t spawn(void (*entry)(void), char *name);
-void set_priority(uint32_t pid, uint32_t priority);
 
 #endif /* SCHED_H */

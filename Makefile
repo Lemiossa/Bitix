@@ -29,6 +29,7 @@ OBJCOPY ?= objcopy
 INCLUDES := $(CURDIR)/include
 
 COMPILE_COMMANDS := $(CURDIR)/compile_commands.json
+TMP_COMPILE_COMMANDS := $(CURDIR)/compile_commands.json.tmp
 
 export BUILDDIR
 export BINDIR
@@ -45,10 +46,10 @@ export CC
 export NASM
 export OBJCOPY
 
-export COMPILE_COMMANDS
+export TMP_COMPILE_COMMANDS
 
 .PHONY: all
-all: image
+all: prepare_cpl_cmds image finish_cpl_cmds
 
 .PHONY: clean
 clean:
@@ -59,13 +60,18 @@ clean:
 
 .PHONY: prepare_cpl_cmds
 prepare_cpl_cmds:
-	@echo "[" > $(COMPILE_COMMANDS)
+	@echo "[" > $(TMP_COMPILE_COMMANDS)
 
 .PHONY: finish_cpl_cmds
 finish_cpl_cmds:
-	@sed -i '$$d' $(COMPILE_COMMANDS)
-	@echo "    }" >> $(COMPILE_COMMANDS)
-	@echo "]" >> $(COMPILE_COMMANDS)
+	@sed -i '$$d' $(TMP_COMPILE_COMMANDS)
+	@echo "    }" >> $(TMP_COMPILE_COMMANDS)
+	@echo "]" >> $(TMP_COMPILE_COMMANDS)
+	@if [ -f $(COMPILE_COMMANDS) ] && cmp -s $(TMP_COMPILE_COMMANDS) $(COMPILE_COMMANDS); then \
+		rm $(TMP_COMPILE_COMMANDS); \
+	else \
+		mv $(TMP_COMPILE_COMMANDS) $(COMPILE_COMMANDS); \
+	fi
 
 .PHONY: bootldr
 bootldr:
@@ -85,7 +91,7 @@ rootdir:
 	@cp $(KERNEL) $(ROOTDIR)/sistema/boot/kernel.sys
 
 .PHONY: image
-image: prepare_cpl_cmds libc bootldr kernel rootdir finish_cpl_cmds
+image: libc bootldr kernel rootdir
 	@echo "  GERANDO IMAGEM $(IMAGE)"
 	@dd if=/dev/zero of=$(IMAGE) bs=1 count=0 seek=$(IMAGE_SIZE) >/dev/null 2>&1
 	@mkfs.fat -F $(IMAGE_FAT_SIZE) -n "BITIX" -R 64 $(IMAGE) >/dev/null 2>&1
