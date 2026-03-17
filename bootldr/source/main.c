@@ -142,11 +142,15 @@ void load_kernel(void)
 	}
 }
 
+uint8_t mbr[512];
+
 /* Func principal do bootloader */
 int main()
 {
 	vga_clear(0x07);
 	disk_detect();
+	disk_read_sector(boot_disk, mbr, 0);
+	boot_info.boot_signature = *(uint32_t *)&mbr[0x1B8];
 
 	load_kernel();
 	set_e820();

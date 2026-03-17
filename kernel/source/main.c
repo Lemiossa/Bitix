@@ -2,7 +2,6 @@
  * main.c                           *
  * Criado por Matheus Leme Da Silva *
  ***********************************/
-#include <acpi.h>
 #include <asm.h>
 #include <ata.h>
 #include <boot.h>
@@ -28,24 +27,14 @@
 #include <sched.h>
 #include <debug.h>
 #include <vfs.h>
+#include <acpi.h>
 
 boot_info_t boot_info = {0};
 
-void other_prog(void)
-{
-	while (1)
-	{
-		printf(".");
-		sleep(100);
-	}
-}
-
 void prog1(void)
 {
-	spawn(other_prog, "Outro programa");
 	while (1)
 	{
-		terminal_clear(15, 0);
 		printf("%8s %8s %8s %8s %8s %s\r\n\r\n", "pid", "ppid", "state", "priority", "uptime", "name");
 		process_t *p = current;
 		do

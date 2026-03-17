@@ -21,9 +21,10 @@ typedef struct graphics_info
 
 typedef struct boot_info
 {
+	graphics_info_t graphics;
 	e820_entry_t *e820_table;
 	int e820_entry_count;
-	graphics_info_t graphics;
+	uint32_t boot_signature;
 	uint8_t *vga_font;
 	uint8_t vga_font_type;
 } __attribute__((packed)) boot_info_t;

@@ -28,6 +28,8 @@ OBJCOPY ?= objcopy
 
 INCLUDES := $(CURDIR)/include
 
+COMPILE_COMMANDS := $(CURDIR)/compile_commands.json
+
 export BUILDDIR
 export BINDIR
 export OBJDIR
@@ -43,6 +45,8 @@ export CC
 export NASM
 export OBJCOPY
 
+export COMPILE_COMMANDS
+
 .PHONY: all
 all: image
 
@@ -52,6 +56,15 @@ clean:
 	@$(MAKE) -C kernel TARGET=$(KERNEL) clean
 	@$(MAKE) -C libc TARGET=$(LIBC) clean
 	@rm -f $(IMAGE)
+
+.PHONY: prepare_cpl_cmds
+prepare_cpl_cmds:
+	@echo "[" > $(COMPILE_COMMANDS)
+
+.PHONY: finish_cpl_cmds
+finish_cpl_cmds:
+	@echo "    {}" >> $(COMPILE_COMMANDS)
+	@echo "]" >> $(COMPILE_COMMANDS)
 
 .PHONY: bootldr
 bootldr:
@@ -71,7 +84,7 @@ rootdir:
 	@cp $(KERNEL) $(ROOTDIR)/sistema/boot/kernel.sys
 
 .PHONY: image
-image: libc bootldr kernel rootdir
+image: prepare_cpl_cmds libc bootldr kernel rootdir finish_cpl_cmds
 	@echo "  GERANDO IMAGEM $(IMAGE)"
 	@dd if=/dev/zero of=$(IMAGE) bs=1 count=0 seek=$(IMAGE_SIZE) >/dev/null 2>&1
 	@mkfs.fat -F $(IMAGE_FAT_SIZE) -n "BITIX" -R 64 $(IMAGE) >/dev/null 2>&1
@@ -85,7 +98,8 @@ QEMU := qemu-system-i386
 QEMUFLAGS := -drive file=$(IMAGE),format=raw,if=ide,media=disk \
 			 -audiodev alsa,id=audio0 \
 			 -machine pc,pcspk-audiodev=audio0 \
-			 -serial stdio -m 4M -vga std
+			 -serial stdio -m 4M -vga std \
+			 -smp 1 -enable-kvm
 
 BOCHS := bochs
 else

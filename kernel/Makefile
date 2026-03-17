@@ -25,6 +25,8 @@ INCLUDES += $(CURDIR)/include \
 			$(CURDIR)/include/arch/$(ARCH)
 LIBS := $(LIBC)
 
+COMPILE_COMMANDS ?= $(CURDIR)/compile_commands.json
+
 CFLAGS := \
 	-std=c99 -O2 \
 	-Wall \
@@ -112,6 +114,17 @@ $(OBJDIR)/c/%.o: $(CURDIR)/source/%.c
 	@echo "  CC          $@"
 	@mkdir -p $(dir $@) $(dir $(DEPDIR)/c/$*)
 	@$(CC) $(CFLAGS) -c $< -o $@ -MMD -MF $(DEPDIR)/c/$*.d
+	@echo "    {" >> $(COMPILE_COMMANDS)
+	@echo "        \"directory\": \"$(CURDIR)\"," >> $(COMPILE_COMMANDS)
+	@echo "        \"arguments\": [" >> $(COMPILE_COMMANDS)
+	@echo "            \"$(CC)\"" >> $(COMPILE_COMMANDS)
+	@for flag in $(CFLAGS) -c "$<" -o "$@"; do \
+		printf ",\n            \"$$flag\"" >> $(COMPILE_COMMANDS); \
+		done
+	@echo "" >> $(COMPILE_COMMANDS)
+	@echo "        ]," >> $(COMPILE_COMMANDS)
+	@echo "        \"file\": \"$<\"" >> $(COMPILE_COMMANDS)
+	@echo "    }," >> $(COMPILE_COMMANDS)
 
 $(OBJDIR)/asm/%.o: $(CURDIR)/source/%.asm
 	@echo "  NASM        $@"

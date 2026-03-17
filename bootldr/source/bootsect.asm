@@ -144,6 +144,9 @@ drive: DB 0x00
 heads: DB 0x00
 sectors_per_track: DB 0x00
 
+TIMES 440 - ($-$$) DB 0
+DD __TIME__ ;; Assinatura de boot
+
 TIMES 510 - ($-$$) DB 0
 DW 0x55AA
 

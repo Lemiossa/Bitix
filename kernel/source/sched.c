@@ -35,6 +35,24 @@ uint32_t current_id = 1;
 uint32_t volatile ticks = 0;
 static uint16_t freq = 0;
 
+int irq_disable_counter = 0;
+
+/* Desabilita interrupções */
+static inline void disable(void)
+{
+	irq_disable_counter++;
+	cli();
+}
+
+/* Habilita interrupções */
+static inline void enable(void)
+{
+	if (irq_disable_counter == 0)
+		sti();
+	else
+		irq_disable_counter--;
+}
+
 /* Converte n milisegundos para ticks */
 uint32_t ms_to_ticks(uint32_t n)
 {
@@ -58,30 +76,15 @@ uint32_t get_ticks(void)
 }
 
 /* Retorna o número de quantums de acordo com a prioridade */
-static uint32_t get_quantums(uint32_t priority)
+static inline uint32_t get_quantums(uint32_t priority)
 {
 	if (priority >= TOTAL_PRIORITIES)
 		return process_priorities[TOTAL_PRIORITIES - 1];
 	return process_priorities[priority];
 }
 
-/* Acorda processos que já podem rodar */
-static void wake_up_processes(void)
-{
-	process_t *p = current;
-	do
-	{
-		if (p->state == BLOCKED && ticks >= p->wake_tick)
-		{
-			p->state = READY;
-			p->quantum = get_quantums(p->priority);
-		}
-	}
-	while ((p = p->next) != current);
-}
-
 /* Procura o proximo processo pronto */
-static process_t *sched_get_next_ready(process_t *start)
+static inline process_t *sched_get_next_ready(process_t *start)
 {
 	if (!start)
 		return NULL;
@@ -89,6 +92,9 @@ static process_t *sched_get_next_ready(process_t *start)
 	process_t *p = start;
 	do
 	{
+		if (p->state == BLOCKED && ticks >= p->wake_tick)
+			p->state = READY;
+
 		if (p->state == READY)
 			return p;
 	}
@@ -98,7 +104,7 @@ static process_t *sched_get_next_ready(process_t *start)
 }
 
 /* Procura um processo pelo PID */
-static process_t *sched_get_process(uint32_t pid)
+static inline process_t *sched_get_process(uint32_t pid)
 {
 	process_t *p = current;
 	do
@@ -111,6 +117,13 @@ static process_t *sched_get_process(uint32_t pid)
 	return NULL;
 }
 
+/* Coloca uma tarefa para "dormir" */
+void task_sleep(process_t *p, uint32_t ms)
+{
+	p->wake_tick = ticks + ms_to_ticks(ms);
+	p->state = BLOCKED;
+}
+
 /* Escalonador */
 void sched(intr_frame_t *f)
 {
@@ -119,18 +132,19 @@ void sched(intr_frame_t *f)
 
 	current->uptime_ticks++;
 
-	if (--current->quantum > 0)
+	if (current->state == RUNNING && current->quantum > 0)
+	{
+		current->quantum--;
+		return;
+	}
+
+	process_t *p = sched_get_next_ready(current);
+	if (!p)
 		return;
 
 	/* Processo atual */
 	current->esp0 = (uint32_t)f;
 	current->quantum = get_quantums(current->priority);
-
-	wake_up_processes();
-	process_t *p = sched_get_next_ready(current);
-	if (!p)
-		return;
-
 	if (current->state == RUNNING)
 		current->state = READY;
 
@@ -172,12 +186,12 @@ void sched_init(uint32_t n)
 	idle->next = idle;
 	idle->priority = 3;
 	idle->quantum = get_quantums(idle->priority);
-	idt_set_intr(48, sched, 0x08);
+	idt_set_intr(50, sched, 0x08);
 
 	freq = n;
 	ticks = 0;
 	pit_set(0, PIT_SQUARE_WAVE_GENERATOR, n);
-	idt_set_intr(0x20, time, 0x08);
+	idt_set_trap(0x20, time, 0x08);
 	pic_unmask_irq(0);
 
 	current = idle;
@@ -187,7 +201,7 @@ void sched_init(uint32_t n)
 /* Cede a execução voluntariamente */
 void yield(void)
 {
-	__asm__ volatile ("INT $48");
+	__asm__ volatile ("INT $50");
 	while (1); /* Não deve chegar aqui */
 }
 
@@ -197,9 +211,10 @@ void exit(int code)
 	if (!current || current->pid == 0)
 		panic("escalonador: Tentativa de sair no idle\r\n");
 
+	disable();
 	current->state = DEAD;
-	current->quantum = 1;
 	current->exit_code = (uint8_t)code;
+	enable();
 	yield();
 }
 
@@ -210,10 +225,15 @@ void sleep(uint32_t n)
 		panic("escalonador: Tentativa de esperar no idle\r\n");
 
 	uint32_t end = ticks + ms_to_ticks(n);
+
+	disable();
 	current->wake_tick = end;
 	current->state = BLOCKED;
-	current->quantum = 1;
+	enable();
+
 	yield();
+
+	while ((ticks - end) > 0);
 }
 
 /* Cria um novo processo */
