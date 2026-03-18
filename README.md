@@ -16,6 +16,11 @@ Aqui estão todos os comandos que ele usa:
 - mcopy
 - python3
 - make
+- dd
+- echo
+- if/else
+- printf
+- sed
 
 ## Como testar
 
