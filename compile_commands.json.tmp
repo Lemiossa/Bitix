@@ -1,6 +1,0 @@
-    {
-        "directory": "/home/matheus/Projects/Bitix/kernel",
-        "command": "cc -std=c99 -O2 -Wall -Wextra -fno-PIC -fno-pie -fno-stack-protector -ffreestanding -fno-builtin -ffunction-sections -fdata-sections -I/home/matheus/Projects/Bitix/include -I/home/matheus/Projects/Bitix/kernel/include -I/home/matheus/Projects/Bitix/kernel/include/arch/x86 -m32 -march=i386 -c /home/matheus/Projects/Bitix/kernel/source/main.c -o /home/matheus/Projects/Bitix/build/kernel/obj/c/main.o",
-        "file": "/home/matheus/Projects/Bitix/kernel/source/main.c",
-        "output": "/home/matheus/Projects/Bitix/build/kernel/obj/c/main.o"
-    },

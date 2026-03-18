@@ -40,23 +40,11 @@ void prog1(void)
 		process_t *p = current;
 		do
 		{
-			char *str = "unknown";
-
-			if (p->state == READY)
-				str = "ready";
-			else if (p->state == RUNNING)
-				str = "running";
-			else if (p->state == BLOCKED)
-				str = "blocked";
-			else if (p->state == DEAD)
-				str = "dead";
-
-			printf("%-8s %s\r\n", str, p->name);
+			printf("%hhu %s\r\n", p->state, p->name);
 			p = p->next;
-
 		}
 		while (p != current);
-		sleepnb(1000);
+		sleep(1000);
 	}
 	exit(0);
 }
@@ -65,7 +53,7 @@ void prog2(void)
 {
 	while (1)
 	{
-		sleep(1000);
+		sleep(100);
 	}
 }
 
@@ -92,10 +80,9 @@ void kernel_main(boot_info_t *bi)
 	printf("Spawnando o prog!\r\n");
 
 	spawn(prog1, "prog1");
-	spawn(prog2, "prog2");
 
 	while (1)
 	{
-		hlt();
+		sleepnb(1000);
 	}
 }

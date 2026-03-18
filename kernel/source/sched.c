@@ -80,13 +80,6 @@ static inline process_t *sched_get_process(uint32_t pid)
 	return NULL;
 }
 
-/* Coloca uma tarefa para "dormir" */
-void task_sleep(process_t *p, uint32_t ms)
-{
-	p->wake_tick = ticks + ms_to_ticks(ms);
-	p->state = BLOCKED;
-}
-
 /* Escalonador */
 void sched(intr_frame_t *f)
 {
@@ -96,24 +89,26 @@ void sched(intr_frame_t *f)
 	current->uptime_ticks++;
 
 	/* Acordar os BLOCKED */
-	process_t *p = current->next;
-	while (p != current)
+	process_t *p = current;
+	do
 	{
 		if (p->state == BLOCKED && ticks >= p->wake_tick)
 			p->state = READY;
 
 		p = p->next;
 	}
+	while (p != current);
 
 	/* Procurar um READY */
 	p = current->next;
-	while (p != current)
+	do
 	{
 		if (p->state == READY)
 			break;
 
 		p = p->next;
 	}
+	while (p != current);
 
 	/* Processo atual */
 	current->esp0 = (uint32_t)f;
@@ -171,7 +166,6 @@ void sched_init(uint32_t n)
 void yield(void)
 {
 	__asm__ volatile ("INT $50");
-	while (1); /* Não deve chegar aqui */
 }
 
 /* Sai do processo atual */
@@ -193,14 +187,11 @@ void sleep(uint32_t n)
 	if (!current || current->pid == 0)
 		panic("escalonador: Tentativa de esperar no idle\r\n");
 
-	uint32_t end = ticks + ms_to_ticks(n);
 	disable();
 	current->state = BLOCKED;
-	current->wake_tick = end;
+	current->wake_tick = ticks + ms_to_ticks(n);
 	enable();
 	yield();
-
-	while ((ticks - end) > 0);
 }
 
 /* Espera N ms em uma tarefa sem bloquear o processo */
