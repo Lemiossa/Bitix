@@ -94,7 +94,7 @@ rootdir:
 image: libc bootldr kernel rootdir
 	@echo "  GERANDO IMAGEM $(IMAGE)"
 	@dd if=/dev/zero of=$(IMAGE) bs=1 count=0 seek=$(IMAGE_SIZE) >/dev/null 2>&1
-	@mkfs.fat --mbr=y -F $(IMAGE_FAT_SIZE) -n "BITIX" -R 64 $(IMAGE) >/dev/null 2>&1
+	@mkfs.fat -F $(IMAGE_FAT_SIZE) -n "BITIX" -R 64 --mbr=y $(IMAGE) >/dev/null 2>&1
 	@dd if=$(BOOTLDR) of=$(IMAGE) bs=1 count=3 conv=notrunc >/dev/null 2>&1
 	@dd if=$(BOOTLDR) of=$(IMAGE) bs=1 skip=60 seek=60 count=448 conv=notrunc >/dev/null 2>&1
 	@dd if=$(BOOTLDR) of=$(IMAGE) bs=1 skip=512 seek=512 conv=notrunc >/dev/null 2>&1
