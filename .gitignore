@@ -2,3 +2,5 @@
 /.cache
 /.clangd
 /compile_commands.json
+
+font*.h
