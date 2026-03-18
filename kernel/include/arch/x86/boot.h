@@ -32,8 +32,6 @@ typedef struct boot_info
 	e820_entry_t *e820_table;
 	int e820_entry_count;
 	uint32_t boot_signature;
-	uint8_t *vga_font;
-	uint8_t vga_font_type;
 } __attribute__((packed)) boot_info_t;
 
 extern boot_info_t boot_info;

@@ -93,20 +93,6 @@ void set_vesa(void)
 	boot_info.graphics.framebuffer = vbe_mode_info.framebuffer;
 }
 
-/* Configura a fonte */
-void set_font(void)
-{
-#ifdef FONT
-	boot_info.vga_font_type = FONT;
-	boot_info.vga_font = vga_get_font(FONT, NULL);
-	if (!boot_info.vga_font)
-	{
-		printf("Falha ao pegar a fonte!\r\n");
-		halt();
-	}
-#endif /* FONT */
-}
-
 /* Configura E820 */
 void set_e820(void)
 {
@@ -155,7 +141,6 @@ int main()
 	load_kernel();
 	set_e820();
 	set_vesa();
-	set_font();
 
 	uint32_t boot_info_loc = (uint32_t)&boot_info;
 	__asm__ volatile("MOV %0, %%EAX;"

@@ -114,14 +114,6 @@ uint8_t *vga_get_font(uint8_t pointer, uint16_t *height)
 	if (height)
 		*height = r.w.cx;
 
-#ifdef DEBUG
-	printf("r.w.cx = %04X\r\n", r.w.cx);
-#endif /* DEBUG */
-
 	uint8_t *font = (uint8_t *)MK_PTR(r.w.es, r.w.bp);
-#ifdef DEBUG
-	printf("vga_font = %08X\r\n", (uint32_t)font);
-#endif /* DEBUG */
-
 	return font;
 }

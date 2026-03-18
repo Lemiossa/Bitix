@@ -51,7 +51,7 @@ void prog1(void)
 			else if (p->state == DEAD)
 				str = "dead";
 
-			printf("%8s %s\r\n", str, p->name);
+			printf("%-8s %s\r\n", str, p->name);
 			p = p->next;
 
 		}
@@ -93,14 +93,6 @@ void kernel_main(boot_info_t *bi)
 
 	spawn(prog1, "prog1");
 	spawn(prog2, "prog2");
-
-	for (int i = 32; i < 127; i++)
-	{
-		printf("%c", (char)i);
-		if ((i + 1) % 16 == 0)
-			printf("\r\n");
-	}
-	printf("\r\n");
 
 	while (1)
 	{

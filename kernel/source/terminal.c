@@ -190,9 +190,6 @@ static void scroll(void)
 /* Inicializa sistema do terminal */
 void terminal_init(void)
 {
-	if (boot_info.vga_font_type == 6)
-		char_height = 16;
-
 	font = (uint8_t *)bitixfont;
 
 	if (boot_info.graphics.mode == 1)
