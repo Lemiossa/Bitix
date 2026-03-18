@@ -155,14 +155,13 @@ static void redraw(void)
 			}
 		}
 	}
-	draw_cursor(cursor_x, cursor_y);
 }
 
 /* Faz scroll de 1 linha */
 /* Apenas altera o buffer */
 static void scroll(void)
 {
-	for (int y = top_corner_y; y < bottom_corner_y; y++)
+	for (int y = top_corner_y - 1; y < bottom_corner_y; y++)
 	{
 		for (int x = top_corner_x; x < bottom_corner_x; x++)
 		{

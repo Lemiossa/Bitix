@@ -418,7 +418,7 @@ static fat_entry_t *fat_find(fat_data_t *data, const char *path)
 }
 
 /* Verifica se um arquivo existe em FAT */
-static bool exists(void *data, const char *path)
+static bool fat_exists(void *data, const char *path)
 {
 	if (!data || !path)
 		return false;
@@ -433,7 +433,7 @@ static bool exists(void *data, const char *path)
 }
 
 /* Abre um arquivo em FAT */
-static void *open(void *data, const char *path, uint32_t *length)
+static void *fat_open(void *data, const char *path, uint32_t *length)
 {
 	if (!data || !path)
 		return NULL;
@@ -455,7 +455,7 @@ static void *open(void *data, const char *path, uint32_t *length)
 }
 
 /* Lê um arquivo em FAT */
-static uint32_t read(void *data, void *internal, uint32_t offset, uint32_t n, void *d)
+static uint32_t fat__read(void *data, void *internal, uint32_t offset, uint32_t n, void *d)
 {
 	if (!data || !internal || !d)
 		return 0;
@@ -466,7 +466,7 @@ static uint32_t read(void *data, void *internal, uint32_t offset, uint32_t n, vo
 }
 
 /* Fecha um arquivo em FAT */
-static void close(void *data, void *internal)
+static void fat_close(void *data, void *internal)
 {
 	if (!internal)
 		return;
@@ -477,7 +477,7 @@ static void close(void *data, void *internal)
 }
 
 /* Abre um diretório em FAT */
-static void *opendir(void *data, const char *path)
+static void *fat_opendir(void *data, const char *path)
 {
 	if (!data || !path)
 		return NULL;
@@ -508,12 +508,12 @@ static void *opendir(void *data, const char *path)
 }
 
 /* Lê um diretório em FAT */
-static bool readdir(void *data, void *internal, uint32_t index, void *out)
+static bool fat_readdir(void *data, void *internal, uint32_t index, void *out)
 {
 	if (!data || !internal || !out)
 		return false;
 
-	vfs_dirent_t dirent = {0};
+	dirent_t dirent = {0};
 	fat_entry_t e = {0};
 
 	fat_entry_t *entry = internal;
@@ -531,7 +531,7 @@ static bool readdir(void *data, void *internal, uint32_t index, void *out)
 }
 
 /* Fecha um diretório em FAT */
-static void closedir(void *data, void *internal)
+static void fat_closedir(void *data, void *internal)
 {
 	if (!internal)
 		return;
@@ -542,7 +542,6 @@ static void closedir(void *data, void *internal)
 }
 
 /* Registra FAT em um disco */
-/* Por enquanto, somente floppy */
 /* Retorna TRUE se feito, FALSE se erro */
 bool fat_registry(int disk, uint32_t start_lba, char letter)
 {
@@ -552,15 +551,15 @@ bool fat_registry(int disk, uint32_t start_lba, char letter)
 
 	fat_configure(data, disk, start_lba);
 
-	vfs_fs_t fs = {
-		.exists = exists,
-		.open = open,
-		.read = read,
+	fs_t fs = {
+		.exists = fat_exists,
+		.open = fat_open,
+		.read = fat__read,
 		.write = NULL,
-		.close = close,
-		.opendir = opendir,
-		.readdir = readdir,
-		.closedir = closedir,
+		.close = fat_close,
+		.opendir = fat_opendir,
+		.readdir = fat_readdir,
+		.closedir = fat_closedir,
 		.data = data
 	};
 

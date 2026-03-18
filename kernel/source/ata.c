@@ -8,7 +8,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <stdio.h>
+#include <fat.h>
 #include <terminal.h>
 #include <debug.h>
 
@@ -252,6 +252,7 @@ bool ata_detect(void)
 		ctrl1 = 0x376;
 	}
 
+	char letter = 'C';
 	for (int i = 0; i < 4; i++)
 	{
 		uint16_t info[256] = {0};
@@ -294,6 +295,53 @@ bool ata_detect(void)
 			debugf("\tModelo: %s\r\n", ata_disks[i].model);
 			debugf("\tSerial: %s\r\n", ata_disks[i].serial);
 			debugf("\tTamanho: %u b\r\n", ata_disks[i].total_sectors * 512);
+
+			uint8_t mbr[SECTOR_SIZE] = {0};
+
+			if (!ata_read(i, 0, 1, mbr))
+				continue;
+
+			mbr_part_t *parts = (mbr_part_t *)&mbr[0x1BE];
+			int part_count = 0;
+			for (int j = 0; j < 4; j++)
+			{
+				uint8_t type = parts[j].type;
+				switch (type)
+				{
+					/* FAT */
+					case 0x01:
+					case 0x04:
+					case 0x06:
+					case 0x0E:
+					case 0x0B:
+					case 0x0C:
+					case 0x1B:
+					case 0x1C:
+						if (fat_registry(i, parts[j].start_lba, letter))
+						{
+							part_count++;
+							letter++;
+						}
+						break;
+					default:
+						debugf("ATA%d: Tipo de particao desconhecido: 0x%02hhX\r\n", i, type);
+						break;
+				}
+			}
+
+			if (part_count == 0)
+			{
+				debugf("ATA%d: Numero de particoes e 0, tentando usar setor 0...\r\n", i);
+				if (fat_registry(i, 0, letter))
+				{
+					debugf("ATA%d: Sucesso! Criado como particao \"%c:\"\r\n", i, letter);
+					letter++;
+				}
+				else
+				{
+					debugf("ATA%d: Erro!\r\n", i);
+				}
+			}
 		}
 	}
 	return true;

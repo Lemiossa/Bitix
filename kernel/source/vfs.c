@@ -10,10 +10,10 @@
 #include <heap.h>
 #include <string.h>
 
-vfs_fs_t filesystems[26];
+fs_t filesystems[26];
 
 /* Registra um novo FS */
-void vfs_register_fs(char drive, vfs_fs_t fs)
+void vfs_register_fs(char drive, fs_t fs)
 {
     if (!isalpha(drive))
 		return;
@@ -23,7 +23,7 @@ void vfs_register_fs(char drive, vfs_fs_t fs)
 }
 
 /* Retorna true se um arquivo existe */
-bool vfs_exists(const char *path)
+bool exists(const char *path)
 {
 	if (!path)
 		return false;
@@ -39,7 +39,7 @@ bool vfs_exists(const char *path)
 		path++;
 
 	int idx = drive - 'A';
-	vfs_fs_t *fs = &filesystems[idx];
+	fs_t *fs = &filesystems[idx];
 	if (!fs->exists)
 		return false;
 
@@ -47,7 +47,7 @@ bool vfs_exists(const char *path)
 }
 
 /* Abre um arquivo no VFS */
-vfs_file_t *vfs_open(const char *path)
+file_t *open(const char *path)
 {
 	if (!path)
 		return NULL;
@@ -68,7 +68,7 @@ vfs_file_t *vfs_open(const char *path)
 	if (!isalpha(drive) || !filesystems[idx].open)
 		return NULL;
 
-	vfs_file_t *f = alloc(sizeof(vfs_file_t));
+	file_t *f = alloc(sizeof(file_t));
 	if (!f)
 		return NULL;
 
@@ -86,7 +86,7 @@ vfs_file_t *vfs_open(const char *path)
 }
 
 /* Lê uma quantidade de N de um F em um D */
-uint32_t vfs_read(vfs_file_t *f, uint32_t n, void *d)
+uint32_t read(file_t *f, uint32_t n, void *d)
 {
 	if (!f || !f->fs || !f->internal || !f->fs->read || !f->fs->data)
 		return 0;
@@ -102,7 +102,7 @@ uint32_t vfs_read(vfs_file_t *f, uint32_t n, void *d)
 }
 
 /* Lê uma quantidade de N de um F de um S */
-uint32_t vfs_write(vfs_file_t *f, uint32_t n, void *s)
+uint32_t write(file_t *f, uint32_t n, void *s)
 {
 	if (!f || !f->fs || !f->internal || !f->fs->write || !f->fs->data)
 		return 0;
@@ -117,7 +117,7 @@ uint32_t vfs_write(vfs_file_t *f, uint32_t n, void *s)
 
 /* Altera o ponteiro dentro de um arquivo */
 /* Retorna o ponteiro na posição nova */
-uint32_t vfs_seek(vfs_file_t *f, uint32_t pos)
+uint32_t seek(file_t *f, uint32_t pos)
 {
 	if (!f || !f->fs)
 		return 0;
@@ -132,7 +132,7 @@ uint32_t vfs_seek(vfs_file_t *f, uint32_t pos)
 }
 
 /* Fecha um arquivo e libera seus recursos */
-void vfs_close(vfs_file_t *f)
+void close(file_t *f)
 {
 	if (!f || !f->fs || !f->internal || !f->fs->close || !f->fs->data)
 		return;
@@ -142,7 +142,7 @@ void vfs_close(vfs_file_t *f)
 }
 
 /* Abre um diretório */
-vfs_dir_t *vfs_opendir(const char *path)
+dir_t *opendir(const char *path)
 {
 	if (!path)
 		return false;
@@ -161,7 +161,7 @@ vfs_dir_t *vfs_opendir(const char *path)
 		return NULL;
 
 
-	vfs_dir_t *d = alloc(sizeof(vfs_dir_t));
+	dir_t *d = alloc(sizeof(dir_t));
 	if (!d)
 		return NULL;
 
@@ -179,12 +179,12 @@ vfs_dir_t *vfs_opendir(const char *path)
 }
 
 /* Lê um diretório */
-bool vfs_readdir(vfs_dir_t *d, vfs_dirent_t *out)
+bool readdir(dir_t *d, dirent_t *out)
 {
 	if (!d || !d->internal || !d->fs || !d->fs->data || !d->fs->readdir)
 		return false;
 
-	vfs_dirent_t dirent = {0};
+	dirent_t dirent = {0};
 	if (!d->fs->readdir(d->fs->data, d->internal, d->pos, &dirent))
 		return false;
 
@@ -195,7 +195,7 @@ bool vfs_readdir(vfs_dir_t *d, vfs_dirent_t *out)
 }
 
 /* Fecha um diretório */
-void vfs_closedir(vfs_dir_t *d)
+void closedir(dir_t *d)
 {
 	if (!d || !d->internal || !d->fs || !d->fs->data || !d->fs->closedir)
 		return;

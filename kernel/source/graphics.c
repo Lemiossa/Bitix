@@ -13,6 +13,7 @@
 #include <pmm.h>
 #include <vmm.h>
 #include <debug.h>
+#include <util.h>
 
 static uint32_t bytes_per_pixel = 0;
 static bool initialized = false;
@@ -55,10 +56,12 @@ void graphics_init(void)
 	}
 
 
-	for (uint32_t i = 0; i < size; i += PAGE_SIZE)
+	uint32_t start = ALIGN_DOWN(boot_info.graphics.framebuffer, PAGE_SIZE);
+	uint32_t end = ALIGN_UP(start + size, PAGE_SIZE);
+
+	for (uint32_t i = start; i < end; i += PAGE_SIZE)
 	{
-		if (!vmm_map(boot_info.graphics.framebuffer + i,
-				boot_info.graphics.framebuffer + i, PAGE_PRESENT | PAGE_WRITE))
+		if (!vmm_map(i, i, PAGE_PRESENT | PAGE_WRITE))
 			panic("Graficos: Falha ao mapear framebuffer de video\r\n");
 	}
 

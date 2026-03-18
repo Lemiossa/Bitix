@@ -23,11 +23,13 @@ typedef struct process
 	uint32_t cr3;
 	uint32_t esp;
 	uint32_t esp0;
+	uint32_t counter;
 	uint32_t uptime_ticks;
 	uint32_t wake_tick;
 	struct process *next;
 	uint8_t state;
 	uint8_t exit_code;
+	uint8_t priority;
 } process_t;
 
 extern process_t *current;
@@ -41,5 +43,6 @@ void exit(int code);
 void sleep(uint32_t n);
 void sleepnb(uint32_t n);
 uint32_t spawn(void (*entry)(void), char *name);
+void set_priority(uint32_t pid, uint8_t prio);
 
 #endif /* SCHED_H */

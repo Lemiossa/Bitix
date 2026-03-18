@@ -20,6 +20,9 @@
 #include <pit.h>
 #include <pic.h>
 
+/* Lista de prioridades */
+static const uint32_t counters[4] = {16, 8, 4, 2};
+
 process_t *current = NULL;
 uint32_t current_id = 1;
 
@@ -99,6 +102,12 @@ void sched(intr_frame_t *f)
 	}
 	while (p != current);
 
+	if (current->counter > 0)
+	{
+		current->counter--;
+		return;
+	}
+
 	/* Procurar um READY */
 	p = current->next;
 	do
@@ -112,6 +121,7 @@ void sched(intr_frame_t *f)
 
 	/* Processo atual */
 	current->esp0 = (uint32_t)f;
+	current->counter = counters[current->priority];
 	if (current->state == RUNNING)
 		current->state = READY;
 
@@ -128,6 +138,7 @@ void time(intr_frame_t *f)
 {
 	ticks++;
 	pic_eoi(0);
+
 	sched(f);
 }
 
@@ -150,6 +161,8 @@ void sched_init(uint32_t n)
 	idle->esp0 = 0;
 	idle->state = RUNNING;
 	idle->next = idle;
+	idle->priority = 3;
+	idle->counter = counters[idle->priority];
 	idt_set_intr(50, sched, 0x08);
 
 	freq = n;
@@ -219,6 +232,8 @@ uint32_t spawn(void (*entry)(void), char *name)
 	proc->cr3 = (uint32_t)kernel_pd; /* Por enquanto, usa o mesmo PD do kernel */
 	proc->esp = 0;
 	proc->esp0 = (uint32_t)alloc(PROCESS_STACK_SIZE);
+	proc->priority = 2;
+	proc->counter = counters[proc->priority];
 
 	if (!proc->esp0)
 	{
@@ -247,4 +262,18 @@ uint32_t spawn(void (*entry)(void), char *name)
 	current->next = proc;
 
 	return proc->pid;
+}
+
+/* Seta a prioridade de um processo */
+void set_priority(uint32_t pid, uint8_t prio)
+{
+	if (prio > 3 || pid == current->pid)
+		return;
+
+	process_t *p = sched_get_process(pid);
+	if (!p)
+		return;
+
+	p->priority = prio;
+	p->counter = counters[prio];
 }

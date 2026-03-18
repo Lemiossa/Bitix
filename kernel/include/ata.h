@@ -17,6 +17,16 @@ typedef struct ata_disk
 	bool slave;
 } ata_disk_t;
 
+typedef struct mbr_part
+{
+	uint8_t status;
+	uint8_t start_chs[3];
+	uint8_t type;
+	uint8_t end_chs[3];
+	uint32_t start_lba;
+	uint32_t length;
+} __attribute__((packed)) mbr_part_t;
+
 #define SECTOR_SIZE 512
 
 extern ata_disk_t ata_disks[4];

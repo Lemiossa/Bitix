@@ -32,31 +32,6 @@
 
 boot_info_t boot_info = {0};
 
-void prog1(void)
-{
-	while (1)
-	{
-
-		process_t *p = current;
-		do
-		{
-			printf("%hhu %s\r\n", p->state, p->name);
-			p = p->next;
-		}
-		while (p != current);
-		sleep(1000);
-	}
-	exit(0);
-}
-
-void prog2(void)
-{
-	while (1)
-	{
-		sleep(100);
-	}
-}
-
 /* Func principal */
 void kernel_main(boot_info_t *bi)
 {
@@ -76,13 +51,10 @@ void kernel_main(boot_info_t *bi)
 	acpi_init();
 	pci_enumerate();
 	ata_detect();
-
-	printf("Spawnando o prog!\r\n");
-
-	spawn(prog1, "prog1");
+	init_partitions();
 
 	while (1)
 	{
-		sleepnb(1000);
+		hlt();
 	}
 }
