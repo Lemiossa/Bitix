@@ -51,7 +51,6 @@ void kernel_main(boot_info_t *bi)
 	acpi_init();
 	pci_enumerate();
 	ata_detect();
-	init_partitions();
 
 	while (1)
 	{
