@@ -43,9 +43,9 @@ void kernel_main(boot_info_t *bi)
 	vmm_init();
 	graphics_init();
 	heap_init();
-	sched_init(100);
 	terminal_init();
 	terminal_clear(TERMINAL_DEFAULT_FG_COLOR, TERMINAL_DEFAULT_BG_COLOR);
+	sched_init(100);
 	cpuid_init();
 	fpu_init();
 	acpi_init();

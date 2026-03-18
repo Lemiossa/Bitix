@@ -306,6 +306,9 @@ bool ata_detect(void)
 			for (int j = 0; j < 4; j++)
 			{
 				uint8_t type = parts[j].type;
+				if (type == 0)
+					continue;
+
 				switch (type)
 				{
 					/* FAT */

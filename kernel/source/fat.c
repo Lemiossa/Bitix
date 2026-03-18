@@ -279,6 +279,9 @@ static int fat_read_dir(fat_data_t *data, uint32_t cluster, uint32_t index, fat_
 				if ((uint8_t)entries[j].name[0] == 0xE5)
 					continue;
 
+				if (entries[j].attr == 0x0F)
+					continue;
+
 				if (current_index == index)
 				{
 					if (out)
