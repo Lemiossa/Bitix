@@ -20,15 +20,6 @@
 #include <pit.h>
 #include <pic.h>
 
-uint32_t process_priorities[] =
-{
-	16, /* Prioridade 0 */
-	8,  /* Prioridade 1 */
-	4,  /* Prioridade 2 */
-	1,  /* Prioridade 3 */
-};
-#define TOTAL_PRIORITIES (sizeof(process_priorities) / sizeof(process_priorities[0]))
-
 process_t *current = NULL;
 uint32_t current_id = 1;
 
@@ -75,34 +66,6 @@ uint32_t get_ticks(void)
 	return ticks;
 }
 
-/* Retorna o número de quantums de acordo com a prioridade */
-static inline uint32_t get_quantums(uint32_t priority)
-{
-	if (priority >= TOTAL_PRIORITIES)
-		return process_priorities[TOTAL_PRIORITIES - 1];
-	return process_priorities[priority];
-}
-
-/* Procura o proximo processo pronto */
-static inline process_t *sched_get_next_ready(process_t *start)
-{
-	if (!start)
-		return NULL;
-
-	process_t *p = start;
-	do
-	{
-		if (p->state == BLOCKED && ticks >= p->wake_tick)
-			p->state = READY;
-
-		if (p->state == READY)
-			return p;
-	}
-	while ((p = p->next) != start);
-
-	return NULL;
-}
-
 /* Procura um processo pelo PID */
 static inline process_t *sched_get_process(uint32_t pid)
 {
@@ -132,13 +95,30 @@ void sched(intr_frame_t *f)
 
 	current->uptime_ticks++;
 
-	process_t *p = sched_get_next_ready(current);
-	if (!p)
-		return;
+	/* Acordar os BLOCKED */
+	process_t *p = current->next;
+	while (p != current)
+	{
+		if (p->state == BLOCKED && ticks >= p->wake_tick)
+			p->state = READY;
+
+		p = p->next;
+	}
+
+	/* Procurar um READY */
+	p = current->next;
+	while (p != current)
+	{
+		if (p->state == READY)
+			break;
+
+		p = p->next;
+	}
 
 	/* Processo atual */
 	current->esp0 = (uint32_t)f;
-	current->state = READY;
+	if (current->state == RUNNING)
+		current->state = READY;
 
 	current = p;
 
@@ -214,6 +194,19 @@ void sleep(uint32_t n)
 		panic("escalonador: Tentativa de esperar no idle\r\n");
 
 	uint32_t end = ticks + ms_to_ticks(n);
+	disable();
+	current->state = BLOCKED;
+	current->wake_tick = end;
+	enable();
+	yield();
+
+	while ((ticks - end) > 0);
+}
+
+/* Espera N ms em uma tarefa sem bloquear o processo */
+void sleepnb(uint32_t n)
+{
+	uint32_t end = ticks + ms_to_ticks(n);
 	while ((ticks - end) > 0);
 }
 
@@ -228,7 +221,6 @@ uint32_t spawn(void (*entry)(void), char *name)
 	if (!proc)
 		return 0;
 
-	disable();
 	memset(proc, 0, sizeof(process_t));
 	strncpy(proc->name, name, PROCESS_MAX_NAME);
 	proc->pid = current_id++;
@@ -262,7 +254,6 @@ uint32_t spawn(void (*entry)(void), char *name)
 
 	proc->next = current->next;
 	current->next = proc;
-	enable();
 
 	return proc->pid;
 }

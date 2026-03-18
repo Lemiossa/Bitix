@@ -54,6 +54,7 @@ void graphics_init(void)
 		return;
 	}
 
+
 	for (uint32_t i = 0; i < size; i += PAGE_SIZE)
 	{
 		if (!vmm_map(boot_info.graphics.framebuffer + i,
@@ -62,7 +63,6 @@ void graphics_init(void)
 	}
 
 	initialized = true;
-
 }
 
 /* Desenha um PIXEL no modo grafico */

@@ -92,13 +92,12 @@ DEP := $(patsubst $(CURDIR)/source/%.asm,$(DEPDIR)/asm/%.d,$(SOURCE_ASM)) \
 	   $(patsubst $(CURDIR)/source/%.c,$(DEPDIR)/c/%.d,$(SOURCE_C))
 
 .PHONY: all
-all: $(TARGET)
+all: $(CURDIR)/include/font8x8.h $(TARGET)
 
 .PHONY: clean
 clean:
 	@echo "  RM          $(TARGET) $(OBJ) $(DEP)"
-	@rm -f $(TARGET) $(OBJ) $(DEP)
-
+	@rm -f $(TARGET) $(OBJ) $(DEP) $(CURDIR)/include/font8x8.h
 
 $(BINDIR)/kernel.elf: $(OBJ) $(LIBS)
 	@mkdir -p $(dir $@)
@@ -125,5 +124,10 @@ $(OBJDIR)/asm/%.o: $(CURDIR)/source/%.asm
 	@echo "  NASM        $@"
 	@mkdir -p $(dir $@) $(dir $(DEPDIR)/asm/$*)
 	@$(NASM) $(NASMFLAGS) $< -o $@ -MD $(DEPDIR)/asm/$*.d
+
+
+$(CURDIR)/include/font8x8.h: $(CURDIR)/font8x8.txt
+	@echo "  GENERANDO FONTE 8x8..."
+	@python3 font2c.py $< $@
 
 -include $(DEP)

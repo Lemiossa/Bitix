@@ -2,7 +2,6 @@
  * terminal.c                       *
  * Criado por Matheus Leme Da Silva *
  ***********************************/
-#include "sched.h"
 #include <asm.h>
 #include <boot.h>
 #include <graphics.h>
@@ -16,6 +15,8 @@
 #include <panic.h>
 #include <stdbool.h>
 #include <heap.h>
+#include <sched.h>
+#include <font8x8.h>
 
 static int char_height = 8;
 static int width = 80, height = 25;
@@ -26,6 +27,8 @@ static int cursor_x = 0, cursor_y = 0;
 static uint8_t current_fg_color = 7;
 static uint8_t current_bg_color = 0;
 static bool initialized = false;
+
+static uint8_t *font = NULL;
 
 typedef struct char_cell
 {
@@ -65,7 +68,7 @@ static void draw_char(int x, int y, char c, uint32_t fg, uint32_t bg)
 		return;
 	}
 
-	if (!boot_info.vga_font)
+	if (!font)
 		return;
 
 	int height = char_height;
@@ -75,7 +78,7 @@ static void draw_char(int x, int y, char c, uint32_t fg, uint32_t bg)
 
 	int pos = c * height;
 
-	uint8_t *glyph = &boot_info.vga_font[pos];
+	uint8_t *glyph = &font[pos];
 
 	for (int cy = 0; cy < height; cy++)
 	{
@@ -189,6 +192,8 @@ void terminal_init(void)
 {
 	if (boot_info.vga_font_type == 6)
 		char_height = 16;
+
+	font = (uint8_t *)bitixfont;
 
 	if (boot_info.graphics.mode == 1)
 	{

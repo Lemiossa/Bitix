@@ -116,7 +116,7 @@ endif
 .PHONY: qemu
 qemu: image
 	@echo "  QEMU        $(QEMUFLAGS)"
-	@$(QEMU) $(QEMUFLAGS)
+	@cd $(BUILDDIR) && $(QEMU) $(QEMUFLAGS)
 
 .PHONY: bochs
 bochs: image
@@ -128,4 +128,4 @@ bochs: image
 	@printf "boot: disk\r\n" >> $(BUILDDIR)/bochsrc
 	@printf "display_library: sdl2\r\n" >> $(BUILDDIR)/bochsrc
 	@printf "cpu: ips=100000000, count=1\r\n" >> $(BUILDDIR)/bochsrc
-	@echo c | $(BOCHS) -q -f $(BUILDDIR)/bochsrc
+	@cd $(BUILDDIR) && echo c | $(BOCHS) -q -f $(BUILDDIR)/bochsrc

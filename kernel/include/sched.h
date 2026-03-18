@@ -39,6 +39,7 @@ void sched_init(uint32_t n);
 void yield(void);
 void exit(int code);
 void sleep(uint32_t n);
+void sleepnb(uint32_t n);
 uint32_t spawn(void (*entry)(void), char *name);
 
 #endif /* SCHED_H */

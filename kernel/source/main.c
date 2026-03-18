@@ -28,6 +28,7 @@
 #include <debug.h>
 #include <vfs.h>
 #include <acpi.h>
+#include <font8x8.h>
 
 boot_info_t boot_info = {0};
 
@@ -35,7 +36,7 @@ void prog1(void)
 {
 	while (1)
 	{
-		printf("%8s %8s %8s %8s %s\r\n\r\n", "pid", "ppid", "state", "uptime", "name");
+
 		process_t *p = current;
 		do
 		{
@@ -50,14 +51,22 @@ void prog1(void)
 			else if (p->state == DEAD)
 				str = "dead";
 
-			printf("%8u %8u %8s %8u %8u %s\r\n", p->pid, p->ppid, str, ticks_to_ms(p->uptime_ticks), p->name);
+			printf("%8s %s\r\n", str, p->name);
 			p = p->next;
 
 		}
 		while (p != current);
-		sleep(1000);
+		sleepnb(1000);
 	}
 	exit(0);
+}
+
+void prog2(void)
+{
+	while (1)
+	{
+		sleep(1000);
+	}
 }
 
 /* Func principal */
@@ -83,6 +92,15 @@ void kernel_main(boot_info_t *bi)
 	printf("Spawnando o prog!\r\n");
 
 	spawn(prog1, "prog1");
+	spawn(prog2, "prog2");
+
+	for (int i = 32; i < 127; i++)
+	{
+		printf("%c", (char)i);
+		if ((i + 1) % 16 == 0)
+			printf("\r\n");
+	}
+	printf("\r\n");
 
 	while (1)
 	{
