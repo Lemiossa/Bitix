@@ -319,6 +319,7 @@ bool ata_detect(void)
 					case 0x1C:
 						if (fat_registry(i, parts[j].start_lba, letter))
 						{
+							debugf("ATA%d: Particao FAT: \"%c:\"\r\n", i, letter);
 							part_count++;
 							letter++;
 						}
@@ -334,7 +335,7 @@ bool ata_detect(void)
 				debugf("ATA%d: Numero de particoes e 0, tentando usar setor 0...\r\n", i);
 				if (fat_registry(i, 0, letter))
 				{
-					debugf("ATA%d: Sucesso! Criado como particao \"%c:\"\r\n", i, letter);
+					debugf("ATA%d: Sucesso! Criado como particao FAT: \"%c:\"\r\n", i, letter);
 					letter++;
 				}
 				else

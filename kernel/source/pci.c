@@ -82,9 +82,7 @@ void pci_enumerate(void)
 
 				pci_devices[pci_device_count++] = device;
 
-				debugf("PCI: %hu:%hhu:%hhu fornecedor=0x%04X classe=%hhu "
-					   "subclasse=%hhu\r\n",
-					   bus, dev, func, vendor_id, class, subclass);
+				debugf("PCI: %04X %hu:%hhu:%hhu %hhu/%hhu\r\n", vendor_id, bus, dev, func, class, subclass);
 			}
 		}
 	}
