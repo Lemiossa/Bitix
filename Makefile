@@ -33,6 +33,9 @@ INCLUDES := $(CURDIR)/include
 COMPILE_COMMANDS := $(CURDIR)/compile_commands.json
 TMP_COMPILE_COMMANDS := $(CURDIR)/compile_commands.json.tmp
 
+# Debian precisa disso
+export PATH := $(PATH):/sbin:/usr/sbin
+
 export BUILDDIR
 export BINDIR
 export OBJDIR
