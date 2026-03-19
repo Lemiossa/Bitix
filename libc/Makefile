@@ -34,6 +34,10 @@ CFLAGS := \
 	-ffunction-sections -fdata-sections \
 	$(addprefix -I,$(INCLUDES))
 
+ifeq ($(DEBUG),true)
+	CFLAGS += -DDEBUG
+endif
+
 ifeq ($(ARCH),x86)
 	CFLAGS += -m32 -march=i386
 	NASMFLAGS := -f elf32

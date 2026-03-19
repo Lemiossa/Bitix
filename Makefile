@@ -21,6 +21,8 @@ LIBC := $(LIBDIR)/libc.a
 
 ROOTDIR := $(BUILDDIR)/rootdir
 
+DEBUG ?= false
+
 AR ?= ar
 CC ?= gcc
 NASM ?= nasm
@@ -45,6 +47,7 @@ export AR
 export CC
 export NASM
 export OBJCOPY
+export DEBUG
 
 export TMP_COMPILE_COMMANDS
 
