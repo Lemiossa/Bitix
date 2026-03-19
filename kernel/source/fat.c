@@ -493,6 +493,7 @@ static fat_common_entry_t *fat_find(fat_data_t *data, const char *path)
 		{
 			if (fat_read_dir(data, current_cluster, index++, &entry) != 0)
 			{
+				free(tmp_path);
 				return NULL;
 			}
 
@@ -506,10 +507,14 @@ static fat_common_entry_t *fat_find(fat_data_t *data, const char *path)
 		}
 
 		if (i < (count - 1) && !(entry.attr & FAT_ATTR_DIR))
+		{
+			free(tmp_path);
 			return NULL;
-
+		}
 		current_cluster = fat_cluster(data, entry);
 	}
+
+	free(tmp_path);
 
 	fat_common_entry_t *e = alloc(sizeof(fat_common_entry_t));
 	if (!e)
