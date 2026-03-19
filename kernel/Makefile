@@ -130,6 +130,6 @@ $(OBJDIR)/asm/%.o: $(CURDIR)/source/%.asm
 
 $(CURDIR)/include/font8x8.h: $(CURDIR)/font8x8.txt
 	@echo "  GENERANDO FONTE 8x8..."
-	@python3 font2c.py $< $@
+	@python3 font2c.py $< $@ --validate --stats
 
 -include $(DEP)
