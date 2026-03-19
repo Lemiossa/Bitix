@@ -521,7 +521,7 @@ static fat_common_entry_t *fat_find(fat_data_t *data, const char *path)
 }
 
 /* Verifica se um arquivo existe em FAT */
-static bool fat_exists(void *data, const char *path)
+static bool fat_fexists(void *data, const char *path)
 {
 	if (!data || !path)
 		return false;
@@ -536,7 +536,7 @@ static bool fat_exists(void *data, const char *path)
 }
 
 /* Abre um arquivo em FAT */
-static void *fat_open(void *data, const char *path, uint32_t *length)
+static void *fat_fopen(void *data, const char *path, uint32_t *length)
 {
 	if (!data || !path)
 		return NULL;
@@ -558,7 +558,7 @@ static void *fat_open(void *data, const char *path, uint32_t *length)
 }
 
 /* Lê um arquivo em FAT */
-static uint32_t fat__read(void *data, void *internal, uint32_t offset, uint32_t n, void *d)
+static uint32_t fat_fread(void *data, void *internal, uint32_t offset, uint32_t n, void *d)
 {
 	if (!data || !internal || !d)
 		return 0;
@@ -569,7 +569,7 @@ static uint32_t fat__read(void *data, void *internal, uint32_t offset, uint32_t 
 }
 
 /* Fecha um arquivo em FAT */
-static void fat_close(void *data, void *internal)
+static void fat_fclose(void *data, void *internal)
 {
 	if (!internal)
 		return;
@@ -580,7 +580,7 @@ static void fat_close(void *data, void *internal)
 }
 
 /* Abre um diretório em FAT */
-static void *fat_opendir(void *data, const char *path)
+static void *fat_dopen(void *data, const char *path)
 {
 	if (!data || !path)
 		return NULL;
@@ -611,7 +611,7 @@ static void *fat_opendir(void *data, const char *path)
 }
 
 /* Lê um diretório em FAT */
-static bool fat_readdir(void *data, void *internal, uint32_t index, void *out)
+static bool fat_dread(void *data, void *internal, uint32_t index, void *out)
 {
 	if (!data || !internal || !out)
 		return false;
@@ -634,7 +634,7 @@ static bool fat_readdir(void *data, void *internal, uint32_t index, void *out)
 }
 
 /* Fecha um diretório em FAT */
-static void fat_closedir(void *data, void *internal)
+static void fat_dclose(void *data, void *internal)
 {
 	if (!internal)
 		return;
@@ -655,14 +655,14 @@ bool fat_registry(int disk, uint32_t start_lba, char letter)
 	fat_configure(data, disk, start_lba);
 
 	fs_t fs = {
-		.exists = fat_exists,
-		.open = fat_open,
-		.read = fat__read,
-		.write = NULL,
-		.close = fat_close,
-		.opendir = fat_opendir,
-		.readdir = fat_readdir,
-		.closedir = fat_closedir,
+		.fexists = fat_fexists,
+		.fopen = fat_fopen,
+		.fread = fat_fread,
+		.fwrite = NULL,
+		.fclose = fat_fclose,
+		.dopen = fat_dopen,
+		.dread = fat_dread,
+		.dclose = fat_dclose,
 		.data = data
 	};
 

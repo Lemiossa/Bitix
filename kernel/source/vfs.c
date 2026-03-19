@@ -23,7 +23,7 @@ void vfs_register_fs(char drive, fs_t fs)
 }
 
 /* Retorna true se um arquivo existe */
-bool exists(const char *path)
+bool fexists(const char *path)
 {
 	if (!path)
 		return false;
@@ -47,7 +47,7 @@ bool exists(const char *path)
 }
 
 /* Abre um arquivo no VFS */
-file_t *open(const char *path)
+file_t *fopen(const char *path)
 {
 	if (!path)
 		return NULL;
@@ -86,7 +86,7 @@ file_t *open(const char *path)
 }
 
 /* Lê uma quantidade de N de um F em um D */
-uint32_t read(file_t *f, uint32_t n, void *d)
+uint32_t fread(file_t *f, uint32_t n, void *d)
 {
 	if (!f || !f->fs || !f->internal || !f->fs->read || !f->fs->data)
 		return 0;
@@ -102,7 +102,7 @@ uint32_t read(file_t *f, uint32_t n, void *d)
 }
 
 /* Lê uma quantidade de N de um F de um S */
-uint32_t write(file_t *f, uint32_t n, void *s)
+uint32_t fwrite(file_t *f, uint32_t n, void *s)
 {
 	if (!f || !f->fs || !f->internal || !f->fs->write || !f->fs->data)
 		return 0;
@@ -117,7 +117,7 @@ uint32_t write(file_t *f, uint32_t n, void *s)
 
 /* Altera o ponteiro dentro de um arquivo */
 /* Retorna o ponteiro na posição nova */
-uint32_t seek(file_t *f, uint32_t pos)
+uint32_t fseek(file_t *f, uint32_t pos)
 {
 	if (!f || !f->fs)
 		return 0;
@@ -132,7 +132,7 @@ uint32_t seek(file_t *f, uint32_t pos)
 }
 
 /* Fecha um arquivo e libera seus recursos */
-void close(file_t *f)
+void fclose(file_t *f)
 {
 	if (!f || !f->fs || !f->internal || !f->fs->close || !f->fs->data)
 		return;
@@ -142,7 +142,7 @@ void close(file_t *f)
 }
 
 /* Abre um diretório */
-dir_t *opendir(const char *path)
+dir_t *dopen(const char *path)
 {
 	if (!path)
 		return false;
@@ -179,7 +179,7 @@ dir_t *opendir(const char *path)
 }
 
 /* Lê um diretório */
-bool readdir(dir_t *d, dirent_t *out)
+bool dread(dir_t *d, dirent_t *out)
 {
 	if (!d || !d->internal || !d->fs || !d->fs->data || !d->fs->readdir)
 		return false;
@@ -195,7 +195,7 @@ bool readdir(dir_t *d, dirent_t *out)
 }
 
 /* Fecha um diretório */
-void closedir(dir_t *d)
+void dclose(dir_t *d)
 {
 	if (!d || !d->internal || !d->fs || !d->fs->data || !d->fs->closedir)
 		return;

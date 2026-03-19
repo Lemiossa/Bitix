@@ -12,18 +12,18 @@
 typedef struct fs
 {
 	/* Arquivos e pastas */
-	bool      (*exists)(void *data, const char *path);
+	bool      (*fexists)(void *data, const char *path);
 
 	/* Arquivos */
-	void     *(*open)(void *data, const char *path, uint32_t *length);
-	uint32_t  (*read)(void *data, void *internal, uint32_t offset, uint32_t n, void *d);
-	uint32_t  (*write)(void *data, void *internal, uint32_t offset, uint32_t n, void *s);
-	void      (*close)(void *data, void *internal);
+	void     *(*fopen)(void *data, const char *path, uint32_t *length);
+	uint32_t  (*fread)(void *data, void *internal, uint32_t offset, uint32_t n, void *d);
+	uint32_t  (*fwrite)(void *data, void *internal, uint32_t offset, uint32_t n, void *s);
+	void      (*fclose)(void *data, void *internal);
 
 	/* Diretórios */
-	void     *(*opendir)(void *data, const char *path);
-	bool      (*readdir)(void *data, void *internal, uint32_t index, void *out); /* True = diretório, False = arquivo */
-	void      (*closedir)(void *data, void *internal);
+	void     *(*dopen)(void *data, const char *path);
+	bool      (*dread)(void *data, void *internal, uint32_t index, void *out); /* True = diretório, False = arquivo */
+	void      (*dclose)(void *data, void *internal);
 
 	void *data;
 } fs_t;
@@ -50,13 +50,14 @@ typedef struct dirent
 } dirent_t;
 
 void vfs_register_fs(char drive, fs_t fs);
-file_t *open(const char *path);
-uint32_t read(file_t *f, uint32_t n, void *d);
-uint32_t write(file_t *f, uint32_t n, void *s);
-uint32_t seek(file_t *f, uint32_t pos);
-void close(file_t *f);
-dir_t *opendir(const char *path);
-bool readdir(dir_t *d, dirent_t *out);
-void closedir(dir_t *d);
+bool fexists(const char *path);
+file_t *fopen(const char *path);
+uint32_t fread(file_t *f, uint32_t n, void *d);
+uint32_t fwrite(file_t *f, uint32_t n, void *s);
+uint32_t fseek(file_t *f, uint32_t pos);
+void fclose(file_t *f);
+dir_t *dopen(const char *path);
+bool dread(dir_t *d, dirent_t *out);
+void dclose(dir_t *d);
 
 #endif /* VFS_H */
