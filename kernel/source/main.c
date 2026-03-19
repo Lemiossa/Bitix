@@ -32,24 +32,6 @@
 
 boot_info_t boot_info = {0};
 
-/* Lista um diretorio */
-void list(const char *path)
-{
-	dir_t *d = dopen(path);
-	if (!d)
-		return;
-
-	while (1)
-	{
-		dirent_t dirent;
-		if (!dread(d, &dirent))
-			break;
-
-		printf("%s/%s\r\n", path, dirent.name);
-	}
-	dclose(d);
-}
-
 /* Func principal */
 void kernel_main(boot_info_t *bi)
 {
@@ -63,14 +45,29 @@ void kernel_main(boot_info_t *bi)
 	heap_init();
 	terminal_init();
 	terminal_clear(TERMINAL_DEFAULT_FG_COLOR, TERMINAL_DEFAULT_BG_COLOR);
+	debugf("Modo: %s\r\n", boot_info.graphics.mode ? "VESA" : "VGA/Outro");
+	debugf("Resolucao: %dx%d\r\n", boot_info.graphics.width, boot_info.graphics.height);
+	debugf("Pitch: %d\r\n", boot_info.graphics.pitch);
+	debugf("BPP: %d\r\n", boot_info.graphics.bpp);
+	debugf("Framebuffer: 0x%08X\r\n", boot_info.graphics.framebuffer);
+
+	debugf("Red mask: %u (pos %u)\r\n",
+	boot_info.graphics.red_mask,
+	boot_info.graphics.red_position);
+
+	debugf("Green mask: %u (pos %u)\r\n",
+	boot_info.graphics.green_mask,
+	boot_info.graphics.green_position);
+
+	debugf("Blue mask: %u (pos %u)\r\n",
+	boot_info.graphics.blue_mask,
+	boot_info.graphics.blue_position);
 	sched_init(100);
 	cpuid_init();
 	fpu_init();
 	acpi_init();
 	pci_enumerate();
 	ata_detect();
-
-	list("C:/");
 
 	while (1)
 	{

@@ -139,15 +139,13 @@ void time(intr_frame_t *f)
 {
 	ticks++;
 	pic_eoi(0);
-
 	sched(f);
 }
 
 /* Inicializa escalonador */
 void sched_init(uint32_t n)
 {
-	cli();
-	debugf("escalonador: Inicializando...\r\n");
+	disable();
 	process_t *idle = alloc(sizeof(process_t));
 	if (!idle)
 		panic("escalonador: Falha ao alocar memoria para o processo idle\r\n");
@@ -164,7 +162,7 @@ void sched_init(uint32_t n)
 	idle->next = idle;
 	idle->priority = 3;
 	idle->counter = counters[idle->priority];
-	idt_set_intr(50, sched, 0x08);
+	idt_set_trap(50, sched, 0x08);
 
 	freq = n;
 	ticks = 0;
@@ -173,7 +171,7 @@ void sched_init(uint32_t n)
 	pic_unmask_irq(0);
 
 	current = idle;
-	sti();
+	enable();
 }
 
 /* Cede a execução voluntariamente */

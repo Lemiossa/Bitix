@@ -25,7 +25,7 @@ static inline uint32_t get_ptr(int x, int y)
 		return 0;
 
 	static int last_y = -1;
-	static uint32_t row;
+	static uintptr_t row;
 
 	if (y != last_y)
 	{
@@ -54,7 +54,6 @@ void graphics_init(void)
 		initialized = true;
 		return;
 	}
-
 
 	uint32_t start = ALIGN_DOWN(boot_info.graphics.framebuffer, PAGE_SIZE);
 	uint32_t end = ALIGN_UP(start + size, PAGE_SIZE);
@@ -88,10 +87,20 @@ void graphics_put_pixel(int x, int y, uint32_t color)
 			uint8_t cg = (color >> 8) & 0xFF;
 			uint8_t cb = (color >> 0) & 0xFF;
 
-			uint8_t r = (cr * ((1 << boot_info.graphics.red_mask) - 1)) / 255;
-			uint8_t g = (cg * ((1 << boot_info.graphics.green_mask) - 1)) / 255;
-			uint8_t b = (cb * ((1 << boot_info.graphics.blue_mask) - 1)) / 255;
+			uint8_t r = 0, g = 0, b = 0;
 
+			if (boot_info.graphics.bpp == 15)
+			{
+				r = (cr * 31) / 255;
+				g = (cg * 31) / 255;
+				b = (cb * 31) / 255;
+			}
+			else
+			{
+				r = (cr * ((1 << boot_info.graphics.red_mask) - 1)) / 255;
+				g = (cg * ((1 << boot_info.graphics.green_mask) - 1)) / 255;
+				b = (cb * ((1 << boot_info.graphics.blue_mask) - 1)) / 255;
+			}
 			val = r << boot_info.graphics.red_position;
 			val |= g << boot_info.graphics.green_position;
 			val |= b << boot_info.graphics.blue_position;
@@ -112,7 +121,24 @@ void graphics_put_pixel(int x, int y, uint32_t color)
 	if (pos == 0)
 		return;
 
-	*(uint32_t *)pos = val;
+	if (boot_info.graphics.bpp == 8)
+	{
+		*(uint8_t *)pos = (uint8_t)val;
+	}
+	else if (boot_info.graphics.bpp == 16)
+	{
+		*(uint16_t *)pos = (uint16_t)val;
+	}
+	else if (boot_info.graphics.bpp == 24)
+	{
+		*(uint8_t *)(pos + 0) = (val >> 0) & 0xFF;
+		*(uint8_t *)(pos + 1) = (val >> 8) & 0xFF;
+		*(uint8_t *)(pos + 2) = (val >> 16) & 0xFF;
+	}
+	else
+	{
+		*(uint32_t *)pos = val;
+	}
 }
 
 /* Retorna um pixel no modo grafico */
@@ -126,7 +152,27 @@ uint32_t graphics_get_pixel(int x, int y)
 	if (pos == 0)
 		return 0;
 
-	uint32_t val = *(uint32_t *)pos;
+
+	uint32_t val = 0;
+
+	if (boot_info.graphics.bpp == 8)
+	{
+		val = *(uint8_t *)pos;
+	}
+	else if (boot_info.graphics.bpp == 16)
+	{
+		val = *(uint16_t *)pos;
+	}
+	else if (boot_info.graphics.bpp == 24)
+	{
+		val = (*(uint8_t *)(pos + 0)) |
+			  (*(uint8_t *)(pos + 1) << 8) |
+			  (*(uint8_t *)(pos + 2) << 16);
+	}
+	else
+	{
+		val = *(uint32_t *)pos;
+	}
 	uint32_t ret = 0;
 	if (boot_info.graphics.bpp > 8)
 	{
