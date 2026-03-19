@@ -41,10 +41,11 @@ static inline void disable(void)
 /* Habilita interrupções */
 static inline void enable(void)
 {
+	if (irq_disable_counter > 0)
+		irq_disable_counter--;
+
 	if (irq_disable_counter == 0)
 		sti();
-	else
-		irq_disable_counter--;
 }
 
 /* Converte n milisegundos para ticks */

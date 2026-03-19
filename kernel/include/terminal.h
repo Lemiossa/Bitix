@@ -9,7 +9,7 @@
 #define TERMINAL_MAX_CSI_PARAMS 16
 
 #define TERMINAL_DEFAULT_BG_COLOR 0
-#define TERMINAL_DEFAULT_FG_COLOR 15
+#define TERMINAL_DEFAULT_FG_COLOR 7
 
 void terminal_init(void);
 void terminal_set_cursor(int x, int y);

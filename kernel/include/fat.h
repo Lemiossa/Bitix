@@ -79,6 +79,17 @@ typedef struct fat_entry
 	uint32_t file_size; /* Em bytes */
 } __attribute__((packed)) fat_entry_t;
 
+typedef struct fat_lfn_entry {
+	uint8_t  order;
+	uint16_t name1[5];
+	uint8_t  attr;
+	uint8_t  type;
+	uint8_t  checksum;
+	uint16_t name2[6];
+	uint16_t cluster;
+	uint16_t name3[2];
+} __attribute__((packed)) fat_lfn_entry_t;
+
 typedef struct fat_data
 {
 	uint32_t sectors_per_fat;

@@ -28,7 +28,7 @@ LIBS := $(LIBC)
 TMP_COMPILE_COMMANDS ?= $(CURDIR)/compile_commands.json
 
 CFLAGS := \
-	-std=c99 -O2 \
+	-std=c99 -O3 \
 	-Wall \
 	-Wextra \
 	-fno-PIC \

@@ -32,6 +32,24 @@
 
 boot_info_t boot_info = {0};
 
+/* Lista um diretorio */
+void list(const char *path)
+{
+	dir_t *d = opendir(path);
+	if (!d)
+		return;
+
+	while (1)
+	{
+		dirent_t dirent;
+		if (!readdir(d, &dirent))
+			break;
+
+		printf("%s/%s\r\n", path, dirent.name);
+	}
+	closedir(d);
+}
+
 /* Func principal */
 void kernel_main(boot_info_t *bi)
 {
@@ -51,6 +69,10 @@ void kernel_main(boot_info_t *bi)
 	acpi_init();
 	pci_enumerate();
 	ata_detect();
+
+	list("C:/");
+	list("D:/");
+	list("E:/");
 
 	while (1)
 	{

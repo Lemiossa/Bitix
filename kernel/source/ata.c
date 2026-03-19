@@ -294,7 +294,34 @@ bool ata_detect(void)
 			debugf("ATA%d:\r\n", i);
 			debugf("\tModelo: %s\r\n", ata_disks[i].model);
 			debugf("\tSerial: %s\r\n", ata_disks[i].serial);
-			debugf("\tTamanho: %u b\r\n", ata_disks[i].total_sectors * 512);
+			uint32_t size_bytes = ata_disks[i].total_sectors * 512;
+
+			/* Formatar */
+			if (size_bytes >= 1000 * 1000 * 1000)
+			{
+				uint32_t integer = size_bytes / (1000 * 1000 * 1000);
+				uint32_t fraction = size_bytes % (1000 * 1000 * 1000) / 10000000;
+
+				debugf("\tTamanho: %u.%02u Gb\r\n", integer, fraction);
+			}
+			else if (size_bytes >= 1000 * 1000)
+			{
+				uint32_t integer = size_bytes / (1000 * 1000);
+				uint32_t fraction = size_bytes % (1000 * 1000) / 10000;
+
+				debugf("\tTamanho: %u.%02u Mb\r\n", integer, fraction);
+			}
+			else if (size_bytes >= 1000)
+			{
+				uint32_t integer = size_bytes / 1000;
+				uint32_t fraction = size_bytes % 1000 / 10;
+
+				debugf("\tTamanho: %u.%02u Kb\r\n", integer, fraction);
+			}
+			else
+			{
+				debugf("\tTamanho: %u b\r\n", size_bytes);
+			}
 
 			uint8_t mbr[SECTOR_SIZE] = {0};
 

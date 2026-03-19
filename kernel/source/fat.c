@@ -15,10 +15,32 @@
 #include <terminal.h>
 #include <debug.h>
 #include <util.h>
+#include <sched.h>
+
+typedef struct fat_common_entry
+{
+	char name[256];
+	uint8_t attr;
+	uint16_t res;
+	uint16_t ctime;
+	uint16_t cdate;
+	uint16_t adate;
+	uint16_t cluster_high;
+	uint16_t mtime;
+	uint16_t mdate;
+	uint16_t cluster_low;
+	uint32_t file_size; /* Em bytes */
+} fat_common_entry_t;
 
 /* Converte nome em formato fat para filename */
 void fat_name_to_filename(char *fatname, char *out)
 {
+	if (strlen(fatname) > 11)
+	{
+		strcpy(out, fatname);
+		return;
+	}
+
 	for (int i = 0; i < 8; i++)
 	{
 		char c = fatname[i];
@@ -45,6 +67,12 @@ void fat_name_to_filename(char *fatname, char *out)
 /* Converte um nome comum de arquivo em nome fat */
 void fat_filename_to_fatname(char *filename, char *out)
 {
+	if (strlen(filename) > 12)
+	{
+		strcpy(out, filename);
+		return;
+	}
+
 	for (int i = 0; i < 11; i++)
 		out[i] = ' ';
 
@@ -95,13 +123,13 @@ static int fat_is_eof(fat_data_t *data, uint32_t cluster)
 }
 
 /* Retorna o cluster */
-static uint32_t fat_cluster(fat_data_t *data, fat_entry_t e)
+static uint32_t fat_cluster(fat_data_t *data, fat_common_entry_t e)
 {
 	if (!data)
 		panic("FAT: fat_cluster(): Tentativa de chamar com data nula\r\n");
 
 	if (data->fat_type == 32)
-		return ((e.cluster_high & 0xFFF) << 8) | e.cluster_low;
+		return ((e.cluster_high & 0xFFF) << 16) | e.cluster_low;
 	else if (data->fat_type == 16)
 		return e.cluster_low;
 	else
@@ -238,10 +266,13 @@ static int fat_configure(fat_data_t *data, int disk, uint32_t lba)
 }
 
 /* Lê um diretorio em FAT */
-/* Retorna um número diferente de 0 se houver erro */
+/* Retorna 0 para sucesso, 1 para caso tenha acabado o diretorio e diferente caso haja erro */
 /* Se o cluster for zero, lê no root dir */
 /* ATENÇÃO: Você DEVE chamar fat_configure() antes disso */
-static int fat_read_dir(fat_data_t *data, uint32_t cluster, uint32_t index, fat_entry_t *out)
+static int fat_read_dir(fat_data_t *data,
+		uint32_t cluster,
+		uint32_t index,
+		fat_common_entry_t *out)
 {
 	if (!data)
 		panic("FAT: fat_read_dir(): Tentativa de chamar com data nula\r\n");
@@ -253,6 +284,8 @@ static int fat_read_dir(fat_data_t *data, uint32_t cluster, uint32_t index, fat_
 	if (cluster == 0 && data->fat_type == 32)
 		current_cluster = data->bootsector.ebpb._32.root_dir_cluster;
 
+	char lfn_name[256] = {0};
+	int lfn = 0;
 	while (!fat_is_eof(data, current_cluster))
 	{
 		uint32_t sectors = data->bootsector.bpb.sectors_per_cluster;
@@ -277,15 +310,76 @@ static int fat_read_dir(fat_data_t *data, uint32_t cluster, uint32_t index, fat_
 					return 1;
 
 				if ((uint8_t)entries[j].name[0] == 0xE5)
-					continue;
+				{
+					if (lfn)
+					{
+						lfn = 0;
+						memset(lfn_name, 0, sizeof(lfn_name));
+					}
 
-				if (entries[j].attr == 0x0F)
 					continue;
+				}
+
+				if ((entries[j].attr & 0x0F) == 0x0F)
+				{
+					fat_lfn_entry_t *lfn_e = (fat_lfn_entry_t *)&entries[j];
+
+					if (lfn_e->order & 0x40)
+					{
+						memset(lfn_name, 0, sizeof(lfn_name));
+					}
+
+					uint8_t order = lfn_e->order & 0x1F;
+					int pos = (order - 1) * 13;
+
+					for (int j = 0; j < 5; j++)
+					{
+						if (lfn_e->name1[j] == 0x0000 ||
+								lfn_e->name1[j] == 0xFFFF)
+							continue;
+
+						lfn_name[pos++] = (char)lfn_e->name1[j];
+					}
+
+					for (int j = 0; j < 6; j++)
+					{
+						if (lfn_e->name2[j] == 0x0000 ||
+								lfn_e->name2[j] == 0xFFFF)
+							continue;
+
+						lfn_name[pos++] = (char)lfn_e->name2[j];
+					}
+
+
+					for (int j = 0; j < 2; j++)
+					{
+						if (lfn_e->name3[j] == 0x0000 ||
+								lfn_e->name3[j] == 0xFFFF)
+							continue;
+
+						lfn_name[pos++] = (char)lfn_e->name3[j];
+					}
+
+					lfn = 1;
+					continue;
+				}
 
 				if (current_index == index)
 				{
 					if (out)
-						memcpy(out, &entries[j], sizeof(fat_entry_t));
+					{
+					 	if (lfn)
+						{
+							strncpy((char *)&out->name, lfn_name, 256);
+						}
+						else
+						{
+							strncpy((char *)&out->name, (char *)&entries[j].name, 11);
+						}
+
+						memcpy(&out->attr, &entries[j].attr, sizeof(fat_entry_t) - 11);
+					}
+
 					return 0;
 				}
 
@@ -304,7 +398,11 @@ static int fat_read_dir(fat_data_t *data, uint32_t cluster, uint32_t index, fat_
 /* Lê N bytes de um arquivo a partir de sua entrada FAT em um offset específico */
 /* Retorna o número de bytes lidos */
 /* ATENÇÃO: Você DEVE chamar fat_configure() antes disso */
-static size_t fat_read(fat_data_t *data, void *dest, fat_entry_t *entry, size_t offset, size_t n)
+static size_t fat_read(fat_data_t *data,
+		void *dest,
+		fat_common_entry_t *entry,
+		size_t offset,
+		size_t n)
 {
 	if (!data)
 		panic("FAT: fat_read(): Tentativa de chamar com data nula\r\n");
@@ -362,17 +460,19 @@ end:
 
 /* Procura uma entrada a partir de uma path */
 /* Retorna a entrada alocada */
-static fat_entry_t *fat_find(fat_data_t *data, const char *path)
+static fat_common_entry_t *fat_find(fat_data_t *data, const char *path)
 {
 	if (!data || !path)
 		return NULL;
 
-	fat_entry_t entry;
+	fat_common_entry_t entry;
 
-	char *tmp_path = alloc(1024);
+	uint32_t len = strlen(path);
+
+	char *tmp_path = alloc(len);
 	if (!tmp_path)
 		return NULL;
-	strncpy(tmp_path, path, 1024);
+	strncpy(tmp_path, path, len);
 
 	char *parts[64];
 	int count = get_path_parts(tmp_path, parts, 64);
@@ -385,7 +485,7 @@ static fat_entry_t *fat_find(fat_data_t *data, const char *path)
 	uint32_t current_cluster = 0; /* Começa do root dir */
 	for (int i = 0; i < count; i++)
 	{
-		char fatname[12] = {0};
+		char fatname[256] = {0};
 		fat_filename_to_fatname(parts[i], (char *)fatname);
 
 		uint32_t index = 0;
@@ -399,8 +499,8 @@ static fat_entry_t *fat_find(fat_data_t *data, const char *path)
 			if (entry.attr & FAT_ATTR_VOLID)
 				continue;
 
-			char name[12] = {0};
-			memcpy(name, &entry.name, 11);
+			char name[256] = {0};
+			strncpy((char *)name, (char *)&entry.name, 256);
 			if (strcmp(fatname, name) == 0)
 				break;
 		}
@@ -411,7 +511,7 @@ static fat_entry_t *fat_find(fat_data_t *data, const char *path)
 		current_cluster = fat_cluster(data, entry);
 	}
 
-	fat_entry_t *e = alloc(sizeof(fat_entry_t));
+	fat_common_entry_t *e = alloc(sizeof(fat_common_entry_t));
 	if (!e)
 		return NULL;
 	memset(e, 0, sizeof(*e));
@@ -426,7 +526,7 @@ static bool fat_exists(void *data, const char *path)
 	if (!data || !path)
 		return false;
 
-	fat_entry_t *entry = fat_find(data, path);
+	fat_common_entry_t *entry = fat_find(data, path);
 	if (!entry)
 		return false;
 
@@ -441,7 +541,7 @@ static void *fat_open(void *data, const char *path, uint32_t *length)
 	if (!data || !path)
 		return NULL;
 
-	fat_entry_t *entry = fat_find(data, path);
+	fat_common_entry_t *entry = fat_find(data, path);
 	if (!entry)
 		return NULL;
 
@@ -463,7 +563,7 @@ static uint32_t fat__read(void *data, void *internal, uint32_t offset, uint32_t 
 	if (!data || !internal || !d)
 		return 0;
 
-	fat_entry_t *entry = internal;
+	fat_common_entry_t *entry = internal;
 
 	return fat_read(data, d, entry, offset, n);
 }
@@ -487,7 +587,7 @@ static void *fat_opendir(void *data, const char *path)
 
 	if (strcmp(path, "/") == 0 || path[0] == 0) /* Root dir */
 	{
-		fat_entry_t *entry = alloc(sizeof(fat_entry_t));
+		fat_common_entry_t *entry = alloc(sizeof(fat_entry_t));
 		if (!entry)
 			return NULL;
 
@@ -497,7 +597,7 @@ static void *fat_opendir(void *data, const char *path)
 		return entry;
 	}
 
-	fat_entry_t *entry = fat_find(data, path);
+	fat_common_entry_t *entry = fat_find(data, path);
 	if (!entry)
 		return NULL;
 
@@ -517,9 +617,9 @@ static bool fat_readdir(void *data, void *internal, uint32_t index, void *out)
 		return false;
 
 	dirent_t dirent = {0};
-	fat_entry_t e = {0};
+	fat_common_entry_t e = {0};
 
-	fat_entry_t *entry = internal;
+	fat_common_entry_t *entry = internal;
 
 	if (fat_read_dir(data, fat_cluster(data, *entry), index, &e) != 0)
 		return false;
