@@ -9,18 +9,6 @@
 #define KERNEL_FILE "/sistema/boot/kernel.sys"
 #define KERNEL_ADDR 0x100000
 
-/* Lista de modos */
-/* Ele vai tentar entrar em um, se falhar, tenta o proximo, por assim vai  */
-char *video_modes[] = {
-#ifdef DEBUG
-	NULL,
-#endif /* DEBUG */
-	/* 800x600 */
-	"800x600x32", "800x600x24", "800x600x16", "800x600x8",
-
-	/* 640x480 */
-	"640x480x32", "640x480x24", "640x480x16", "640x480x8"
-};
-
+#define VIDEO_MODE "640x480x8"
 
 #endif /* CONFIG_H */

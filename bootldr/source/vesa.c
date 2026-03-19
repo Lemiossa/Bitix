@@ -9,6 +9,12 @@
 #include <stdio.h>
 #include <string.h>
 
+/* Retorna o valor absoluto de um inteiro */
+static inline int iabs(int x)
+{
+	return (x < 0) ? -x : x;
+}
+
 /* Pega a estrutura de informações de um modo VESA */
 /* Retorna um número diferente de zero caso haja erro */
 int vesa_get_mode_info(uint16_t mode, vbe_mode_info_t *mode_info)
@@ -40,8 +46,7 @@ int vesa_set_mode(uint16_t mode)
 	return 0;
 }
 
-/* Procura um modo VESA EXATAMENTE igual ao passado pela string no formato
- * "WIDTHxHEIGHTxBPP" */
+/* Procura um modo proximo */
 uint16_t vesa_find_mode(const char *mode)
 {
 	Regs r = {0};
@@ -53,22 +58,23 @@ uint16_t vesa_find_mode(const char *mode)
 
 	sscanf(mode, "%dx%dx%d", &expected_width, &expected_height, &expected_bpp);
 
-	strncpy(info_block.signature, "VBE2", 4);
+	strncpy(info_block.signature, "VESA", 4);
 
 	r.w.ax = 0x4F00;
 	r.w.es = MK_SEG(&info_block);
 	r.w.di = MK_OFF(&info_block);
 	intx(0x10, &r);
 	if (r.w.ax != 0x004F)
-	{
 		return 0x13;
-	}
 
 	uint16_t *modes = (uint16_t *)MK_PTR(info_block.video_mode_seg,
 										 info_block.video_mode_off);
+
+	uint16_t best_mode = 0x13;
+	int best_score = 999999;
+
 	for (int i = 0; modes[i] != 0xFFFF; i++)
 	{
-
 		uint16_t mode = modes[i];
 		if (mode == 0)
 			continue;
@@ -80,11 +86,21 @@ uint16_t vesa_find_mode(const char *mode)
 		if (!(mode_info.attributes & 0x80))
 			continue;
 
-		if (mode_info.width == expected_width &&
-			mode_info.height == expected_height &&
-			mode_info.bpp == expected_bpp)
-			return modes[i];
+		// opcional: só modos gráficos
+		if (!(mode_info.attributes & 0x10))
+			continue;
+
+		int score =
+			iabs((int)mode_info.width - expected_width) +
+			iabs((int)mode_info.height - expected_height) +
+			iabs((int)mode_info.bpp - expected_bpp) * 10;
+
+		if (score < best_score)
+		{
+			best_score = score;
+			best_mode = mode;
+		}
 	}
 
-	return 0x13; /* Não encontrou nada */
+	return best_mode;
 }

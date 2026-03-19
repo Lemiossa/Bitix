@@ -12,6 +12,7 @@ extern uint8_t current_attributes;
 void putc(char c);
 void puts(const char *s);
 int printf(const char *fmt, ...);
+int serialf(const char *fmt, ...);
 char to_upper(char c);
 char to_lower(char c);
 void str_upper(char *s);

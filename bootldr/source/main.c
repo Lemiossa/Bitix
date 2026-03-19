@@ -44,27 +44,11 @@ void halt(void)
 /* Configura o VESA */
 void set_vesa(void)
 {
-	uint16_t vesa_mode = 0x13;
-
-	if (!video_modes[0])
-	{
-		boot_info.graphics.mode = 0;
-		printf("No video modes!\r\n");
-		wait(1);
+	uint16_t mode = vesa_find_mode(VIDEO_MODE);
+	if (mode == 0x13)
 		return;
-	}
 
-	/* Tentar entrar nos modos */
-	for (int i = 0; video_modes[i]; i++)
-	{
-		uint16_t mode = vesa_find_mode(video_modes[i]);
-		if (mode == 0x13)
-			continue;
-		vesa_mode = mode;
-		break;
-	}
-
-	if (vesa_set_mode(vesa_mode) != 0)
+	if (vesa_set_mode(mode) != 0)
 	{
 		printf("Falha ao entrar no modo grafico!\r\n");
 		boot_info.graphics.mode = 0;
@@ -72,7 +56,7 @@ void set_vesa(void)
 	}
 	else
 	{
-		if (vesa_get_mode_info(vesa_mode, &vbe_mode_info) != 0)
+		if (vesa_get_mode_info(mode, &vbe_mode_info) != 0)
 		{
 			printf("Falha ao pegar informações do modo grafico!\r\n");
 			halt();

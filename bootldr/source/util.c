@@ -12,17 +12,19 @@
 uint16_t cursor_x = 0, cursor_y = 0;
 uint8_t current_attributes = 0x07;
 
+/* Escreve um caractere numa porta serial */
+void serial_write(char c, uint16_t port)
+{
+	Regs r = {0};
+	r.b.ah = 0x01;
+	r.b.al = (uint8_t)c;
+	r.w.dx = port;
+	intx(0x14, &r);
+}
+
 /* Imprime um caractere na tela */
 void putc(char c)
 {
-#ifdef DEBUG
-	Regs r = {0};
-	r.b.ah = 0x01;
-	r.b.al = c;
-	r.w.dx = 0;
-	intx(0x14, &r);
-#endif /* DEBUG */
-
 	if (c == '\n')
 	{
 		cursor_y++;
@@ -75,6 +77,21 @@ int printf(const char *fmt, ...)
 	va_start(args, fmt);
 	count = vsnprintf(buffer, sizeof(buffer), fmt, args);
 	puts(buffer);
+	va_end(args);
+	return count;
+}
+
+/* Imprime uma string formatada na porta serial 0 */
+int serialf(const char *fmt, ...)
+{
+	va_list args;
+	char buffer[256];
+	int count = 0;
+	va_start(args, fmt);
+	count = vsnprintf(buffer, sizeof(buffer), fmt, args);
+	char *s = buffer;
+	while (*s)
+		serial_write(*s++, 0);
 	va_end(args);
 	return count;
 }
@@ -184,3 +201,4 @@ unsigned char kbgetsc(void)
 	intx(0x16, &r);
 	return r.b.ah;
 }
+
