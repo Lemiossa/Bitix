@@ -40,10 +40,10 @@ bool fexists(const char *path)
 
 	int idx = drive - 'A';
 	fs_t *fs = &filesystems[idx];
-	if (!fs->exists)
+	if (!fs->fexists)
 		return false;
 
-	return fs->exists(fs->data, path);
+	return fs->fexists(fs->data, path);
 }
 
 /* Abre um arquivo no VFS */
@@ -65,7 +65,7 @@ file_t *fopen(const char *path)
 	drive = toupper(drive);
 	int idx = drive - 'A';
 
-	if (!isalpha(drive) || !filesystems[idx].open)
+	if (!isalpha(drive) || !filesystems[idx].fopen)
 		return NULL;
 
 	file_t *f = alloc(sizeof(file_t));
@@ -73,7 +73,7 @@ file_t *fopen(const char *path)
 		return NULL;
 
 	f->fs = &filesystems[idx];
-	f->internal = filesystems[idx].open(f->fs->data, path, &f->length);
+	f->internal = filesystems[idx].fopen(f->fs->data, path, &f->length);
 	f->pos = 0;
 
 	if (!f->internal)
@@ -88,7 +88,7 @@ file_t *fopen(const char *path)
 /* Lê uma quantidade de N de um F em um D */
 uint32_t fread(file_t *f, uint32_t n, void *d)
 {
-	if (!f || !f->fs || !f->internal || !f->fs->read || !f->fs->data)
+	if (!f || !f->fs || !f->internal || !f->fs->fread || !f->fs->data)
 		return 0;
 
 	if (n + f->pos > f->length)
@@ -96,7 +96,7 @@ uint32_t fread(file_t *f, uint32_t n, void *d)
 		n = f->length - f->pos;
 	}
 
-	uint32_t readed_bytes = f->fs->read(f->fs->data, f->internal, f->pos, n, d);
+	uint32_t readed_bytes = f->fs->fread(f->fs->data, f->internal, f->pos, n, d);
 	f->pos += readed_bytes;
 	return readed_bytes;
 }
@@ -104,10 +104,10 @@ uint32_t fread(file_t *f, uint32_t n, void *d)
 /* Lê uma quantidade de N de um F de um S */
 uint32_t fwrite(file_t *f, uint32_t n, void *s)
 {
-	if (!f || !f->fs || !f->internal || !f->fs->write || !f->fs->data)
+	if (!f || !f->fs || !f->internal || !f->fs->fwrite || !f->fs->data)
 		return 0;
 
-	uint32_t writed_bytes = f->fs->write(f->fs->data, f->internal, f->pos, n, s);
+	uint32_t writed_bytes = f->fs->fwrite(f->fs->data, f->internal, f->pos, n, s);
 	f->pos += writed_bytes;
 	if (f->pos > f->length)
 		f->length = f->pos;
@@ -134,10 +134,10 @@ uint32_t fseek(file_t *f, uint32_t pos)
 /* Fecha um arquivo e libera seus recursos */
 void fclose(file_t *f)
 {
-	if (!f || !f->fs || !f->internal || !f->fs->close || !f->fs->data)
+	if (!f || !f->fs || !f->internal || !f->fs->fclose || !f->fs->data)
 		return;
 
-	f->fs->close(f->fs->data, f->internal);
+	f->fs->fclose(f->fs->data, f->internal);
 	free(f);
 }
 
@@ -157,7 +157,7 @@ dir_t *dopen(const char *path)
 	drive = toupper(drive);
 	int idx = drive - 'A';
 
-	if (!isalpha(drive) || !filesystems[idx].opendir)
+	if (!isalpha(drive) || !filesystems[idx].dopen)
 		return NULL;
 
 
@@ -166,7 +166,7 @@ dir_t *dopen(const char *path)
 		return NULL;
 
 	d->fs = &filesystems[idx];
-	d->internal = filesystems[idx].opendir(d->fs->data, path);
+	d->internal = filesystems[idx].dopen(d->fs->data, path);
 	d->pos = 0;
 
 	if (!d->internal)
@@ -181,11 +181,11 @@ dir_t *dopen(const char *path)
 /* Lê um diretório */
 bool dread(dir_t *d, dirent_t *out)
 {
-	if (!d || !d->internal || !d->fs || !d->fs->data || !d->fs->readdir)
+	if (!d || !d->internal || !d->fs || !d->fs->data || !d->fs->dread)
 		return false;
 
 	dirent_t dirent = {0};
-	if (!d->fs->readdir(d->fs->data, d->internal, d->pos, &dirent))
+	if (!d->fs->dread(d->fs->data, d->internal, d->pos, &dirent))
 		return false;
 
 	memcpy(out, &dirent, sizeof(dirent));
@@ -197,10 +197,10 @@ bool dread(dir_t *d, dirent_t *out)
 /* Fecha um diretório */
 void dclose(dir_t *d)
 {
-	if (!d || !d->internal || !d->fs || !d->fs->data || !d->fs->closedir)
+	if (!d || !d->internal || !d->fs || !d->fs->data || !d->fs->dclose)
 		return;
 
-	d->fs->closedir(d->fs->data, d->internal);
+	d->fs->dclose(d->fs->data, d->internal);
 	free(d);
 }
 
