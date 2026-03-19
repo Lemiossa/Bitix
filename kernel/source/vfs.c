@@ -10,16 +10,16 @@
 #include <heap.h>
 #include <string.h>
 
-fs_t filesystems[26];
+fs_t filesystems[36];
 
 /* Registra um novo FS */
 void vfs_register_fs(char drive, fs_t fs)
 {
-    if (!isalpha(drive))
+    if (!isalnum(drive))
 		return;
 
 	drive = toupper(drive);
-	filesystems[drive - 'A'] = fs;
+	filesystems[isalpha(drive)?(drive-'A'+10):(drive-'0')] = fs;
 }
 
 /* Retorna true se um arquivo existe */
@@ -63,9 +63,9 @@ file_t *fopen(const char *path)
 		path++;
 
 	drive = toupper(drive);
-	int idx = drive - 'A';
+	int idx = isalpha(drive)?(drive-'A'+10):(drive-'0');
 
-	if (!isalpha(drive) || !filesystems[idx].fopen)
+	if (!isalnum(drive) || !filesystems[idx].fopen)
 		return NULL;
 
 	file_t *f = alloc(sizeof(file_t));
@@ -155,9 +155,9 @@ dir_t *dopen(const char *path)
 	}
 
 	drive = toupper(drive);
-	int idx = drive - 'A';
+	int idx = isalpha(drive)?(drive-'A'+10):(drive-'0');
 
-	if (!isalpha(drive) || !filesystems[idx].dopen)
+	if (!isalnum(drive) || !filesystems[idx].dopen)
 		return NULL;
 
 
