@@ -38,6 +38,21 @@ uint16_t ctrl0 = 0;
 uint16_t base1 = 0;
 uint16_t ctrl1 = 0;
 
+static volatile int ata_locked = 0;
+
+/* Desbloqueia ATA para uso */
+void ata_unlock(void)
+{
+	__sync_lock_release(&ata_locked);
+}
+
+/* Bloqueia ATA para uso */
+void ata_lock(void)
+{
+	while (__sync_lock_test_and_set(&ata_locked, 1))
+		;
+}
+
 /* Espera um tempo pro ATA */
 static inline bool ata_delay(uint16_t base)
 {
@@ -91,6 +106,7 @@ int ata_identify(int disk, uint16_t *disk_info)
 		base = base0;
 	}
 
+	ata_lock();
 	outb(base + ATA_DRIVE_HEAD, disk == 1 ? 0xB0 : 0xA0);
 	ata_delay(base);
 
@@ -102,10 +118,16 @@ int ata_identify(int disk, uint16_t *disk_info)
 
 	uint8_t status = inb(base + ATA_STATUS);
 	if (status == 0)
+	{
+		ata_unlock();
 		return 0;
+	}
 
 	if (ata_delay(base))
-		return false;
+	{
+		ata_unlock();
+		return 0;
+	}
 
 	bool atapi = false;
 
@@ -115,17 +137,25 @@ int ata_identify(int disk, uint16_t *disk_info)
 		atapi = true;
 
 	if (!ata_wait_drq(base))
-		return false;
+	{
+		ata_unlock();
+		return 0;
+	}
 
 	uint16_t *info = (uint16_t *)disk_info;
 	for (int i = 0; i < 256; i++)
 	{
 		status = inb(base + ATA_STATUS);
 		if (status & ATA_STATUS_ERR)
+		{
+			ata_unlock();
 			return 0;
+		}
 
 		info[i] = inw(base + ATA_DATA);
 	}
+
+	ata_unlock();
 
 	return atapi ? 2 : 1;
 }
@@ -138,13 +168,21 @@ bool ata_read(int id, uint32_t s, uint8_t n, void *dst)
 
 	ata_disk_t *d = &ata_disks[id];
 
+	ata_lock();
+
 	if (!ata_wait_bsy(d->base))
+	{
+		ata_unlock();
 		return false;
+	}
 
 	outb(d->base + ATA_DRIVE_HEAD, 0xE0 | (d->slave << 4) | ((s >> 24) & 0x0F));
 
 	if (ata_delay(d->base))
+	{
+		ata_unlock();
 		return false;
+	}
 
 	outb(d->base + ATA_SECTOR_COUNT, n);
 	outb(d->base + ATA_LBA_LOW, s & 0xFF);
@@ -157,16 +195,24 @@ bool ata_read(int id, uint32_t s, uint8_t n, void *dst)
 	for (uint8_t i = 0; i < n; i++)
 	{
 		if (!ata_wait_bsy(d->base))
+		{
+			ata_unlock();
 			return false;
+		}
 
 		if (!ata_wait_drq(d->base))
+		{
+			ata_unlock();
 			return false;
+		}
 
 		for (int j = 0; j < 256; j++)
 		{
 			buf[(i * 256) + j] = inw(d->base + ATA_DATA);
 		}
 	}
+
+	ata_unlock();
 
 	return true;
 }
@@ -179,13 +225,21 @@ bool ata_write(int id, uint32_t s, uint8_t n, void *src)
 
 	ata_disk_t *d = &ata_disks[id];
 
+	ata_lock();
+
 	if (!ata_wait_bsy(d->base))
+	{
+		ata_unlock();
 		return false;
+	}
 
 	outb(d->base + ATA_DRIVE_HEAD, 0xE0 | (d->slave << 4) | ((s >> 24) & 0x0F));
 
 	if (ata_delay(d->base))
+	{
+		ata_unlock();
 		return false;
+	}
 
 	outb(d->base + ATA_SECTOR_COUNT, n);
 	outb(d->base + ATA_LBA_LOW, s & 0xFF);
@@ -198,16 +252,24 @@ bool ata_write(int id, uint32_t s, uint8_t n, void *src)
 	for (uint8_t i = 0; i < n; i++)
 	{
 		if (!ata_wait_bsy(d->base))
+		{
+			ata_unlock();
 			return false;
+		}
 
 		if (!ata_wait_drq(d->base))
+		{
+			ata_unlock();
 			return false;
+		}
 
 		for (int j = 0; j < 256; j++)
 		{
 			outw(d->base + ATA_DATA, buf[(i * 256) + j]);
 		}
 	}
+
+	ata_unlock();
 
 	return true;
 }
@@ -375,5 +437,8 @@ bool ata_detect(void)
 			}
 		}
 	}
+
+	ata_unlock();
+
 	return true;
 }

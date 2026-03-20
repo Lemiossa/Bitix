@@ -62,6 +62,7 @@ void kernel_main(boot_info_t *bi)
 	pci_enumerate();
 	ata_detect();
 
+
 	while (1)
 	{
 		hlt();

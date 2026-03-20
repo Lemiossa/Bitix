@@ -251,16 +251,4 @@ static inline void frstor(void *f)
 	__asm__ volatile("frstor %0" : : "m"(f));
 }
 
-/* Faz uma troca atômica */
-static inline int xchg(volatile int *addr, int val)
-{
-	__asm__ volatile (
-		"xchg %0, %1"
-		: "+r"(val), "+m"(*addr)
-		:
-		: "memory"
-	);
-	return val;
-}
-
 #endif /* ASM_H */

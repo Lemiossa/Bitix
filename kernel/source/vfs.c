@@ -9,17 +9,31 @@
 #include <stddef.h>
 #include <heap.h>
 #include <string.h>
+#include <debug.h>
 
 fs_t filesystems[36];
+
+/* Retorna o index no VFS */
+static inline int get_index(char drive)
+{
+    if (!isalnum(drive))
+		return -1;
+
+	drive = toupper(drive);
+	return isalpha(drive)?(drive-'A'+10):(drive-'0');
+}
 
 /* Registra um novo FS */
 void vfs_register_fs(char drive, fs_t fs)
 {
-    if (!isalnum(drive))
+	int idx = get_index(drive);
+	if (idx < 0)
+	{
+		debugf("VFS: Tentativa de registrar um sistema de arquivos com drive invalido\r\n");
 		return;
+	}
 
-	drive = toupper(drive);
-	filesystems[isalpha(drive)?(drive-'A'+10):(drive-'0')] = fs;
+	filesystems[idx] = fs;
 }
 
 /* Retorna true se um arquivo existe */
@@ -38,7 +52,10 @@ bool fexists(const char *path)
 	if (path[0] == '/')
 		path++;
 
-	int idx = drive - 'A';
+	int idx = get_index(drive);
+	if (idx < 0)
+		return false;
+
 	fs_t *fs = &filesystems[idx];
 	if (!fs->fexists)
 		return false;
@@ -62,10 +79,11 @@ file_t *fopen(const char *path)
 	if (path[0] == '/')
 		path++;
 
-	drive = toupper(drive);
-	int idx = isalpha(drive)?(drive-'A'+10):(drive-'0');
+	int idx = get_index(drive);
+	if (idx < 0)
+		return NULL;
 
-	if (!isalnum(drive) || !filesystems[idx].fopen)
+	if (!filesystems[idx].fopen)
 		return NULL;
 
 	file_t *f = alloc(sizeof(file_t));
@@ -154,12 +172,12 @@ dir_t *dopen(const char *path)
 		path += 2;
 	}
 
-	drive = toupper(drive);
-	int idx = isalpha(drive)?(drive-'A'+10):(drive-'0');
-
-	if (!isalnum(drive) || !filesystems[idx].dopen)
+	int idx = get_index(drive);
+	if (idx < 0)
 		return NULL;
 
+	if (!filesystems[idx].dopen)
+		return NULL;
 
 	dir_t *d = alloc(sizeof(dir_t));
 	if (!d)

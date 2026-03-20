@@ -30,25 +30,6 @@ uint32_t current_id = 1;
 uint32_t volatile ticks = 0;
 static uint16_t freq = 0;
 
-int irq_disable_counter = 0;
-
-/* Desabilita interrupções */
-static inline void disable(void)
-{
-	irq_disable_counter++;
-	cli();
-}
-
-/* Habilita interrupções */
-static inline void enable(void)
-{
-	if (irq_disable_counter > 0)
-		irq_disable_counter--;
-
-	if (irq_disable_counter == 0)
-		sti();
-}
-
 /* Converte n milisegundos para ticks */
 uint32_t ms_to_ticks(uint32_t n)
 {
@@ -88,27 +69,21 @@ static inline process_t *sched_get_process(uint32_t pid)
 /* Escalonador */
 void sched(intr_frame_t *f)
 {
-	if (!current || current->next == current)
+	if (!current)
 		return;
-
-	current->uptime_ticks++;
 
 	/* Acordar os BLOCKED */
 	process_t *p = current;
 	do
 	{
 		if (p->state == BLOCKED && ticks >= p->wake_tick)
+		{
 			p->state = READY;
+		}
 
 		p = p->next;
 	}
 	while (p != current);
-
-	if (current->counter > 0)
-	{
-		current->counter--;
-		return;
-	}
 
 	/* Procurar um READY */
 	p = current->next;
@@ -140,13 +115,24 @@ void time(intr_frame_t *f)
 {
 	ticks++;
 	pic_eoi(0);
+
+	if (!current)
+		return;
+
+	current->uptime_ticks++;
+	if (current->counter > 0)
+	{
+		current->counter--;
+		return;
+	}
+
 	sched(f);
 }
 
 /* Inicializa escalonador */
 void sched_init(uint32_t n)
 {
-	disable();
+	cli();
 	process_t *idle = alloc(sizeof(process_t));
 	if (!idle)
 		panic("escalonador: Falha ao alocar memoria para o processo idle\r\n");
@@ -157,13 +143,18 @@ void sched_init(uint32_t n)
 	idle->pid = 0;
 	idle->ppid = 0;
 	idle->cr3 = (uint32_t)kernel_pd;
+
+	idle->stack = 0;
+	idle->stack0 = 0;
+
 	idle->esp = 0;
 	idle->esp0 = 0;
+
 	idle->state = RUNNING;
 	idle->next = idle;
 	idle->priority = 3;
 	idle->counter = counters[idle->priority];
-	idt_set_trap(50, sched, 0x08);
+	idt_set_trap(0x30, sched, 0x08);
 
 	freq = n;
 	ticks = 0;
@@ -172,13 +163,13 @@ void sched_init(uint32_t n)
 	pic_unmask_irq(0);
 
 	current = idle;
-	enable();
+	sti();
 }
 
 /* Cede a execução voluntariamente */
 void yield(void)
 {
-	__asm__ volatile ("INT $50");
+	__asm__ volatile ("INT $0x30");
 }
 
 /* Sai do processo atual */
@@ -187,10 +178,10 @@ void exit(int code)
 	if (!current || current->pid == 0)
 		panic("escalonador: Tentativa de sair no idle\r\n");
 
-	disable();
+	cli();
 	current->state = DEAD;
 	current->exit_code = (uint8_t)code;
-	enable();
+	sti();
 	yield();
 }
 
@@ -200,27 +191,17 @@ void sleep(uint32_t n)
 	if (!current || current->pid == 0)
 		panic("escalonador: Tentativa de esperar no idle\r\n");
 
-	disable();
+	cli();
 	current->state = BLOCKED;
 	current->wake_tick = ticks + ms_to_ticks(n);
-	enable();
+	sti();
 	yield();
-}
-
-/* Espera N ms em uma tarefa sem bloquear o processo */
-void sleepnb(uint32_t n)
-{
-	uint32_t end = ticks + ms_to_ticks(n);
-	while ((ticks - end) > 0);
 }
 
 /* Cria um novo processo */
 /* Retorna o PID dele, 0 se houver erro */
 uint32_t spawn(void (*entry)(void), char *name)
 {
-	if (!current)
-		return 0;
-
 	process_t *proc = alloc(sizeof(process_t));
 	if (!proc)
 		return 0;
@@ -230,20 +211,22 @@ uint32_t spawn(void (*entry)(void), char *name)
 	proc->pid = current_id++;
 	proc->ppid = current->pid;
 	proc->cr3 = (uint32_t)kernel_pd; /* Por enquanto, usa o mesmo PD do kernel */
-	proc->esp = 0;
-	proc->esp0 = (uint32_t)alloc(PAGE_SIZE);
 	proc->priority = 2;
 	proc->counter = counters[proc->priority];
 
-	if (!proc->esp0)
+	proc->stack = 0;
+	proc->stack0 = (uint32_t)alloc(PROCESS_STACK0_SIZE);
+
+	proc->esp = 0;
+	proc->esp0 = proc->stack0 + PROCESS_STACK0_SIZE - sizeof(intr_frame_t);
+
+	if (!proc->stack0)
 	{
-		free(proc);
-		sti();
+		free((void *)proc->stack0);
 		return 0;
 	}
 
-	memset((void *)proc->esp0, 0, PAGE_SIZE);
-	proc->esp0 += PAGE_SIZE - sizeof(intr_frame_t);
+	memset((void *)proc->stack0, 0, PROCESS_STACK0_SIZE);
 
 	proc->state = READY;
 
@@ -258,8 +241,15 @@ uint32_t spawn(void (*entry)(void), char *name)
 	frame->fs = 0x10;
 	frame->gs = 0x10;
 
-	proc->next = current->next;
-	current->next = proc;
+	if (!current)
+	{
+		current = proc;
+	}
+	else
+	{
+		proc->next = current->next;
+		current->next = proc;
+	}
 
 	return proc->pid;
 }

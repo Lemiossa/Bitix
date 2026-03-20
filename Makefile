@@ -111,8 +111,7 @@ QEMU := qemu-system-i386
 QEMUFLAGS := -drive file=$(IMAGE),format=raw,if=ide,media=disk \
 			 -audiodev alsa,id=audio0 \
 			 -machine pc,pcspk-audiodev=audio0 \
-			 -serial stdio -m 4M -vga std \
-			 -smp 1 -enable-kvm
+			 -serial stdio -m 16M -vga std
 
 BOCHS := bochs
 else
