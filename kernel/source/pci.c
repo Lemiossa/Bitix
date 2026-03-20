@@ -33,6 +33,150 @@ pci_device_t *pci_find(uint8_t class, uint8_t subclass)
 	return NULL;
 }
 
+/* Retorna uma string para cada classe e subclasse */
+const char *pci_get_class_string(uint16_t class, uint16_t subclass)
+{
+	switch (class)
+	{
+		case 0x00:
+			switch (subclass)
+			{
+				case 0x00: return "Nao classificado (sem VGA)";
+				case 0x01: return "Nao classificado (compativel com VGA)";
+				default: return "Nao classificado (desconhecido)";
+			}
+
+		case 0x01:
+			switch (subclass)
+			{
+				case 0x00: return "Controlador SCSI";
+				case 0x01: return "Controlador IDE";
+				case 0x02: return "Controlador de disquete";
+				case 0x03: return "Controlador IPI";
+				case 0x04: return "Controlador RAID";
+				case 0x05: return "Controlador ATA";
+				case 0x06: return "Controlador SATA";
+				case 0x07: return "Controlador SAS";
+				case 0x08: return "Controlador NVMe";
+				case 0x80: return "Armazenamento (outro)";
+				default: return "Armazenamento (desconhecido)";
+			}
+
+		case 0x02:
+			switch (subclass)
+			{
+				case 0x00: return "Controlador Ethernet";
+				case 0x01: return "Controlador Token Ring";
+				case 0x02: return "Controlador FDDI";
+				case 0x03: return "Controlador ATM";
+				case 0x04: return "Controlador ISDN";
+				case 0x07: return "Controlador InfiniBand";
+				case 0x08: return "Controlador Fabric";
+				case 0x80: return "Rede (outro)";
+				default: return "Rede (desconhecido)";
+			}
+
+		case 0x03:
+			switch (subclass)
+			{
+				case 0x00: return "Controlador VGA";
+				case 0x01: return "Controlador XGA";
+				case 0x02: return "Controlador 3D";
+				case 0x80: return "Display (outro)";
+				default: return "Display (desconhecido)";
+			}
+
+		case 0x04:
+			switch (subclass)
+			{
+				case 0x00: return "Dispositivo de video";
+				case 0x01: return "Dispositivo de audio";
+				case 0x02: return "Dispositivo de telefonia";
+				case 0x03: return "Controlador de audio";
+				case 0x80: return "Multimidia (outro)";
+				default: return "Multimidia (desconhecido)";
+			}
+
+		case 0x05:
+			switch (subclass)
+			{
+				case 0x00: return "Controlador de RAM";
+				case 0x01: return "Controlador de flash";
+				case 0x80: return "Memoria (outro)";
+				default: return "Memoria (desconhecido)";
+			}
+
+		case 0x06:
+			switch (subclass)
+			{
+				case 0x00: return "Host bridge";
+				case 0x01: return "Bridge ISA";
+				case 0x04: return "Bridge PCI-PCI";
+				case 0x07: return "Bridge CardBus";
+				case 0x80: return "Bridge (outro)";
+				default: return "Bridge (desconhecido)";
+			}
+
+		case 0x07:
+			switch (subclass)
+			{
+				case 0x00: return "Controlador serial";
+				case 0x01: return "Controlador paralelo";
+				case 0x02: return "Controlador serial multiporta";
+				case 0x03: return "Modem";
+				case 0x80: return "Comunicacao (outro)";
+				default: return "Comunicacao (desconhecido)";
+			}
+
+		case 0x08:
+			switch (subclass)
+			{
+				case 0x00: return "Controlador de interrupcao (PIC)";
+				case 0x01: return "Controlador DMA";
+				case 0x02: return "Timer";
+				case 0x03: return "RTC";
+				case 0x80: return "Periferico de sistema (outro)";
+				default: return "Periferico de sistema (desconhecido)";
+			}
+
+		case 0x09:
+			switch (subclass)
+			{
+				case 0x00: return "Controlador de teclado";
+				case 0x01: return "Caneta digital";
+				case 0x02: return "Controlador de mouse";
+				case 0x04: return "Controlador de gameport";
+				case 0x80: return "Dispositivo de entrada (outro)";
+				default: return "Dispositivo de entrada (desconhecido)";
+			}
+
+		case 0x0C:
+			switch (subclass)
+			{
+				case 0x00: return "Controlador FireWire";
+				case 0x03: return "Controlador USB";
+				case 0x05: return "Controlador SMBus";
+				case 0x80: return "Barramento serial (outro)";
+				default: return "Barramento serial (desconhecido)";
+			}
+
+		case 0x0D:
+			switch (subclass)
+			{
+				case 0x11: return "Controlador Bluetooth";
+				case 0x12: return "Controlador de banda larga";
+				case 0x80: return "Wireless (outro)";
+				default: return "Wireless (desconhecido)";
+			}
+
+		case 0xFF:
+			return "Classe especifica do fabricante";
+
+		default:
+			return "Classe desconhecida";
+	}
+}
+
 /* Enumera todos os PCI */
 void pci_enumerate(void)
 {
@@ -82,7 +226,8 @@ void pci_enumerate(void)
 
 				pci_devices[pci_device_count++] = device;
 
-				debugf("PCI: %04X %hu:%hhu:%hhu %hhu/%hhu\r\n", vendor_id, bus, dev, func, class, subclass);
+				debugf("PCI: %04X %02hX:%02hhX.%hhu - %s\r\n", vendor_id, bus, dev, func,
+						pci_get_class_string(class, subclass));
 			}
 		}
 	}

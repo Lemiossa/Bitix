@@ -7,6 +7,7 @@
 #include <heap.h>
 #include <stdio.h>
 #include <vmm.h>
+#include <pmm.h>
 #include <idt.h>
 #include <string.h>
 #include <asm.h>
@@ -230,7 +231,7 @@ uint32_t spawn(void (*entry)(void), char *name)
 	proc->ppid = current->pid;
 	proc->cr3 = (uint32_t)kernel_pd; /* Por enquanto, usa o mesmo PD do kernel */
 	proc->esp = 0;
-	proc->esp0 = (uint32_t)alloc(PROCESS_STACK_SIZE);
+	proc->esp0 = (uint32_t)alloc(PAGE_SIZE);
 	proc->priority = 2;
 	proc->counter = counters[proc->priority];
 
@@ -241,8 +242,8 @@ uint32_t spawn(void (*entry)(void), char *name)
 		return 0;
 	}
 
-	memset((void *)proc->esp0, 0, PROCESS_STACK_SIZE);
-	proc->esp0 += PROCESS_STACK_SIZE - sizeof(intr_frame_t);
+	memset((void *)proc->esp0, 0, PAGE_SIZE);
+	proc->esp0 += PAGE_SIZE - sizeof(intr_frame_t);
 
 	proc->state = READY;
 
