@@ -102,7 +102,11 @@ image: libc bootldr kernel rootdir
 	@dd if=/dev/zero of=$(IMAGE) bs=1 count=0 seek=$(IMAGE_SIZE) >/dev/null 2>&1
 	@mkfs.fat -F $(IMAGE_FAT_SIZE) -n "BITIX" -R 64 --mbr=y $(IMAGE) >/dev/null 2>&1
 	@dd if=$(BOOTLDR) of=$(IMAGE) bs=1 count=3 conv=notrunc >/dev/null 2>&1
+ifeq ($(IMAGE_FAT_SIZE),32)
+	@dd if=$(BOOTLDR) of=$(IMAGE) bs=1 skip=90 seek=90 count=350 conv=notrunc >/dev/null 2>&1
+else
 	@dd if=$(BOOTLDR) of=$(IMAGE) bs=1 skip=60 seek=60 count=380 conv=notrunc >/dev/null 2>&1
+endif
 	@dd if=$(BOOTLDR) of=$(IMAGE) bs=1 skip=512 seek=512 conv=notrunc >/dev/null 2>&1
 	@mcopy -i $(IMAGE) $(ROOTDIR)/* "::/" -s >/dev/null 2>&1
 
@@ -117,6 +121,16 @@ BOCHS := bochs
 else
 $(error Arquitetura não suportada: $(ARCH))
 endif
+
+.PHONY: debug
+debug: image
+	@echo "  QEMU        $(QEMUFLAGS) -s -S"
+	@cd $(BUILDDIR) && $(QEMU) $(QEMUFLAGS) -s -S &
+
+.PHONY: gdb
+gdb:
+	@echo "  GDB         conectando ao QEMU (porta 1234)"
+	@gdb -q -ex "target remote :1234" $(BUILDDIR)/kernel/bin/kernel.elf
 
 .PHONY: qemu
 qemu: image

@@ -23,7 +23,6 @@ typedef struct process
 	uint32_t pid;
 	uint32_t ppid;
 	uint32_t cr3;
-	uint32_t stack, esp;
 	uint32_t stack0, esp0;
 	uint32_t counter;
 	uint32_t uptime_ticks;

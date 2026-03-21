@@ -17,6 +17,7 @@
 #include <heap.h>
 #include <sched.h>
 #include <font8x8.h>
+#include <debug.h>
 
 static int char_height = 8;
 static int width = 80, height = 25;
@@ -56,6 +57,18 @@ static uint32_t terminal_palette[16] = {
 	RGB(85, 255, 255),	/* Ciano claro */
 	RGB(255, 255, 255)	/* Branco */
 };
+
+/* Retorna a largura do terminal */
+int terminal_get_width(void)
+{
+	return width;
+}
+
+/* Retorna a altura do terminal */
+int terminal_get_height(void)
+{
+	return height;
+}
 
 /* Desenha um caractere da fonte VGA */
 static void draw_char(int x, int y, char c, uint32_t fg, uint32_t bg)
@@ -189,7 +202,7 @@ static void scroll(void)
 /* Inicializa sistema do terminal */
 void terminal_init(void)
 {
-	font = (uint8_t *)bitixfont;
+	font = (uint8_t *)bitixfont8x8;
 
 	if (boot_info.graphics.mode == 1)
 	{

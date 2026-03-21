@@ -11,6 +11,8 @@
 #define TERMINAL_DEFAULT_BG_COLOR 0
 #define TERMINAL_DEFAULT_FG_COLOR 7
 
+int terminal_get_width(void);
+int terminal_get_height(void);
 void terminal_init(void);
 void terminal_set_cursor(int x, int y);
 void terminal_clear(uint8_t fg, uint8_t bg);

@@ -198,17 +198,18 @@ static uint32_t fat_read_fat(fat_data_t *data, uint32_t i)
 /* "Inicializa o sistema" FAT */
 /* Na real só faz os calculos das globais em um disco específico num setor
  * específico */
-/* Retorna um número diferente de 0 se houver erro */
-static int fat_configure(fat_data_t *data, int disk, uint32_t lba)
+/* Retorna o fat_data_t alocado  */
+static fat_data_t *fat_configure(int disk, uint32_t lba)
 {
+	fat_data_t *data = alloc(sizeof(fat_data_t));
 	if (!data)
-		panic("FAT: fat_configure(): Tentativa de chamar com data nula\r\n");
+		return NULL;
 
 	uint8_t buf[SECTOR_SIZE];
 	if (!ata_read(disk, lba, 1, buf))
 	{
 		debugf("FAT: fat_configure(): Falha ao ler disco: %d\r\n", disk);
-		return 1;
+		return NULL;
 	}
 
 	memcpy(&data->bootsector, buf, sizeof(data->bootsector));
@@ -218,7 +219,7 @@ static int fat_configure(fat_data_t *data, int disk, uint32_t lba)
 										  não vou dar suporte a setores com
 		 tamanho diferente de 512 bytes */
 		printf("fat_configure(): o numero de bytes por setor e invalido\r\n");
-		return 1;
+		return NULL;
 	}
 
 	if (data->bootsector.bpb.sectors_per_fat16 == 0)
@@ -262,7 +263,7 @@ static int fat_configure(fat_data_t *data, int disk, uint32_t lba)
 		data->fat_type = 32;
 	}
 
-	return 0;
+	return data;
 }
 
 /* Lê um diretorio em FAT */
@@ -653,11 +654,9 @@ static void fat_dclose(void *data, void *internal)
 /* Retorna TRUE se feito, FALSE se erro */
 bool fat_registry(int disk, uint32_t start_lba, char letter)
 {
-	fat_data_t *data = alloc(sizeof(fat_data_t));
+	fat_data_t *data = fat_configure(disk, start_lba);
 	if (!data)
 		return false;
-
-	fat_configure(data, disk, start_lba);
 
 	fs_t fs = {
 		.fexists = fat_fexists,

@@ -28,7 +28,6 @@
 #include <debug.h>
 #include <vfs.h>
 #include <acpi.h>
-#include <font8x8.h>
 
 boot_info_t boot_info = {0};
 
@@ -45,24 +44,24 @@ void kernel_main(boot_info_t *bi)
 	heap_init();
 	terminal_init();
 	terminal_clear(TERMINAL_DEFAULT_FG_COLOR, TERMINAL_DEFAULT_BG_COLOR);
+	debugf("Terminal inicializado: %dx%d\r\n", terminal_get_width(), terminal_get_height());
 	sched_init(100);
-	debugf("Modo: %s\r\n", boot_info.graphics.mode ? "VESA" : "VGA/Outro");
+	debugf("Modo de video: %s\r\n", boot_info.graphics.mode ? "VESA" : "VGA/Outro");
 
 	if (boot_info.graphics.mode == 1)
 	{
-		debugf("Resolucao: %dx%d\r\n", boot_info.graphics.width, boot_info.graphics.height);
-		debugf("Pitch: %d\r\n", boot_info.graphics.pitch);
-		debugf("BPP: %d\r\n", boot_info.graphics.bpp);
-		debugf("Framebuffer: 0x%08X\r\n", boot_info.graphics.framebuffer);
+		debugf("\tResolucao: %dx%d\r\n", boot_info.graphics.width, boot_info.graphics.height);
+		debugf("\tPitch: %d\r\n", boot_info.graphics.pitch);
+		debugf("\tBPP: %d\r\n", boot_info.graphics.bpp);
+		debugf("\tFramebuffer: 0x%08X\r\n", boot_info.graphics.framebuffer);
 	}
-
+	
 	cpuid_init();
 	fpu_init();
 	acpi_init();
 	pci_enumerate();
 	ata_detect();
-
-
+	
 	while (1)
 	{
 		hlt();

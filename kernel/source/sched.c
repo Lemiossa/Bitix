@@ -143,13 +143,8 @@ void sched_init(uint32_t n)
 	idle->pid = 0;
 	idle->ppid = 0;
 	idle->cr3 = (uint32_t)kernel_pd;
-
-	idle->stack = 0;
 	idle->stack0 = 0;
-
-	idle->esp = 0;
 	idle->esp0 = 0;
-
 	idle->state = RUNNING;
 	idle->next = idle;
 	idle->priority = 3;
@@ -198,7 +193,7 @@ void sleep(uint32_t n)
 	yield();
 }
 
-/* Cria um novo processo */
+/* Cria um novo processo em ring3 */
 /* Retorna o PID dele, 0 se houver erro */
 uint32_t spawn(void (*entry)(void), char *name)
 {
@@ -214,10 +209,7 @@ uint32_t spawn(void (*entry)(void), char *name)
 	proc->priority = 2;
 	proc->counter = counters[proc->priority];
 
-	proc->stack = 0;
 	proc->stack0 = (uint32_t)alloc(PROCESS_STACK0_SIZE);
-
-	proc->esp = 0;
 	proc->esp0 = proc->stack0 + PROCESS_STACK0_SIZE - sizeof(intr_frame_t);
 
 	if (!proc->stack0)

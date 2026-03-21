@@ -28,7 +28,7 @@ LIBS := $(LIBC)
 TMP_COMPILE_COMMANDS ?= $(CURDIR)/compile_commands.json
 
 CFLAGS := \
-	-std=c99 -O3 \
+	-std=c99 \
 	-Wall \
 	-Wextra \
 	-fno-PIC \
@@ -39,20 +39,22 @@ CFLAGS := \
 	-ffunction-sections -fdata-sections \
 	$(addprefix -I,$(INCLUDES))
 
-ifeq ($(DEBUG),true)
-	CFLAGS += -DDEBUG
-endif
-
 ifeq ($(ARCH),x86)
 	CFLAGS += -m32 -march=i386
 	NASMFLAGS := -f elf32
 	LDFLAGS := \
-			   -m32 -nostdlib -static \
-			   -T$(LINKER_FILE) \
-			   -Wl,-melf_i386 \
-			   -Wl,--gc-sections
+		-m32 -nostdlib -static \
+		-T$(LINKER_FILE) \
+		-Wl,-melf_i386 \
+		-Wl,--gc-sections
 else
 	$(error Arquitetura não suportada: $(ARCH))
+endif
+
+ifeq ($(DEBUG),true)
+	CFLAGS += -O0 -g -DDEBUG
+else
+	CFLAGS += -O2
 endif
 
 TARGET ?= $(BINDIR)/bootldr.bin
