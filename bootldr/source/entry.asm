@@ -130,7 +130,6 @@ idtr_real_mode:
 	DW 0x3FF
 	DD 0
 
-
 ;; Volta pro modo protegido
 %macro protected_mode 0
 	CLI

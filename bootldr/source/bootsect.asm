@@ -12,7 +12,7 @@ count: EQU 59
 
 JMP SHORT _start
 NOP
-TIMES 62 - ($-$$) DB 0
+TIMES 90 - ($-$$) DB 0
 
 ;; Func principal
 GLOBAL _start
@@ -38,7 +38,6 @@ _start:
 	MOV BYTE [heads], DH
 	MOV BYTE [sectors_per_track], CL
 
-	;; Ler o texto de testes
 	MOV BX, (addr >> 4)
 	MOV ES, BX
 	MOV BX, (addr & 0x0F)

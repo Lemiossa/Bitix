@@ -9,6 +9,6 @@
 #define KERNEL_FILE "/sistema/boot/kernel.sys"
 #define KERNEL_ADDR 0x100000
 
-#define VIDEO_MODE "640x480x8"
+#define VIDEO_MODE "1024x768x32"
 
 #endif /* CONFIG_H */

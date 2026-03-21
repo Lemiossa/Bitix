@@ -41,6 +41,10 @@ CFLAGS := \
 	-m32 -march=i386 \
 	$(addprefix -I,$(INCLUDES))
 
+ifeq ($(DEBUG),true)
+	CFLAGS += -O0 -g -DDEBUG
+endif
+
 TARGET ?= $(BINDIR)/bootldr.bin
 
 SOURCE := \
