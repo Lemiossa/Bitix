@@ -61,7 +61,14 @@ void kernel_main(boot_info_t *bi)
 	acpi_init();
 	pci_enumerate();
 	ata_detect();
-	
+
+	for (int i = 32; i < 128; i++)
+	{
+		printf("%c", i);
+		if ((i + 1) % 32 == 0)
+			printf("\r\n");
+	}
+
 	while (1)
 	{
 		hlt();
