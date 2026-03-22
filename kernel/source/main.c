@@ -68,6 +68,7 @@ void kernel_main(boot_info_t *bi)
 		if ((i + 1) % 32 == 0)
 			printf("\r\n");
 	}
+	printf("\r\n");
 
 	while (1)
 	{
